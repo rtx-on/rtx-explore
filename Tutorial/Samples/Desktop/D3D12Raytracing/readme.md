@@ -23,13 +23,6 @@ This sample demonstrates how to implement procedural geometry using intersection
 
 ![D3D12 Raytracing Procedural Geometry GUI](src/D3D12RaytracingProceduralGeometry/Screenshot_small.png)
 
-# Advanced Samples
-
-## [MiniEngine Sample](src/D3D12RaytracingMiniEngineSample/readme.md)
-This sample demonstrates integration of the Fallback Layer in the MiniEngine's Model Viewer and several sample uses of raytracing.
-
-![D3D12 Raytracing Mini Engine](src/D3D12RaytracingMiniEngineSample/Screenshot_small.png)
-
 ## Requirements
 * [Visual Studio 2017](https://www.visualstudio.com/) version 15.8.4 or higher.
 * [Windows 10 October 2018 (17763) SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk).
