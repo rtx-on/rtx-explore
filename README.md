@@ -9,4 +9,5 @@
    * Go to /src
    * Choose one of the sample (HelloTriangle, Procedural, SimpleLighting) and Set as StartUp Project
    * Build and run in Debug/Release mode
+      * Make sure that the NuGet package manager can automatically retrieve missing packages. This might require running build twice.
 2) TBD
