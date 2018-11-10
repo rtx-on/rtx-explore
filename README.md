@@ -6,6 +6,7 @@
 
 # Building & Running
 1) Test that you can run all 3 samples
-* Choose one of the sample (HelloTriangle, Procedural, SimpleLighting) and Set as StartUp Project
-* Build and run in Debug/Release mode
+   * Go to Tutorial/Samples/Desktop/D3D12Raytracing/src
+   * Choose one of the sample (HelloTriangle, Procedural, SimpleLighting) and Set as StartUp Project
+   * Build and run in Debug/Release mode
 2) TBD
