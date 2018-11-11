@@ -2,7 +2,10 @@
 
 # Required Environment
 * Visual Studio 2017 version 15.8.4 or higher.
-* [Windows 10 October 2018 (17763) SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk). Get the ISO and Mount it.
+* [Windows 10 October 2018 (17763) SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk)
+      * Get the ISO
+      * Mount
+      * Install all options preferably
 * Developer mode enabled on Windows 10
 
 # Building & Running
