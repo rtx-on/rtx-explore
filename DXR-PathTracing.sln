@@ -3,7 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27130.2010
 MinimumVisualStudioVersion = 10.0.40219.1
-
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "D3D12RaytracingHelloWorld", "src\D3D12RaytracingHelloWorld\D3D12RaytracingHelloWorld.vcxproj", "{5018F6A3-6533-4744-B1FD-727D199FD2E9}"
 	ProjectSection(ProjectDependencies) = postProject
 		{4BE280A6-1066-41CA-ACDD-6BB7E532508B} = {4BE280A6-1066-41CA-ACDD-6BB7E532508B}
@@ -24,6 +23,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "D3D12RaytracingProceduralGe
 	ProjectSection(ProjectDependencies) = postProject
 		{4BE280A6-1066-41CA-ACDD-6BB7E532508B} = {4BE280A6-1066-41CA-ACDD-6BB7E532508B}
 	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "D3D12PathTracer", "src\D3D12PathTracer\D3D12PathTracer.vcxproj", "{80C023D4-DD0D-4CBB-B9DB-FED1C01BB440}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -63,17 +64,19 @@ Global
 		{0C266269-AC0C-41B0-9D25-0117DC23CFC7}.Profile|x64.Build.0 = Release|x64
 		{0C266269-AC0C-41B0-9D25-0117DC23CFC7}.Release|x64.ActiveCfg = Release|x64
 		{0C266269-AC0C-41B0-9D25-0117DC23CFC7}.Release|x64.Build.0 = Release|x64
+		{80C023D4-DD0D-4CBB-B9DB-FED1C01BB440}.Debug|x64.ActiveCfg = Debug|x64
+		{80C023D4-DD0D-4CBB-B9DB-FED1C01BB440}.Debug|x64.Build.0 = Debug|x64
+		{80C023D4-DD0D-4CBB-B9DB-FED1C01BB440}.Profile|x64.ActiveCfg = Release|x64
+		{80C023D4-DD0D-4CBB-B9DB-FED1C01BB440}.Profile|x64.Build.0 = Release|x64
+		{80C023D4-DD0D-4CBB-B9DB-FED1C01BB440}.Release|x64.ActiveCfg = Release|x64
+		{80C023D4-DD0D-4CBB-B9DB-FED1C01BB440}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{5018F6A3-6533-4744-B1FD-727D199FD2E9} = {22B9FE19-4D5A-4F3F-ABEA-F9ACB1574331}
-		{A0848C98-F5AA-431C-9E76-7F1E7EFA368C} = {22B9FE19-4D5A-4F3F-ABEA-F9ACB1574331}
 		{4BE280A6-1066-41CA-ACDD-6BB7E532508B} = {4F686017-C76B-497E-8405-7F023968E8AF}
 		{13F1830C-EA8D-4488-89C8-70AAB15972AA} = {4F686017-C76B-497E-8405-7F023968E8AF}
-		{22B9FE19-4D5A-4F3F-ABEA-F9ACB1574331} = {250B50F1-543D-4D9D-B4FC-A1EA4E61B9E4}
-		{0C266269-AC0C-41B0-9D25-0117DC23CFC7} = {22B9FE19-4D5A-4F3F-ABEA-F9ACB1574331}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F763A25B-2115-4E87-87C4-2C6AA75C1542}
