@@ -10,6 +10,7 @@
 //*********************************************************
 
 #include "stdafx.h"
+#include "model_loading/tiny_obj_loader.h"
 #include "D3D12RaytracingSimpleLighting.h"
 #include "DirectXRaytracingHelper.h"
 #include "CompiledShaders\Raytracing.hlsl.h"
@@ -111,7 +112,7 @@ void D3D12RaytracingSimpleLighting::InitializeScene()
     // Setup camera.
     {
         // Initialize the view and projection inverse matrices.
-        m_eye = { 0.0f, 2.0f, -5.0f, 1.0f };
+        m_eye = { 0.0f, 2.0f, -20.0f, 1.0f };
         m_at = { 0.0f, 0.0f, 0.0f, 1.0f };
         XMVECTOR right = { 1.0f, 0.0f, 0.0f, 0.0f };
 
@@ -195,7 +196,8 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
     CreateDescriptorHeap();
 
     // Build geometry to be used in the sample.
-    BuildGeometry();
+    //BuildGeometry();
+	BuildMesh("src/objects/Johanna.obj");
 
     // Build raytracing acceleration structures from the generated geometry.
     BuildAccelerationStructures();
@@ -419,6 +421,62 @@ void D3D12RaytracingSimpleLighting::CreateDescriptorHeap()
     m_descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
+void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
+	// load mesh here
+
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+
+	std::string errors = tinyobj::LoadObj(shapes, materials, path.c_str());
+
+	std::vector<Index> indices;
+	std::vector<Vertex> vertices;
+
+	if (errors.size() != 0)
+	{
+		throw std::runtime_error("failed to load Object!");
+	}
+	else
+	{
+		int min_idx = 0;
+		//Read the information from the vector of shape_ts
+		for (unsigned int i = 0; i < shapes.size(); i++)
+		{
+			std::vector<unsigned int> &index = shapes[i].mesh.indices;
+			std::vector<float> &positions = shapes[i].mesh.positions;
+			std::vector<float> &normals = shapes[i].mesh.normals;
+
+			for (unsigned int j = 0; j < index.size(); j++)
+			{
+				Index i;
+				i = index[j];
+				indices.push_back(i);
+			}
+
+			for (unsigned int j = 0; j < positions.size() / 3; j++)
+			{
+				Vertex v;
+				v.position = XMFLOAT3(positions[j * 3], positions[j * 3 + 1], positions[j * 3 + 2]);
+				v.normal = XMFLOAT3(0, 0,-1);// XMFLOAT3(normals[j * 3], normals[j * 3 + 1], normals[j * 3 + 2]);
+				vertices.push_back(v);
+			}
+			break;
+		}
+
+		auto device = m_deviceResources->GetD3DDevice();
+		Vertex* vPtr = vertices.data();
+		Index* iPtr = indices.data();
+		AllocateUploadBuffer(device, iPtr, indices.size() * sizeof(Index), &m_indexBuffer.resource);
+		AllocateUploadBuffer(device, vPtr, vertices.size() * sizeof(Vertex), &m_vertexBuffer.resource);
+
+		// Vertex buffer is passed to the shader along with index buffer as a descriptor table.
+		// Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
+		UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, indices.size() * sizeof(Index) / 4, 0);
+		UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, vertices.size(), sizeof(Vertex));
+		ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
+	}
+}
+
 // Build geometry used in the sample.
 void D3D12RaytracingSimpleLighting::BuildGeometry()
 {
@@ -485,8 +543,11 @@ void D3D12RaytracingSimpleLighting::BuildGeometry()
 
     // Vertex buffer is passed to the shader along with index buffer as a descriptor table.
     // Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
-    UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, sizeof(indices)/4, 0);
-    UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, ARRAYSIZE(vertices), sizeof(vertices[0]));
+   /* UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, sizeof(indices)/4, 0);
+    UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, ARRAYSIZE(vertices), sizeof(vertices[0]));*/
+
+	UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, 36 * sizeof(Index) / 4, 0);
+	UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, 6 , sizeof(vertices[0]));
     ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
 }
 

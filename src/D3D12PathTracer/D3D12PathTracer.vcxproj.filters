@@ -116,6 +116,7 @@
     <ClCompile Include="src\Win32Application.cpp">
       <Filter>Source Files\Util</Filter>
     </ClCompile>
+    <ClCompile Include="src\model_loading\tiny_obj_loader.cc" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -132,6 +133,7 @@
     <Object Include="src\objects\sponza.obj" />
     <Object Include="src\objects\suzanne.obj" />
     <Object Include="src\objects\Cerberus\Cerberus.obj" />
+    <Object Include="src\objects\wahoo.obj" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="src\textures\Aline_Basic_Map.tga" />

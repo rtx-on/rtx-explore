@@ -35,6 +35,11 @@ struct CubeConstantBuffer
     XMFLOAT4 albedo;
 };
 
+struct MeshConstantBuffer
+{
+	XMFLOAT4 albedo;
+};
+
 struct Vertex
 {
     XMFLOAT3 position;

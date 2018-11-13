@@ -1,6 +1,6 @@
 # This file uses centimeters as units for non-parametric coordinates.
 
-mtllib Chromie.mtl
+//mtllib Chromie.mtl
 v -0.043896 0.349765 2.424532
 v -0.043263 0.153614 2.223817
 v 0.752498 0.389434 2.137453
