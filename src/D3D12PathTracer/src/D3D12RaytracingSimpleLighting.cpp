@@ -27,7 +27,6 @@ const float D3D12RaytracingSimpleLighting::c_rotateDegrees = 5.f;
 D3D12RaytracingSimpleLighting::D3D12RaytracingSimpleLighting(UINT width, UINT height, std::wstring name) :
     DXSample(width, height, name),
     m_raytracingOutputResourceUAVDescriptorHeapIndex(UINT_MAX),
-    m_curRotationAngleRad(0.0f),
     m_isDxrSupported(false)
 {
     m_forceComputeFallback = false;
