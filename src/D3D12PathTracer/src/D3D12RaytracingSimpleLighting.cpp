@@ -22,6 +22,7 @@ const wchar_t* D3D12RaytracingSimpleLighting::c_hitGroupName = L"MyHitGroup";
 const wchar_t* D3D12RaytracingSimpleLighting::c_raygenShaderName = L"MyRaygenShader";
 const wchar_t* D3D12RaytracingSimpleLighting::c_closestHitShaderName = L"MyClosestHitShader";
 const wchar_t* D3D12RaytracingSimpleLighting::c_missShaderName = L"MyMissShader";
+const float D3D12RaytracingSimpleLighting::c_rotateDegrees = 5.f;
 
 D3D12RaytracingSimpleLighting::D3D12RaytracingSimpleLighting(UINT width, UINT height, std::wstring name) :
     DXSample(width, height, name),
@@ -92,6 +93,7 @@ void D3D12RaytracingSimpleLighting::UpdateCameraMatrices()
 
     m_sceneCB[frameIndex].cameraPosition = m_eye;
     float fovAngleY = 45.0f;
+
     XMMATRIX view = XMMatrixLookAtLH(m_eye, m_at, m_up);
     XMMATRIX proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(fovAngleY), m_aspectRatio, 1.0f, 125.0f);
     XMMATRIX viewProj = view * proj;
@@ -113,16 +115,11 @@ void D3D12RaytracingSimpleLighting::InitializeScene()
     {
         // Initialize the view and projection inverse matrices.
         m_eye = { 0.0f, 2.0f, -20.0f, 1.0f };
-        m_at = { 0.0f, 0.0f, 0.0f, 1.0f };
-        XMVECTOR right = { 1.0f, 0.0f, 0.0f, 0.0f };
+        m_at = { 0.0f, 0.0f, 1.0f, 1.0f };
 
-        XMVECTOR direction = XMVector4Normalize(m_at - m_eye);
-        m_up = XMVector3Normalize(XMVector3Cross(direction, right));
-
-        // Rotate camera around Y axis.
-        XMMATRIX rotate = XMMatrixRotationY(XMConvertToRadians(45.0f));
-        m_eye = XMVector3Transform(m_eye, rotate);
-        m_up = XMVector3Transform(m_up, rotate);
+        m_right = { 1.0f, 0.0f, 0.0f, 1.0f };
+		m_up = { 0.0f, 1.0f, 0.0f, 1.0f };
+		m_forward = { 0.0f, 0.0f, 1.0f, 1.0f };
         
         UpdateCameraMatrices();
     }
@@ -197,7 +194,7 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
 
     // Build geometry to be used in the sample.
     //BuildGeometry();
-	BuildMesh("src/objects/Johanna.obj");
+	BuildMesh("src/objects/Cerberus.obj");
 
     // Build raytracing acceleration structures from the generated geometry.
     BuildAccelerationStructures();
@@ -457,7 +454,7 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 			{
 				Vertex v;
 				v.position = XMFLOAT3(positions[j * 3], positions[j * 3 + 1], positions[j * 3 + 2]);
-				v.normal = XMFLOAT3(0, 0,-1);// XMFLOAT3(normals[j * 3], normals[j * 3 + 1], normals[j * 3 + 2]);
+				v.normal = XMFLOAT3(0, 0,-1); //XMFLOAT3(normals[j * 3], normals[j * 3 + 1], normals[j * 3 + 2]);
 				vertices.push_back(v);
 			}
 			break;
@@ -806,40 +803,6 @@ void D3D12RaytracingSimpleLighting::SelectRaytracingAPI(RaytracingAPI type)
     }
 }
 
-void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
-{
-    // Store previous values.
-    RaytracingAPI previousRaytracingAPI = m_raytracingAPI;
-    bool previousForceComputeFallback = m_forceComputeFallback;
-
-    switch (key)
-    {
-    case VK_NUMPAD1:
-    case '1': // Fallback Layer
-        m_forceComputeFallback = false;
-        SelectRaytracingAPI(RaytracingAPI::FallbackLayer);
-        break;
-    case VK_NUMPAD2:
-    case '2': // Fallback Layer + force compute path
-        m_forceComputeFallback = true;
-        SelectRaytracingAPI(RaytracingAPI::FallbackLayer);
-        break;
-    case VK_NUMPAD3:
-    case '3': // DirectX Raytracing
-        SelectRaytracingAPI(RaytracingAPI::DirectXRaytracing);
-        break;
-    default:
-        break;
-    }
-    
-    if (m_raytracingAPI != previousRaytracingAPI ||
-        m_forceComputeFallback != previousForceComputeFallback)
-    {
-        // Raytracing API selection changed, recreate everything.
-        RecreateD3D();
-    }
-}
-
 // Update frame-based values.
 void D3D12RaytracingSimpleLighting::OnUpdate()
 {
@@ -849,16 +812,7 @@ void D3D12RaytracingSimpleLighting::OnUpdate()
     auto frameIndex = m_deviceResources->GetCurrentFrameIndex();
     auto prevFrameIndex = m_deviceResources->GetPreviousFrameIndex();
 
-    // Rotate the camera around Y axis.
-    {
-        float secondsToRotateAround = 24.0f;
-        float angleToRotateBy = 360.0f * (elapsedTime / secondsToRotateAround);
-        XMMATRIX rotate = XMMatrixRotationY(XMConvertToRadians(angleToRotateBy));
-        m_eye = XMVector3Transform(m_eye, rotate);
-        m_up = XMVector3Transform(m_up, rotate);
-        m_at = XMVector3Transform(m_at, rotate);
-        UpdateCameraMatrices();
-    }
+	UpdateCameraMatrices();
 
     // Rotate the second light around Y axis.
     {
@@ -1180,4 +1134,141 @@ UINT D3D12RaytracingSimpleLighting::CreateBufferSRV(D3DBuffer* buffer, UINT numE
     device->CreateShaderResourceView(buffer->resource.Get(), &srvDesc, buffer->cpuDescriptorHandle);
     buffer->gpuDescriptorHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_descriptorHeap->GetGPUDescriptorHandleForHeapStart(), descriptorIndex, m_descriptorSize);
     return descriptorIndex;
+}
+
+void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
+{
+	// Store previous values.
+	RaytracingAPI previousRaytracingAPI = m_raytracingAPI;
+	bool previousForceComputeFallback = m_forceComputeFallback;
+
+	switch (key)
+	{
+	case VK_NUMPAD1:
+	case '1': // Fallback Layer
+		m_forceComputeFallback = false;
+		SelectRaytracingAPI(RaytracingAPI::FallbackLayer);
+		break;
+	case VK_NUMPAD2:
+	case '2': // Fallback Layer + force compute path
+		m_forceComputeFallback = true;
+		SelectRaytracingAPI(RaytracingAPI::FallbackLayer);
+		break;
+	case VK_NUMPAD3:
+	case '3': // DirectX Raytracing
+		SelectRaytracingAPI(RaytracingAPI::DirectXRaytracing);
+		break;
+	case 0x44: // D
+	{
+		XMFLOAT4 right;
+		XMStoreFloat4(&right, m_right);
+		XMMATRIX translate = XMMatrixTranslation(-right.x, -right.y, -right.z);
+
+		m_eye = XMVector3Transform(m_eye, translate);
+		m_at = XMVector3Transform(m_at, translate);
+		break;
+	}
+
+	case 0x41: // A
+	{
+		XMFLOAT4 right;
+		XMStoreFloat4(&right, m_right);
+		XMMATRIX translate = XMMatrixTranslation(right.x, right.y, right.z);
+
+		m_eye = XMVector3Transform(m_eye, translate);
+		m_at = XMVector3Transform(m_at, translate);
+		break;
+	}
+
+	case 0x53: // S
+	{
+		XMFLOAT4 up;
+		XMStoreFloat4(&up, m_up);
+		XMMATRIX translate = XMMatrixTranslation(up.x, up.y, up.z);
+
+		m_eye = XMVector3Transform(m_eye, translate);
+		m_at = XMVector3Transform(m_at, translate);
+		break;
+	}
+
+	case 0x57: // W
+	{
+		XMFLOAT4 up;
+		XMStoreFloat4(&up, m_up);
+		XMMATRIX translate = XMMatrixTranslation(-up.x, -up.y, -up.z);
+
+		m_eye = XMVector3Transform(m_eye, translate);
+		m_at = XMVector3Transform(m_at, translate);
+		break;
+	}
+
+	case 0x45: // E
+	{
+		XMFLOAT4 forward;
+		XMStoreFloat4(&forward, m_forward);
+		XMMATRIX translate = XMMatrixTranslation(forward.x, forward.y, forward.z);
+
+		m_eye = XMVector3Transform(m_eye, translate);
+		m_at = XMVector3Transform(m_at, translate);
+		break;
+	}
+
+	case 0x51: // Q
+	{
+		XMFLOAT4 forward;
+		XMStoreFloat4(&forward, m_forward);
+		XMMATRIX translate = XMMatrixTranslation(-forward.x, -forward.y, -forward.z);
+
+		m_eye = XMVector3Transform(m_eye, translate);
+		m_at = XMVector3Transform(m_at, translate);
+		break;
+	}
+
+	case VK_UP: // Up arrow
+	{
+		XMMATRIX rotate = XMMatrixRotationAxis(m_right, XMConvertToRadians(-c_rotateDegrees));
+		m_eye = XMVector3Transform(m_eye, rotate);
+		m_up = XMVector3Transform(m_up, rotate);
+		m_forward = XMVector3Transform(m_forward, rotate);
+		m_at = XMVector3Transform(m_at, rotate);
+		break;
+	}
+
+	case VK_DOWN: // Down arrow
+	{
+		XMMATRIX rotate = XMMatrixRotationAxis(m_right, XMConvertToRadians(c_rotateDegrees));
+		m_eye = XMVector3Transform(m_eye, rotate);
+		m_up = XMVector3Transform(m_up, rotate);
+		m_forward = XMVector3Transform(m_forward, rotate);
+		m_at = XMVector3Transform(m_at, rotate);
+		break;
+	}
+
+	case VK_RIGHT: // Right arrow
+	{
+		XMMATRIX rotate = XMMatrixRotationAxis(m_up, XMConvertToRadians(c_rotateDegrees));
+		m_eye = XMVector3Transform(m_eye, rotate);
+		m_right = XMVector3Transform(m_right, rotate);
+		m_forward = XMVector3Transform(m_forward, rotate);
+		m_at = XMVector3Transform(m_at, rotate);
+		break;
+	}
+
+	case VK_LEFT: // Left arrow
+	{
+		XMMATRIX rotate = XMMatrixRotationAxis(m_up, XMConvertToRadians(-c_rotateDegrees));
+		m_eye = XMVector3Transform(m_eye, rotate);
+		m_right = XMVector3Transform(m_right, rotate);
+		m_forward = XMVector3Transform(m_forward, rotate);
+		m_at = XMVector3Transform(m_at, rotate);
+		break;
+	}
+	}
+
+	if (m_raytracingAPI != previousRaytracingAPI ||
+		m_forceComputeFallback != previousForceComputeFallback)
+	{
+		// Raytracing API selection changed, recreate everything.
+		RecreateD3D();
+	}
 }

@@ -135,7 +135,11 @@ private:
     float m_curRotationAngleRad;
     XMVECTOR m_eye;
     XMVECTOR m_at;
+
     XMVECTOR m_up;
+	XMVECTOR m_right;
+	XMVECTOR m_forward;
+	static const float c_rotateDegrees;
 
     void EnableDirectXRaytracing(IDXGIAdapter1* adapter);
     void ParseCommandLineArgs(WCHAR* argv[], int argc);
