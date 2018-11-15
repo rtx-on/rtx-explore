@@ -1,3 +1,5 @@
 .vs
 Packages
 x64
+UpgradeLog.*
+*/UpgradeLog.*

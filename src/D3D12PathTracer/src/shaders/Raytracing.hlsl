@@ -19,6 +19,8 @@ RaytracingAccelerationStructure Scene : register(t0, space0);
 RWTexture2D<float4> RenderTarget : register(u0);
 ByteAddressBuffer Indices : register(t1, space0);
 StructuredBuffer<Vertex> Vertices : register(t2, space0);
+Texture2D<float4> text : register(t3, space0);
+SamplerState s1 : register(s0);
 
 ConstantBuffer<SceneConstantBuffer> g_sceneCB : register(b0);
 ConstantBuffer<CubeConstantBuffer> g_cubeCB : register(b1);
@@ -155,9 +157,14 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
     float3 triangleNormal = HitAttribute(vertexNormals, attr);
 
     float4 diffuseColor = CalculateDiffuseLighting(hitPosition, triangleNormal);
-    float4 color = g_sceneCB.lightAmbientColor + diffuseColor;
 
-    payload.color = color;
+	float2 uv = float2(0.5f, 0.5f);
+	uint2 st = uint2(2, 5);
+	
+	float4 tex = text.SampleLevel(s1, uv, 0);
+	float4 color = tex;// g_sceneCB.lightAmbientColor + diffuseColor;
+
+	payload.color = color;
 }
 
 [shader("miss")]

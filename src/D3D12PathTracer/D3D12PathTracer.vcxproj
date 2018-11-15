@@ -164,6 +164,7 @@ PrebuildCheck.bat</Command>
     </PreLinkEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\AssetManager.h" />
     <ClInclude Include="src\core\Common.h" />
     <ClInclude Include="src\core\Texture.h" />
     <ClInclude Include="src\core\Vertex.h" />
@@ -182,10 +183,12 @@ PrebuildCheck.bat</Command>
     <ClInclude Include="src\shaders\util\HlslCompat.h" />
     <ClInclude Include="src\stdafx.h" />
     <ClInclude Include="src\StepTimer.h" />
+    <ClInclude Include="src\TextureLoader.h" />
     <ClInclude Include="src\Win32Application.h" />
     <ClInclude Include="d3dx12.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\AssetManager.cpp" />
     <ClCompile Include="src\D3D12RaytracingSimpleLighting.cpp" />
     <ClCompile Include="src\DeviceResources.cpp" />
     <ClCompile Include="src\DXSample.cpp" />
@@ -198,6 +201,7 @@ PrebuildCheck.bat</Command>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="src\TextureLoader.cpp" />
     <ClCompile Include="src\Win32Application.cpp" />
   </ItemGroup>
   <ItemGroup>

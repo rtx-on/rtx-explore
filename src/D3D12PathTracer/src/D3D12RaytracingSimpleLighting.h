@@ -15,12 +15,14 @@
 #include "StepTimer.h"
 #include "shaders/RaytracingHlslCompat.h"
 
+
 namespace GlobalRootSignatureParams {
     enum Value {
         OutputViewSlot = 0,
         AccelerationStructureSlot,
         SceneConstantSlot,
         VertexBuffersSlot,
+		TextureSlot,
         Count 
     };
 }
@@ -109,6 +111,8 @@ private:
     };
     D3DBuffer m_indexBuffer;
     D3DBuffer m_vertexBuffer;
+	D3DBuffer m_textureBuffer;
+	ID3D12Resource* textureBufferUploadHeap;
 
     // Acceleration structure
     ComPtr<ID3D12Resource> m_bottomLevelAccelerationStructure;
@@ -171,4 +175,6 @@ private:
     WRAPPED_GPU_POINTER CreateFallbackWrappedPointer(ID3D12Resource* resource, UINT bufferNumElements);
 
 	void BuildMesh(std::string path);
+
+	bool CreateTexture();
 };

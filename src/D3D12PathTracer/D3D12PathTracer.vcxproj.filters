@@ -96,6 +96,8 @@
     <ClInclude Include="src\core\Vertex.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="src\TextureLoader.h" />
+    <ClInclude Include="src\AssetManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\D3D12RaytracingSimpleLighting.cpp">
@@ -117,6 +119,8 @@
       <Filter>Source Files\Util</Filter>
     </ClCompile>
     <ClCompile Include="src\model_loading\tiny_obj_loader.cc" />
+    <ClCompile Include="src\TextureLoader.cpp" />
+    <ClCompile Include="src\AssetManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
