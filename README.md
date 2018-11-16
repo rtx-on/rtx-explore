@@ -63,6 +63,7 @@ Press `Print screen` button to capture a frame and `1 captures taken` will appea
 Double click the image under `1 captures taken` and a screen will be brought up like below:
 
 ![](ImagesREADME/pix_page.png)
+![](ImagesREADME/pix_capture.png)
 
 Press the `play` button after `Analysis is not running.` at the top right to begin analysis of the frame 
 
