@@ -17,13 +17,20 @@
 
 RaytracingAccelerationStructure Scene : register(t0, space0);
 RWTexture2D<float4> RenderTarget : register(u0);
-ByteAddressBuffer Indices : register(t1, space0);
-StructuredBuffer<Vertex> Vertices : register(t2, space0);
-Texture2D<float4> text : register(t3, space0);
+ByteAddressBuffer Indices : register(t2, space0);
+StructuredBuffer<Vertex> Vertices : register(t3, space0);
+Texture2D text : register(t1);
 SamplerState s1 : register(s0);
 
 ConstantBuffer<SceneConstantBuffer> g_sceneCB : register(b0);
 ConstantBuffer<CubeConstantBuffer> g_cubeCB : register(b1);
+
+SamplerState MeshTextureSampler
+{
+	Filter = MIN_MAG_MIP_LINEAR;
+	AddressU = Wrap;
+	AddressV = Wrap;
+};
 
 // Load three 16 bit indices from a byte addressed buffer.
 uint3 Load3x16BitIndices(uint offsetBytes)
@@ -127,7 +134,7 @@ void MyRaygenShader()
     TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
 
     // Write the raytraced color to the output texture.
-    RenderTarget[DispatchRaysIndex().xy] = payload.color;
+	RenderTarget[DispatchRaysIndex().xy] = payload.color;
 }
 
 [shader("closesthit")]
@@ -159,12 +166,20 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
     float4 diffuseColor = CalculateDiffuseLighting(hitPosition, triangleNormal);
 
 	float2 uv = float2(0.5f, 0.5f);
-	uint2 st = uint2(2, 5);
 	
-	float4 tex = text.SampleLevel(s1, uv, 0);
-	float4 color = tex;// g_sceneCB.lightAmbientColor + diffuseColor;
+	float4 tex = float4(1, 1, 1, 1);
+	tex = text.SampleLevel(s1, uv, 0);
 
-	payload.color = color;
+	// LOOKAT
+	if (tex.x == 0) {
+		payload.color = float4(0, 0, 1, 1);
+	}
+	else {
+		float4 color = tex;// g_sceneCB.lightAmbientColor + diffuseColor;
+
+		payload.color = color;
+	}
+	
 }
 
 [shader("miss")]
