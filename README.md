@@ -73,7 +73,9 @@ You should get `Analysis is running on NVIDIA ...`, in my case `NVIDIA GeForce G
 
 ![](ImagesREADME/pix_analysis_finished.png)
 
-Now, mess around with pix and take a look at this quick playlist to learn how to debug with PIX [Link](https://www.youtube.com/playlist?list=PLeHvwXyqearWuPPxh6T03iwX-McPG5LkB)
+Now, mess around with pix and take a look at this quick playlist to learn how to debug with PIX 
+
+[Playlist link](https://www.youtube.com/playlist?list=PLeHvwXyqearWuPPxh6T03iwX-McPG5LkB)
 
 ### Option 2: Nvidia debugger (RTX only)
 
