@@ -84,6 +84,14 @@ float3 HitAttribute(float3 vertexAttribute[3], BuiltInTriangleIntersectionAttrib
         attr.barycentrics.y * (vertexAttribute[2] - vertexAttribute[0]);
 }
 
+// Retrieve attribute at a hit position interpolated from vertex attributes using the hit's barycentrics.
+float2 HitAttribute2D(float2 vertexAttribute[3], BuiltInTriangleIntersectionAttributes attr)
+{
+	return vertexAttribute[0] +
+		attr.barycentrics.x * (vertexAttribute[1] - vertexAttribute[0]) +
+		attr.barycentrics.y * (vertexAttribute[2] - vertexAttribute[0]);
+}
+
 // Generate a ray in world space for a camera pixel corresponding to an index from the dispatched 2D grid.
 inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 direction)
 {
@@ -158,14 +166,21 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
         Vertices[indices[2]].normal 
     };
 
+	float2 vertexUVs[3] = {
+		Vertices[indices[0]].texCoord,
+		Vertices[indices[1]].texCoord,
+		Vertices[indices[2]].texCoord
+	};
+
     // Compute the triangle's normal.
     // This is redundant and done for illustration purposes 
     // as all the per-vertex normals are the same and match triangle's normal in this sample. 
     float3 triangleNormal = HitAttribute(vertexNormals, attr);
+    float2 triangleUV = HitAttribute2D(vertexUVs, attr);
 
     float4 diffuseColor = CalculateDiffuseLighting(hitPosition, triangleNormal);
 
-	float2 uv = float2(0.5f, 0.5f);
+	float2 uv = triangleUV;
 	
 	float4 tex = float4(1, 1, 1, 1);
 	tex = text.SampleLevel(s1, uv, 0);
@@ -177,8 +192,8 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	else {
 		float4 color = tex;// g_sceneCB.lightAmbientColor + diffuseColor;
 
-		//payload.color = color;
-		payload.color = float4(triangleNormal, 1.0f);
+		payload.color = color;
+		//payload.color = float4(triangleNormal, 1.0f);
 
 	}
 	

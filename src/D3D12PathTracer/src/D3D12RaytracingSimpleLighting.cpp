@@ -214,8 +214,12 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
     // Create an output 2D texture to store the raytracing result to.
     CreateRaytracingOutputResource();
 }
+std::vector<Model::Mesh> meshes;
 
 bool D3D12RaytracingSimpleLighting::CreateTexture() {
+	meshes[0].material.setup_srv(m_deviceResources.get(), m_descriptorHeap.Get(), m_descriptorsAllocated, m_descriptorSize);
+	return true;
+	
 	// Load the image from file
 	D3D12_RESOURCE_DESC textureDesc;
 	int imageBytesPerRow;
@@ -581,12 +585,11 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 	// 	UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, vertices.size(), sizeof(Vertex));
 	// 	ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
 	// }
-	std::vector<Model::Mesh> meshes;
 	try
 	{
 		//meshes = Model::MeshLoader::load_obj("",path);
 		//meshes = Model::MeshLoader::load_obj("","11086_blimp_v2.obj");
-		meshes = Model::MeshLoader::load_obj("","src/objects/Dragon.obj");
+		meshes = Model::MeshLoader::load_obj("","Pig.obj");
 	}
 	catch(std::exception& e)
 	{
@@ -604,11 +607,6 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 	UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, mesh.vertex_indices.size() * sizeof(Index) / 4, 0);
 	UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, mesh.vertices.size(), sizeof(Vertex));
 	ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
-
-	for(auto& material : mesh.materials)
-	{
-		//material.setup_srv(m_deviceResources.get(), m_descriptorHeap.Get(), m_descriptorSize);
-	}
 }
 
 // Build geometry used in the sample.
@@ -1010,7 +1008,8 @@ void D3D12RaytracingSimpleLighting::DoRaytracing()
         // Set index and successive vertex buffer decriptor tables
         commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::VertexBuffersSlot, m_indexBuffer.gpuDescriptorHandle);
         commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::OutputViewSlot, m_raytracingOutputResourceUAVGpuDescriptor);
-		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, m_textureBuffer.gpuDescriptorHandle); // LOOKAT
+		//commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, m_textureBuffer.gpuDescriptorHandle); // LOOKAT
+		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, meshes[0].material.diffuse.gpu_descriptor_handle); // LOOKAT
     };
 
     commandList->SetComputeRootSignature(m_raytracingGlobalRootSignature.Get());
