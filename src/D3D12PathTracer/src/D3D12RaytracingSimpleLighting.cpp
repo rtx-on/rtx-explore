@@ -528,12 +528,14 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
 
-	std::string errors = tinyobj::LoadObj(shapes, materials, path.c_str());
+	tinyobj::attrib_t attrib;
+	std::string err;
+	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path.c_str());
 
 	std::vector<Index> indices;
 	std::vector<Vertex> vertices;
 
-	if (errors.size() != 0)
+	if (!ret)
 	{
 		throw std::runtime_error("failed to load Object!");
 	}
@@ -543,14 +545,14 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 		//Read the information from the vector of shape_ts
 		for (unsigned int i = 0; i < shapes.size(); i++)
 		{
-			std::vector<unsigned int> &index = shapes[i].mesh.indices;
-			std::vector<float> &positions = shapes[i].mesh.positions;
-			std::vector<float> &normals = shapes[i].mesh.normals;
+			std::vector<tinyobj::index_t> &index = shapes[i].mesh.indices;
+			std::vector<float> &positions = attrib.vertices;
+			std::vector<float> &normals = attrib.normals;
 
 			for (unsigned int j = 0; j < index.size(); j++)
 			{
 				Index i;
-				i = index[j];
+				i = index[j].vertex_index;
 				indices.push_back(i);
 			}
 

@@ -98,6 +98,8 @@
     </ClInclude>
     <ClInclude Include="src\TextureLoader.h" />
     <ClInclude Include="src\AssetManager.h" />
+    <ClInclude Include="src\Mesh.h" />
+    <ClInclude Include="src\MeshLoader.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\D3D12RaytracingSimpleLighting.cpp">
@@ -121,6 +123,8 @@
     <ClCompile Include="src\model_loading\tiny_obj_loader.cc" />
     <ClCompile Include="src\TextureLoader.cpp" />
     <ClCompile Include="src\AssetManager.cpp" />
+    <ClCompile Include="src\Mesh.cpp" />
+    <ClCompile Include="src\MeshLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
