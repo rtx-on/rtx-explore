@@ -52,3 +52,4 @@
 #include "DXSampleHelper.h"
 #include "DeviceResources.h"
 
+#include "model_loading/OBJ_Loader.h"

@@ -177,7 +177,9 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	else {
 		float4 color = tex;// g_sceneCB.lightAmbientColor + diffuseColor;
 
-		payload.color = color;
+		//payload.color = color;
+		payload.color = float4(triangleNormal, 1.0f);
+
 	}
 	
 }

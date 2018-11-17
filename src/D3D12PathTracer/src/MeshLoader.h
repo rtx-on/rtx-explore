@@ -12,8 +12,8 @@ namespace Model
 	class MeshLoader
 	{
 	public:
-		std::vector<Mesh> MeshLoader::load_obj(std::string obj_file_path);
-		const MeshLoader& operator->() const;
+		static std::vector<Mesh> MeshLoader::load_obj(std::string base_path, std::string object_name);
+		const MeshLoader& get() const;
 	private:
 		MeshLoader() = default;
 	};

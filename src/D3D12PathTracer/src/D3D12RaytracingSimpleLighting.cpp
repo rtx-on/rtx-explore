@@ -15,6 +15,9 @@
 #include "DirectXRaytracingHelper.h"
 #include "CompiledShaders\Raytracing.hlsl.h"
 #include "TextureLoader.h"
+#include "Mesh.h"
+#include "MeshLoader.h"
+#include <iostream>
 
 using namespace std;
 using namespace DX;
@@ -525,58 +528,86 @@ void D3D12RaytracingSimpleLighting::CreateDescriptorHeap()
 void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 	// load mesh here
 
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
-
-	tinyobj::attrib_t attrib;
-	std::string err;
-	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path.c_str());
-
-	std::vector<Index> indices;
-	std::vector<Vertex> vertices;
-
-	if (!ret)
+	// std::vector<tinyobj::shape_t> shapes;
+	// std::vector<tinyobj::material_t> materials;
+	//
+	// tinyobj::attrib_t attrib;
+	// std::string err;
+	// bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path.c_str());
+	//
+	// std::vector<Index> indices;
+	// std::vector<Vertex> vertices;
+	//
+	// if (!ret)
+	// {
+	// 	throw std::runtime_error("failed to load Object!");
+	// }
+	// else
+	// {
+	// 	int min_idx = 0;
+	// 	//Read the information from the vector of shape_ts
+	// 	for (unsigned int i = 0; i < shapes.size(); i++)
+	// 	{
+	// 		std::vector<tinyobj::index_t> &index = shapes[i].mesh.indices;
+	// 		std::vector<float> &positions = attrib.vertices;
+	// 		std::vector<float> &normals = attrib.normals;
+	//
+	// 		for (unsigned int j = 0; j < index.size(); j++)
+	// 		{
+	// 			Index i;
+	// 			i = index[j].vertex_index;
+	// 			indices.push_back(i);
+	// 		}
+	//
+	// 		for (unsigned int j = 0; j < positions.size() / 3; j++)
+	// 		{
+	// 			Vertex v;
+	// 			v.position = XMFLOAT3(positions[j * 3], positions[j * 3 + 1], positions[j * 3 + 2]);
+	// 			v.normal = XMFLOAT3(0, 0,-1); //XMFLOAT3(normals[j * 3], normals[j * 3 + 1], normals[j * 3 + 2]);
+	// 			vertices.push_back(v);
+	// 		}
+	// 		break;
+	// 	}
+	//
+	// 	auto device = m_deviceResources->GetD3DDevice();
+	// 	Vertex* vPtr = vertices.data();
+	// 	Index* iPtr = indices.data();
+	// 	AllocateUploadBuffer(device, iPtr, indices.size() * sizeof(Index), &m_indexBuffer.resource);
+	// 	AllocateUploadBuffer(device, vPtr, vertices.size() * sizeof(Vertex), &m_vertexBuffer.resource);
+	//
+	// 	// Vertex buffer is passed to the shader along with index buffer as a descriptor table.
+	// 	// Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
+	// 	UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, indices.size() * sizeof(Index) / 4, 0);
+	// 	UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, vertices.size(), sizeof(Vertex));
+	// 	ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
+	// }
+	std::vector<Model::Mesh> meshes;
+	try
 	{
-		throw std::runtime_error("failed to load Object!");
+		//meshes = Model::MeshLoader::load_obj("",path);
+		//meshes = Model::MeshLoader::load_obj("","11086_blimp_v2.obj");
+		meshes = Model::MeshLoader::load_obj("","src/objects/Dragon.obj");
 	}
-	else
+	catch(std::exception& e)
 	{
-		int min_idx = 0;
-		//Read the information from the vector of shape_ts
-		for (unsigned int i = 0; i < shapes.size(); i++)
-		{
-			std::vector<tinyobj::index_t> &index = shapes[i].mesh.indices;
-			std::vector<float> &positions = attrib.vertices;
-			std::vector<float> &normals = attrib.normals;
+		std::cerr << "Runtime mesh error: " << e.what() << std::endl;
+	}
+	auto& mesh = meshes[0];
+	auto device = m_deviceResources->GetD3DDevice();
+	Model::Vertex* vPtr = mesh.vertices.data();
+	Model::Index* iPtr = mesh.vertex_indices.data();
+	AllocateUploadBuffer(device, iPtr, mesh.vertex_indices.size() * sizeof(Index), &m_indexBuffer.resource);
+	AllocateUploadBuffer(device, vPtr, mesh.vertices.size() * sizeof(Vertex), &m_vertexBuffer.resource);
 
-			for (unsigned int j = 0; j < index.size(); j++)
-			{
-				Index i;
-				i = index[j].vertex_index;
-				indices.push_back(i);
-			}
+	// Vertex buffer is passed to the shader along with index buffer as a descriptor table.
+	// Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
+	UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, mesh.vertex_indices.size() * sizeof(Index) / 4, 0);
+	UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, mesh.vertices.size(), sizeof(Vertex));
+	ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
 
-			for (unsigned int j = 0; j < positions.size() / 3; j++)
-			{
-				Vertex v;
-				v.position = XMFLOAT3(positions[j * 3], positions[j * 3 + 1], positions[j * 3 + 2]);
-				v.normal = XMFLOAT3(0, 0,-1); //XMFLOAT3(normals[j * 3], normals[j * 3 + 1], normals[j * 3 + 2]);
-				vertices.push_back(v);
-			}
-			break;
-		}
-
-		auto device = m_deviceResources->GetD3DDevice();
-		Vertex* vPtr = vertices.data();
-		Index* iPtr = indices.data();
-		AllocateUploadBuffer(device, iPtr, indices.size() * sizeof(Index), &m_indexBuffer.resource);
-		AllocateUploadBuffer(device, vPtr, vertices.size() * sizeof(Vertex), &m_vertexBuffer.resource);
-
-		// Vertex buffer is passed to the shader along with index buffer as a descriptor table.
-		// Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
-		UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, indices.size() * sizeof(Index) / 4, 0);
-		UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, vertices.size(), sizeof(Vertex));
-		ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
+	for(auto& material : mesh.materials)
+	{
+		//material.setup_srv(m_deviceResources.get(), m_descriptorHeap.Get(), m_descriptorSize);
 	}
 }
 

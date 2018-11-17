@@ -1,7 +1,10 @@
 #pragma once
 
 #include "model_loading/tiny_obj_loader.h"
-
+#ifndef OBJ
+#include "model_loading/OBJ_Loader.h"
+#define OBJ
+#endif
 #include <DirectXMath.h>
 
 #include "TextureLoader.h"
@@ -22,7 +25,7 @@ namespace Model
 	struct Texture
 	{
 		explicit Texture(const std::string texture_name, const std::string texture_path)
-			: texture_name(texture_path + " " + texture_name), wtexture_name(convert_to_wide(texture_name))
+			: texture_name(texture_path + " " + texture_name), wtexture_name(convert_to_wide(this->texture_name))
 		{
 			auto diffuse_texture_path = convert_to_wide(texture_path);
 			if (!texture_path.empty())
@@ -35,14 +38,6 @@ namespace Model
 			}
 		}
 		
-		~Texture()
-		{
-			if(image_data != nullptr)
-			{
-				free(image_data);
-			}
-		}
-
 		void setup_srv(DX::DeviceResources* device_resources, ID3D12DescriptorHeap* descriptor_heap, UINT descriptor_size)
 		{
 			if(image_data == nullptr)
@@ -124,6 +119,11 @@ namespace Model
 
 			// Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
 			device_resources->WaitForGpu();
+
+			if (image_data != nullptr)
+			{
+				free(image_data);
+			}
 		}
 
 		std::string texture_name;
@@ -143,12 +143,15 @@ namespace Model
 	};
 	struct Material
 	{
-		explicit Material(tinyobj::material_t tiny_material)
-			: diffuse("Diffuse", tiny_material.diffuse_texname),
-			specular("Specular", tiny_material.specular_texname),
-			normal("Normal", tiny_material.normal_texname),
-			tiny_material(std::move(tiny_material))
+		explicit Material(int material_id, objl::Material obj_material)
+			:
+			material_id(material_id),
+			diffuse("Diffuse", obj_material.map_Kd),
+			specular("Specular", obj_material.map_Ks),
+			normal("Normal", obj_material.map_bump),
+			obj_material(std::move(obj_material))
 		{
+
 		}
 
 		void setup_srv(DX::DeviceResources* device_resources, ID3D12DescriptorHeap* descriptor_heap, UINT descriptor_size)
@@ -158,10 +161,11 @@ namespace Model
 			normal.setup_srv(device_resources, descriptor_heap, descriptor_size);
 		}
 
+		int material_id;
 		Texture diffuse;
 		Texture specular;
 		Texture normal;
-		tinyobj::material_t tiny_material;
+		objl::Material obj_material;
 	};
 
 	struct Vertex
@@ -178,9 +182,8 @@ namespace Model
 		std::string name;
 
 		std::vector<Vertex> vertices;
+
 		std::vector<Index> vertex_indices;
-		std::vector<Index> normal_indices;
-		std::vector<Index> texture_indices;
 		std::vector<Material> materials;
 	};
 }
