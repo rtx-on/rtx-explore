@@ -202,7 +202,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 
 		// Diffuse contribution.
 		float fNDotL = max(0.0f, dot(pixelToLight, normal));
-		float3 diffuse = color * fNDotL;
+		float3 diffuse = color;// *fNDotL;
 
 		float3 final_color = ambient + diffuse;
 

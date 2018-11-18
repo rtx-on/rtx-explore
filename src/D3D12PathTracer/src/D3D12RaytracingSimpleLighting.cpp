@@ -197,7 +197,7 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
 
     // Build geometry to be used in the sample.
     //BuildGeometry();
-	BuildMesh("src/objects/Cerberus.obj");
+	BuildMesh("src/objects/wahoo.obj");
 
     // Build raytracing acceleration structures from the generated geometry.
     BuildAccelerationStructures();
@@ -222,7 +222,7 @@ bool D3D12RaytracingSimpleLighting::CreateTexture() {
 	D3D12_RESOURCE_DESC textureDesc;
 	int imageBytesPerRow;
 	BYTE* imageData;
-	int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, L"src/textures/Cerberus/Cerberus1.png", imageBytesPerRow);
+	int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, L"wahoo.bmp", imageBytesPerRow);
 
 	// make sure we have data
 	if (imageSize <= 0)
@@ -639,15 +639,6 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 			std::vector<float> &normals = attrib.normals;
 			std::vector<float> &texcoords = attrib.texcoords;
 
-			// for (unsigned int j = 0; j < index.size(); j++)
- 		// 	{
- 		// 		Index i;
- 		// 		i.pIndex = index[j].vertex_index;
-			// 	i.nIndex = index[j].normal_index;
-			// 	i.tIndex = index[j].texcoord_index;
- 		// 		indices.push_back(i);
- 		// 	}
-
 			for (unsigned int j = 0; j < index.size(); j++)
 			{
 				int vIndex = index[j].vertex_index;
@@ -662,7 +653,7 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 
 				if (tIndex != -1)
 				{
-					v.texCoord = XMFLOAT2(texcoords[tIndex * 2], texcoords[tIndex * 2 + 1]);
+					v.texCoord = XMFLOAT2(texcoords[tIndex * 2], 1 - texcoords[tIndex * 2 + 1]);
 				}
 				vertices.push_back(v);
 				indices.push_back(j); // TODO check this
@@ -683,6 +674,73 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 		ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
 	}
 }
+
+// alternative function that adds shapes
+/*
+
+void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
+	// load mesh here
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+
+	tinyobj::attrib_t attrib;
+	std::string err;
+	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path.c_str());
+
+	std::vector<Index> indices;
+	std::vector<Vertex> vertices;
+
+	if (!ret)
+	{
+		throw std::runtime_error("failed to load Object!");
+	}
+	else
+	{
+		int min_idx = 0;
+		//Read the information from the vector of shape_ts
+		for (unsigned int s = 0; s < shapes.size(); s++)
+		{
+			size_t index_offset = 0;
+			for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
+				int fv = shapes[s].mesh.num_face_vertices[f];
+				std::vector<float> &positions = attrib.vertices;
+				std::vector<float> &normals = attrib.normals;
+				std::vector<float> &texcoords = attrib.texcoords;
+				for (size_t v = 0; v < fv; v++) {
+					tinyobj::index_t index = shapes[s].mesh.indices[v + index_offset];
+
+					Vertex vert;
+					vert.position = XMFLOAT3(positions[index.vertex_index * 3], positions[index.vertex_index * 3 + 1], positions[index.vertex_index * 3 + 2]);
+					if (index.normal_index != -1)
+					{
+						vert.normal = XMFLOAT3(normals[index.normal_index * 3], normals[index.normal_index * 3 + 1], normals[index.normal_index * 3 + 2]);
+					}
+
+					if (index.texcoord_index != -1)
+					{
+						vert.texCoord = XMFLOAT2(texcoords[index.texcoord_index * 2], 1- texcoords[index.texcoord_index * 2 + 1]);
+					}
+					vertices.push_back(vert);
+					indices.push_back((Index)(index_offset + v));
+				}
+
+				index_offset += fv;
+			}
+		}
+		auto device = m_deviceResources->GetD3DDevice();
+		Vertex* vPtr = vertices.data();
+		Index* iPtr = indices.data();
+		AllocateUploadBuffer(device, iPtr, indices.size() * sizeof(Index), &m_indexBuffer.resource);
+		AllocateUploadBuffer(device, vPtr, vertices.size() * sizeof(Vertex), &m_vertexBuffer.resource);
+
+		// Vertex buffer is passed to the shader along with index buffer as a descriptor table.
+		// Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
+		UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, indices.size() * sizeof(Index) / 4, 0);
+		UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, vertices.size(), sizeof(Vertex));
+		ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
+	}
+}
+*/
 
 // Build geometry used in the sample.
 void D3D12RaytracingSimpleLighting::BuildGeometry()
