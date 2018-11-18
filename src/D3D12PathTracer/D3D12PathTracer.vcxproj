@@ -173,10 +173,13 @@ PrebuildCheck.bat</Command>
     <ClInclude Include="src\DirectXRaytracingHelper.h" />
     <ClInclude Include="src\DXSample.h" />
     <ClInclude Include="src\DXSampleHelper.h" />
+    <ClInclude Include="src\Mesh.h" />
+    <ClInclude Include="src\MeshLoader.h" />
     <ClInclude Include="src\model_loading\Asset.h" />
     <ClInclude Include="src\model_loading\AssetDatabase.h" />
     <ClInclude Include="src\model_loading\Geometry.h" />
     <ClInclude Include="src\model_loading\Material.h" />
+    <ClInclude Include="src\model_loading\OBJ_Loader.h" />
     <ClInclude Include="src\model_loading\Texture.h" />
     <ClInclude Include="src\model_loading\tiny_obj_loader.h" />
     <ClInclude Include="src\shaders\RayTracingHlslCompat.h" />
@@ -193,10 +196,8 @@ PrebuildCheck.bat</Command>
     <ClCompile Include="src\DeviceResources.cpp" />
     <ClCompile Include="src\DXSample.cpp" />
     <ClCompile Include="src\Main.cpp" />
-    <ClCompile Include="src\model_loading\tiny_obj_loader.cc">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
+    <ClCompile Include="src\Mesh.cpp" />
+    <ClCompile Include="src\MeshLoader.cpp" />
     <ClCompile Include="src\stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
