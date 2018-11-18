@@ -324,37 +324,41 @@ void D3D12RaytracingSimpleLighting::CreateRootSignatures()
     // Global Root Signature
     // This is a root signature that is shared across all raytracing shaders invoked during a DispatchRays() call.
     {
-        CD3DX12_DESCRIPTOR_RANGE ranges[3]; // Perfomance TIP: Order from most frequent to least frequent.
+        CD3DX12_DESCRIPTOR_RANGE ranges[4]; // Perfomance TIP: Order from most frequent to least frequent.
         ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);  // 1 output texture at u0
-        ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 2);  // 2 static index and vertex buffers and texture at t1 and t2
-		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1);  // 1 static texture buffer at t3 // LOOKAT
+        ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 1);  // 2 static index and vertex buffers and texture at t1 and t2
+		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3);  // 1 static texture buffer at t3 // LOOKAT
+		ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 4);  // 1 static normal texture buffer at t4 
 
         CD3DX12_ROOT_PARAMETER rootParameters[GlobalRootSignatureParams::Count];
         rootParameters[GlobalRootSignatureParams::OutputViewSlot].InitAsDescriptorTable(1, &ranges[0]);
         rootParameters[GlobalRootSignatureParams::AccelerationStructureSlot].InitAsShaderResourceView(0);
 		rootParameters[GlobalRootSignatureParams::TextureSlot].InitAsDescriptorTable(1, &ranges[2]); //LOOKAT
+		rootParameters[GlobalRootSignatureParams::NormalTextureSlot].InitAsDescriptorTable(1, &ranges[3]);
         rootParameters[GlobalRootSignatureParams::SceneConstantSlot].InitAsConstantBufferView(0);
         rootParameters[GlobalRootSignatureParams::VertexBuffersSlot].InitAsDescriptorTable(1, &ranges[1]);
 		
 
 		// LOOKAT
 		// create a static sampler
-		D3D12_STATIC_SAMPLER_DESC sampler = {};
-		sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-		sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-		sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-		sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-		sampler.MipLODBias = 0;
-		sampler.MaxAnisotropy = 0;
-		sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-		sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
-		sampler.MinLOD = 0.0f;
-		sampler.MaxLOD = D3D12_FLOAT32_MAX;
-		sampler.ShaderRegister = 0;
-		sampler.RegisterSpace = 0;
-		sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		D3D12_STATIC_SAMPLER_DESC sampler[2] = {};
+		sampler[0].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+		sampler[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+		sampler[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+		sampler[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+		sampler[0].MipLODBias = 0;
+		sampler[0].MaxAnisotropy = 0;
+		sampler[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+		sampler[0].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+		sampler[0].MinLOD = 0.0f;
+		sampler[0].MaxLOD = D3D12_FLOAT32_MAX;
+		sampler[0].ShaderRegister = 0;
+		sampler[0].RegisterSpace = 0;
+		sampler[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-        CD3DX12_ROOT_SIGNATURE_DESC globalRootSignatureDesc(ARRAYSIZE(rootParameters), rootParameters, 1, &sampler);
+		memcpy(&sampler[1], &sampler[0], sizeof(D3D12_STATIC_SAMPLER_DESC));
+		sampler[1].ShaderRegister = 1;
+        CD3DX12_ROOT_SIGNATURE_DESC globalRootSignatureDesc(ARRAYSIZE(rootParameters), rootParameters, 2, sampler);
         SerializeAndCreateRaytracingRootSignature(globalRootSignatureDesc, &m_raytracingGlobalRootSignature);
     }
 
@@ -519,7 +523,7 @@ void D3D12RaytracingSimpleLighting::CreateDescriptorHeap()
     // 3 - vertex and index buffer SRVs and texture
     // 1 - raytracing output texture SRV
     // 2 - bottom and top level acceleration structure fallback wrapped pointer UAVs
-    descriptorHeapDesc.NumDescriptors = 6; 
+    descriptorHeapDesc.NumDescriptors = 7; 
     descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     descriptorHeapDesc.NodeMask = 0;
@@ -589,7 +593,7 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 	{
 		//meshes = Model::MeshLoader::load_obj("",path);
 		//meshes = Model::MeshLoader::load_obj("","11086_blimp_v2.obj");
-		meshes = Model::MeshLoader::load_obj("","Pig.obj");
+		meshes = Model::MeshLoader::load_obj("","untitled.obj");
 	}
 	catch(std::exception& e)
 	{
@@ -1010,7 +1014,8 @@ void D3D12RaytracingSimpleLighting::DoRaytracing()
         commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::OutputViewSlot, m_raytracingOutputResourceUAVGpuDescriptor);
 		//commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, m_textureBuffer.gpuDescriptorHandle); // LOOKAT
 		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, meshes[0].material.diffuse.gpu_descriptor_handle); // LOOKAT
-    };
+		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::NormalTextureSlot, meshes[0].material.normal.gpu_descriptor_handle); // LOOKAT
+	};
 
     commandList->SetComputeRootSignature(m_raytracingGlobalRootSignature.Get());
 

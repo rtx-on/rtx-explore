@@ -158,6 +158,11 @@ namespace Model
 
 		void setup_srv(DX::DeviceResources* device_resources, ID3D12DescriptorHeap* descriptor_heap, UINT& descriptors_allocated, UINT descriptor_size)
 		{
+			auto device = device_resources->GetD3DDevice();
+			auto command_list = device_resources->GetCommandList();
+			auto command_allocator = device_resources->GetCommandAllocator();
+
+			//command_list->Reset(command_allocator, nullptr);
 			diffuse.setup_srv(device_resources, descriptor_heap, descriptors_allocated, descriptor_size);
 			specular.setup_srv(device_resources, descriptor_heap, descriptors_allocated, descriptor_size);
 			normal.setup_srv(device_resources, descriptor_heap, descriptors_allocated, descriptor_size);

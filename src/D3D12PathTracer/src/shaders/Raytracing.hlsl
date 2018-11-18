@@ -17,10 +17,12 @@
 
 RaytracingAccelerationStructure Scene : register(t0, space0);
 RWTexture2D<float4> RenderTarget : register(u0);
-ByteAddressBuffer Indices : register(t2, space0);
-StructuredBuffer<Vertex> Vertices : register(t3, space0);
-Texture2D text : register(t1);
+ByteAddressBuffer Indices : register(t1, space0);
+StructuredBuffer<Vertex> Vertices : register(t2, space0);
+Texture2D text : register(t3, space0);
+Texture2D norm_text : register(t4, space0);
 SamplerState s1 : register(s0);
+SamplerState s2 : register(s1);
 
 ConstantBuffer<SceneConstantBuffer> g_sceneCB : register(b0);
 ConstantBuffer<CubeConstantBuffer> g_cubeCB : register(b1);
@@ -184,15 +186,28 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	
 	float4 tex = float4(1, 1, 1, 1);
 	tex = text.SampleLevel(s1, uv, 0);
-
+	float4 norm_tex = float4(1, 1, 1, 1);
+	norm_tex = norm_text.SampleLevel(s2, uv, 0);
 	// LOOKAT
 	if (tex.x == 0) {
 		payload.color = float4(0, 0, 1, 1);
 	}
-	else {
-		float4 color = tex;// g_sceneCB.lightAmbientColor + diffuseColor;
+	else
+	{
+		float3 color = tex.rgb;// g_sceneCB.lightAmbientColor + diffuseColor;
+		float3 normal = norm_tex.rgb;
 
-		payload.color = color;
+		float3 pixelToLight = normalize(g_sceneCB.lightPosition.xyz - hitPosition);
+
+		float3 ambient = float3(0.0f, 0.0f, 0.0f);
+
+		// Diffuse contribution.
+		float fNDotL = max(0.0f, dot(pixelToLight, normal));
+		float3 diffuse = color * fNDotL;
+
+		float3 final_color = ambient + diffuse;
+
+		payload.color = float4(final_color, 1.0f);
 		//payload.color = float4(triangleNormal, 1.0f);
 
 	}
