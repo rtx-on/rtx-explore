@@ -21,7 +21,8 @@ namespace GlobalRootSignatureParams {
         OutputViewSlot = 0,
         AccelerationStructureSlot,
 		TextureSlot,
-        SceneConstantSlot,
+		NormalTextureSlot,
+		SceneConstantSlot,
         VertexBuffersSlot,
         Count 
     };

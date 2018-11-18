@@ -24,6 +24,7 @@ namespace Model
 
 	struct Texture
 	{
+		explicit Texture() = default;
 		explicit Texture(const std::string texture_name, const std::string texture_path)
 			: texture_name(texture_path + " " + texture_name), wtexture_name(convert_to_wide(this->texture_name))
 		{
@@ -38,7 +39,7 @@ namespace Model
 			}
 		}
 		
-		void setup_srv(DX::DeviceResources* device_resources, ID3D12DescriptorHeap* descriptor_heap, UINT descriptor_size)
+		void setup_srv(DX::DeviceResources* device_resources, ID3D12DescriptorHeap* descriptor_heap, UINT& descriptors_allocated, UINT descriptor_size)
 		{
 			if(image_data == nullptr)
 			{
@@ -93,13 +94,13 @@ namespace Model
 			// transition the texture default heap to a pixel shader resource (we will be sampling from this heap in the pixel shader to get the color of pixels)
 			command_list->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(texture_buffer_resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 
-			UINT descriptor_index_to_use = 0;
+			UINT descriptor_index_to_use = UINT_MAX;
 
 			auto descriptor_heap_cpu_base = descriptor_heap->GetCPUDescriptorHandleForHeapStart();
-			// if (descriptor_index_to_use >= descriptor_heap->GetDesc().NumDescriptors)
-			// {
-			// 	descriptor_index_to_use = descriptors_allocated++;
-			// }
+			if (descriptor_index_to_use >= descriptor_heap->GetDesc().NumDescriptors)
+			{
+				descriptor_index_to_use = descriptors_allocated++;
+			}
 
 			cpu_descriptor_handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(descriptor_heap_cpu_base, descriptor_index_to_use, descriptor_size);
 
@@ -120,10 +121,10 @@ namespace Model
 			// Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
 			device_resources->WaitForGpu();
 
-			if (image_data != nullptr)
-			{
-				free(image_data);
-			}
+			//if (image_data != nullptr)
+			//{
+			//	free(image_data);
+			//}
 		}
 
 		std::string texture_name;
@@ -143,6 +144,7 @@ namespace Model
 	};
 	struct Material
 	{
+		explicit Material() = default;
 		explicit Material(int material_id, objl::Material obj_material)
 			:
 			material_id(material_id),
@@ -154,11 +156,16 @@ namespace Model
 
 		}
 
-		void setup_srv(DX::DeviceResources* device_resources, ID3D12DescriptorHeap* descriptor_heap, UINT descriptor_size)
+		void setup_srv(DX::DeviceResources* device_resources, ID3D12DescriptorHeap* descriptor_heap, UINT& descriptors_allocated, UINT descriptor_size)
 		{
-			diffuse.setup_srv(device_resources, descriptor_heap, descriptor_size);
-			specular.setup_srv(device_resources, descriptor_heap, descriptor_size);
-			normal.setup_srv(device_resources, descriptor_heap, descriptor_size);
+			auto device = device_resources->GetD3DDevice();
+			auto command_list = device_resources->GetCommandList();
+			auto command_allocator = device_resources->GetCommandAllocator();
+
+			//command_list->Reset(command_allocator, nullptr);
+			diffuse.setup_srv(device_resources, descriptor_heap, descriptors_allocated, descriptor_size);
+			specular.setup_srv(device_resources, descriptor_heap, descriptors_allocated, descriptor_size);
+			normal.setup_srv(device_resources, descriptor_heap, descriptors_allocated, descriptor_size);
 		}
 
 		int material_id;
@@ -184,6 +191,6 @@ namespace Model
 		std::vector<Vertex> vertices;
 
 		std::vector<Index> vertex_indices;
-		std::vector<Material> materials;
+		Material material;
 	};
 }
