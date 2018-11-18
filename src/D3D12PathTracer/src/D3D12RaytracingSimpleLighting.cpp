@@ -197,7 +197,7 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
 
     // Build geometry to be used in the sample.
     //BuildGeometry();
-	BuildMesh("src/objects/Cerberus.obj");
+	BuildMesh("src/objects/wahoo.obj");
 
     // Build raytracing acceleration structures from the generated geometry.
     BuildAccelerationStructures();
@@ -528,65 +528,80 @@ void D3D12RaytracingSimpleLighting::CreateDescriptorHeap()
 void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 	// load mesh here
 
-	// std::vector<tinyobj::shape_t> shapes;
-	// std::vector<tinyobj::material_t> materials;
-	//
-	// tinyobj::attrib_t attrib;
-	// std::string err;
-	// bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path.c_str());
-	//
-	// std::vector<Index> indices;
-	// std::vector<Vertex> vertices;
-	//
-	// if (!ret)
-	// {
-	// 	throw std::runtime_error("failed to load Object!");
-	// }
-	// else
-	// {
-	// 	int min_idx = 0;
-	// 	//Read the information from the vector of shape_ts
-	// 	for (unsigned int i = 0; i < shapes.size(); i++)
-	// 	{
-	// 		std::vector<tinyobj::index_t> &index = shapes[i].mesh.indices;
-	// 		std::vector<float> &positions = attrib.vertices;
-	// 		std::vector<float> &normals = attrib.normals;
-	//
-	// 		for (unsigned int j = 0; j < index.size(); j++)
-	// 		{
-	// 			Index i;
-	// 			i = index[j].vertex_index;
-	// 			indices.push_back(i);
-	// 		}
-	//
-	// 		for (unsigned int j = 0; j < positions.size() / 3; j++)
-	// 		{
-	// 			Vertex v;
-	// 			v.position = XMFLOAT3(positions[j * 3], positions[j * 3 + 1], positions[j * 3 + 2]);
-	// 			v.normal = XMFLOAT3(0, 0,-1); //XMFLOAT3(normals[j * 3], normals[j * 3 + 1], normals[j * 3 + 2]);
-	// 			vertices.push_back(v);
-	// 		}
-	// 		break;
-	// 	}
-	//
-	// 	auto device = m_deviceResources->GetD3DDevice();
-	// 	Vertex* vPtr = vertices.data();
-	// 	Index* iPtr = indices.data();
-	// 	AllocateUploadBuffer(device, iPtr, indices.size() * sizeof(Index), &m_indexBuffer.resource);
-	// 	AllocateUploadBuffer(device, vPtr, vertices.size() * sizeof(Vertex), &m_vertexBuffer.resource);
-	//
-	// 	// Vertex buffer is passed to the shader along with index buffer as a descriptor table.
-	// 	// Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
-	// 	UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, indices.size() * sizeof(Index) / 4, 0);
-	// 	UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, vertices.size(), sizeof(Vertex));
-	// 	ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
-	// }
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+	
+	tinyobj::attrib_t attrib;
+	std::string err;
+	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path.c_str());
+	
+	std::vector<Index> indices;
+	std::vector<Vertex> vertices;
+	
+	if (!ret)
+	{
+		throw std::runtime_error("failed to load Object!");
+	}
+	else
+	{
+		int min_idx = 0;
+		//Read the information from the vector of shape_ts
+		for (unsigned int i = 0; i < shapes.size(); i++)
+		{
+			std::vector<tinyobj::index_t> &index = shapes[i].mesh.indices;
+			std::vector<float> &positions = attrib.vertices;
+			std::vector<float> &normals = attrib.normals;
+			std::vector<float> &texcoords = attrib.texcoords;
+
+			// for (unsigned int j = 0; j < index.size(); j++)
+ 		// 	{
+ 		// 		Index i;
+ 		// 		i.pIndex = index[j].vertex_index;
+			// 	i.nIndex = index[j].normal_index;
+			// 	i.tIndex = index[j].texcoord_index;
+ 		// 		indices.push_back(i);
+ 		// 	}
+
+			for (unsigned int j = 0; j < index.size(); j++)
+			{
+				int vIndex = index[j].vertex_index;
+				int nIndex = index[j].normal_index;
+				int tIndex = index[j].texcoord_index;
+				Vertex v{};
+				v.position = XMFLOAT3(positions[vIndex * 3], positions[vIndex * 3 + 1], positions[vIndex * 3 + 2]);
+				if (nIndex != -1)
+				{
+					v.normal = XMFLOAT3(normals[nIndex * 3], normals[nIndex * 3 + 1], normals[nIndex * 3 + 2]);
+				}
+
+				if (tIndex != -1)
+				{
+					v.texCoord = XMFLOAT2(texcoords[tIndex * 2], texcoords[tIndex * 2 + 1]);
+				}
+				vertices.push_back(v);
+				indices.push_back(j); // TODO check this
+			}
+			//break; // todo get rid of this garbage to load mul
+		}
+	
+		auto device = m_deviceResources->GetD3DDevice();
+		Vertex* vPtr = vertices.data();
+		Index* iPtr = indices.data();
+		AllocateUploadBuffer(device, iPtr, indices.size() * sizeof(Index), &m_indexBuffer.resource);
+		AllocateUploadBuffer(device, vPtr, vertices.size() * sizeof(Vertex), &m_vertexBuffer.resource);
+	
+		// Vertex buffer is passed to the shader along with index buffer as a descriptor table.
+		// Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
+		UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, indices.size() * sizeof(Index) / 4, 0);
+		UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, vertices.size(), sizeof(Vertex));
+		ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
+	}
+	/*
 	std::vector<Model::Mesh> meshes;
 	try
 	{
-		//meshes = Model::MeshLoader::load_obj("",path);
+		meshes = Model::MeshLoader::load_obj("",path);
 		//meshes = Model::MeshLoader::load_obj("","11086_blimp_v2.obj");
-		meshes = Model::MeshLoader::load_obj("","src/objects/Dragon.obj");
 	}
 	catch(std::exception& e)
 	{
@@ -609,6 +624,7 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 	{
 		//material.setup_srv(m_deviceResources.get(), m_descriptorHeap.Get(), m_descriptorSize);
 	}
+	*/
 }
 
 // Build geometry used in the sample.
@@ -698,9 +714,9 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
 
     D3D12_RAYTRACING_GEOMETRY_DESC geometryDesc = {};
     geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-    geometryDesc.Triangles.IndexBuffer = m_indexBuffer.resource->GetGPUVirtualAddress();
+	geometryDesc.Triangles.IndexBuffer = m_indexBuffer.resource->GetGPUVirtualAddress();
     geometryDesc.Triangles.IndexCount = static_cast<UINT>(m_indexBuffer.resource->GetDesc().Width) / sizeof(Index);
-    geometryDesc.Triangles.IndexFormat = DXGI_FORMAT_R16_UINT;
+    geometryDesc.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
     geometryDesc.Triangles.Transform3x4 = 0;
     geometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
     geometryDesc.Triangles.VertexCount = static_cast<UINT>(m_vertexBuffer.resource->GetDesc().Width) / sizeof(Vertex);

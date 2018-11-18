@@ -44,21 +44,21 @@ uint3 Load3x16BitIndices(uint offsetBytes)
     // based on first index's offsetBytes being aligned at the 4 byte boundary or not:
     //  Aligned:     { 0 1 | 2 - }
     //  Not aligned: { - 0 | 1 2 }
-    const uint dwordAlignedOffset = offsetBytes & ~3;    
+    const uint dwordAlignedOffset = offsetBytes & ~7;    
     const uint2 four16BitIndices = Indices.Load2(dwordAlignedOffset);
  
     // Aligned: { 0 1 | 2 - } => retrieve first three 16bit indices
     if (dwordAlignedOffset == offsetBytes)
     {
-        indices.x = four16BitIndices.x & 0xffff;
-        indices.y = (four16BitIndices.x >> 16) & 0xffff;
-        indices.z = four16BitIndices.y & 0xffff;
+        indices.x = four16BitIndices.x;
+		indices.y = four16BitIndices.y;
+//        indices.z = four16BitIndices.z;
     }
     else // Not aligned: { - 0 | 1 2 } => retrieve last three 16bit indices
     {
-        indices.x = (four16BitIndices.x >> 16) & 0xffff;
-        indices.y = four16BitIndices.y & 0xffff;
-        indices.z = (four16BitIndices.y >> 16) & 0xffff;
+        indices.x = four16BitIndices.y;
+        indices.y = four16BitIndices.y;
+//        indices.z = (four16BitIndices.y >> 32) & 0xffffffff;
     }
 
     return indices;
@@ -143,13 +143,13 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
     float3 hitPosition = HitWorldPosition();
 
     // Get the base index of the triangle's first 16 bit index.
-    uint indexSizeInBytes = 2;
+    uint indexSizeInBytes = 4;
     uint indicesPerTriangle = 3;
-    uint triangleIndexStride = indicesPerTriangle * indexSizeInBytes;
+	uint triangleIndexStride = indicesPerTriangle * indexSizeInBytes;
     uint baseIndex = PrimitiveIndex() * triangleIndexStride;
 
     // Load up 3 16 bit indices for the triangle.
-    const uint3 indices = Load3x16BitIndices(baseIndex);
+    const uint3 indices = Indices.Load3(baseIndex);
 
     // Retrieve corresponding vertex normals for the triangle vertices.
     float3 vertexNormals[3] = { 
@@ -173,15 +173,9 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	// LOOKAT
 	if (tex.x == 0) {
 		payload.color = float4(0, 0, 1, 1);
+	} else {
+		payload.color = g_sceneCB.lightAmbientColor + diffuseColor;
 	}
-	else {
-		float4 color = tex;// g_sceneCB.lightAmbientColor + diffuseColor;
-
-		//payload.color = color;
-		payload.color = float4(triangleNormal, 1.0f);
-
-	}
-	
 }
 
 [shader("miss")]
