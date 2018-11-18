@@ -184,16 +184,15 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 
 	float2 uv = triangleUV;
 	
-	float4 tex = float4(1, 1, 1, 1);
-	tex = text.SampleLevel(s1, uv, 0);
+	float3 tex = text.SampleLevel(s1, uv, 0);
 	float4 norm_tex = float4(1, 1, 1, 1);
 	norm_tex = norm_text.SampleLevel(s2, uv, 0);
 	// LOOKAT
-	if (tex.x == 0) {
-		payload.color = float4(0, 0, 1, 1);
-	}
-	else
-	{
+//	if (tex.x == 0) {
+//		payload.color = float4(0, 0, 1, 1);
+//	}
+//	else
+//	{
 		float3 color = tex.rgb;// g_sceneCB.lightAmbientColor + diffuseColor;
 		float3 normal = norm_tex.rgb;
 
@@ -210,7 +209,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 		payload.color = float4(final_color, 1.0f);
 		//payload.color = float4(triangleNormal, 1.0f);
 
-	}
+//	}
 }
 
 [shader("miss")]

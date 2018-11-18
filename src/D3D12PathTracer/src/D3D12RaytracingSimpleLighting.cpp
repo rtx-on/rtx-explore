@@ -197,7 +197,7 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
 
     // Build geometry to be used in the sample.
     //BuildGeometry();
-	BuildMesh("src/objects/wahoo.obj");
+	BuildMesh("src/objects/Cerberus.obj");
 
     // Build raytracing acceleration structures from the generated geometry.
     BuildAccelerationStructures();
@@ -207,6 +207,7 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
 
 	// LOOKAT
 	CreateTexture();
+	CreateNormalTexture();
 
     // Build shader tables, which define shaders and their local root arguments.
     BuildShaderTables();
@@ -214,17 +215,14 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
     // Create an output 2D texture to store the raytracing result to.
     CreateRaytracingOutputResource();
 }
-std::vector<Model::Mesh> meshes;
 
 bool D3D12RaytracingSimpleLighting::CreateTexture() {
-	meshes[0].material.setup_srv(m_deviceResources.get(), m_descriptorHeap.Get(), m_descriptorsAllocated, m_descriptorSize);
-	return true;
 	
 	// Load the image from file
 	D3D12_RESOURCE_DESC textureDesc;
 	int imageBytesPerRow;
 	BYTE* imageData;
-	int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, L"src/textures/texture.jpg", imageBytesPerRow);
+	int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, L"src/textures/Cerberus/Cerberus1.png", imageBytesPerRow);
 
 	// make sure we have data
 	if (imageSize <= 0)
@@ -299,6 +297,87 @@ bool D3D12RaytracingSimpleLighting::CreateTexture() {
 	m_deviceResources->WaitForGpu();
 }
 
+bool D3D12RaytracingSimpleLighting::CreateNormalTexture() {
+
+	// Load the image from file
+	D3D12_RESOURCE_DESC textureDesc;
+	int imageBytesPerRow;
+	BYTE* imageData;
+	int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, L"src/textures/Cerberus/Cerberus_N.png", imageBytesPerRow);
+
+	// make sure we have data
+	if (imageSize <= 0)
+	{
+		return false;
+	}
+
+	auto device = m_deviceResources->GetD3DDevice();
+
+	auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+
+	ThrowIfFailed(device->CreateCommittedResource(
+		&defaultHeapProperties,
+		D3D12_HEAP_FLAG_NONE,
+		&textureDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&m_normalTextureBuffer.resource)));
+
+	UINT64 textureUploadBufferSize;
+	// this function gets the size an upload buffer needs to be to upload a texture to the gpu.
+	// each row must be 256 byte aligned except for the last row, which can just be the size in bytes of the row
+	// eg. textureUploadBufferSize = ((((width * numBytesPerPixel) + 255) & ~255) * (height - 1)) + (width * numBytesPerPixel);
+	//textureUploadBufferSize = (((imageBytesPerRow + 255) & ~255) * (textureDesc.Height - 1)) + imageBytesPerRow;
+	device->GetCopyableFootprints(&textureDesc, 0, 1, 0, nullptr, nullptr, nullptr, &textureUploadBufferSize);
+
+	// now we create an upload heap to upload our texture to the GPU
+	ThrowIfFailed(device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // upload heap
+		D3D12_HEAP_FLAG_NONE, // no flags
+		&CD3DX12_RESOURCE_DESC::Buffer(textureUploadBufferSize), // resource description for a buffer (storing the image data in this heap just to copy to the default heap)
+		D3D12_RESOURCE_STATE_GENERIC_READ, // We will copy the contents from this heap to the default heap above
+		nullptr,
+		IID_PPV_ARGS(&textureBufferUploadHeap)));
+
+	textureBufferUploadHeap->SetName(L"Texture Buffer Upload Resource Heap");
+
+	// store vertex buffer in upload heap
+	D3D12_SUBRESOURCE_DATA textureData = {};
+	textureData.pData = &imageData[0]; // pointer to our image data
+	textureData.RowPitch = imageBytesPerRow; // size of all our triangle vertex data
+	textureData.SlicePitch = imageBytesPerRow * textureDesc.Height; // also the size of our triangle vertex data
+
+	auto commandList = m_deviceResources->GetCommandList();
+	auto commandAllocator = m_deviceResources->GetCommandAllocator();
+
+	commandList->Reset(commandAllocator, nullptr);
+
+	// Reset the command list for the acceleration structure construction.
+	UpdateSubresources(commandList, m_normalTextureBuffer.resource.Get(), textureBufferUploadHeap, 0, 0, 1, &textureData);
+
+	// transition the texture default heap to a pixel shader resource (we will be sampling from this heap in the pixel shader to get the color of pixels)
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_normalTextureBuffer.resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+
+	UINT descriptorIndex = AllocateDescriptor(&m_normalTextureBuffer.cpuDescriptorHandle);
+
+	// create SRV descriptor
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = textureDesc.Format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+	device->CreateShaderResourceView(m_normalTextureBuffer.resource.Get(), &srvDesc, m_normalTextureBuffer.cpuDescriptorHandle);
+
+	// used to bind to the root signature
+	m_normalTextureBuffer.gpuDescriptorHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_descriptorHeap->GetGPUDescriptorHandleForHeapStart(), descriptorIndex, m_descriptorSize);
+
+	// Kick off texture uploading
+	m_deviceResources->ExecuteCommandList();
+
+	// Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
+	m_deviceResources->WaitForGpu();
+}
+
 void D3D12RaytracingSimpleLighting::SerializeAndCreateRaytracingRootSignature(D3D12_ROOT_SIGNATURE_DESC& desc, ComPtr<ID3D12RootSignature>* rootSig)
 {
     auto device = m_deviceResources->GetD3DDevice();
@@ -343,15 +422,15 @@ void D3D12RaytracingSimpleLighting::CreateRootSignatures()
 		// create a static sampler
 		D3D12_STATIC_SAMPLER_DESC sampler[2] = {};
 		sampler[0].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-		sampler[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-		sampler[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-		sampler[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+		sampler[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+		sampler[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		sampler[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 		sampler[0].MipLODBias = 0;
 		sampler[0].MaxAnisotropy = 0;
 		sampler[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
 		sampler[0].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
 		sampler[0].MinLOD = 0.0f;
-		sampler[0].MaxLOD = D3D12_FLOAT32_MAX;
+		sampler[0].MaxLOD = 1.0f;
 		sampler[0].ShaderRegister = 0;
 		sampler[0].RegisterSpace = 0;
 		sampler[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
@@ -1004,9 +1083,9 @@ void D3D12RaytracingSimpleLighting::DoRaytracing()
         // Set index and successive vertex buffer decriptor tables
         commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::VertexBuffersSlot, m_indexBuffer.gpuDescriptorHandle);
         commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::OutputViewSlot, m_raytracingOutputResourceUAVGpuDescriptor);
-		//commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, m_textureBuffer.gpuDescriptorHandle); // LOOKAT
-		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, meshes[0].material.diffuse.gpu_descriptor_handle); // LOOKAT
-		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::NormalTextureSlot, meshes[0].material.normal.gpu_descriptor_handle); // LOOKAT
+		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, m_textureBuffer.gpuDescriptorHandle); // LOOKAT
+		//commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, meshes[0].material.diffuse.gpu_descriptor_handle); // LOOKAT
+		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::NormalTextureSlot, m_normalTextureBuffer.gpuDescriptorHandle); // LOOKAT
 	};
 
     commandList->SetComputeRootSignature(m_raytracingGlobalRootSignature.Get());
@@ -1090,6 +1169,7 @@ void D3D12RaytracingSimpleLighting::ReleaseDeviceDependentResources()
     m_indexBuffer.resource.Reset();
     m_vertexBuffer.resource.Reset();
 	m_textureBuffer.resource.Reset();
+	m_normalTextureBuffer.resource.Reset();
     m_perFrameConstants.Reset();
     m_rayGenShaderTable.Reset();
     m_missShaderTable.Reset();
