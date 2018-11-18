@@ -21,7 +21,8 @@ namespace GlobalRootSignatureParams {
         OutputViewSlot = 0,
         AccelerationStructureSlot,
 		TextureSlot,
-        SceneConstantSlot,
+		NormalTextureSlot,
+		SceneConstantSlot,
         VertexBuffersSlot,
         Count 
     };
@@ -112,6 +113,7 @@ private:
     D3DBuffer m_indexBuffer;
     D3DBuffer m_vertexBuffer;
 	D3DBuffer m_textureBuffer;
+	D3DBuffer m_normalTextureBuffer;
 	ID3D12Resource* textureBufferUploadHeap;
 
     // Acceleration structure
@@ -177,4 +179,5 @@ private:
 	void BuildMesh(std::string path);
 
 	bool CreateTexture();
+	bool CreateNormalTexture();
 };

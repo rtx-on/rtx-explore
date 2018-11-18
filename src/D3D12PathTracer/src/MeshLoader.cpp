@@ -46,6 +46,11 @@ std::vector<Mesh> MeshLoader::load_obj(std::string base_path, std::string object
 		{
 			mesh.vertex_indices.emplace_back(j);
 		}
+		if (!obj_mesh.MeshMaterial.name.empty())
+		{
+			Material material{ 0, obj_mesh.MeshMaterial };
+			mesh.material = std::move(material);
+		}
 		meshes.emplace_back(std::move(mesh));
 	}
 
