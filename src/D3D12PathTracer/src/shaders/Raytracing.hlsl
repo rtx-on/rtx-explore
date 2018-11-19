@@ -180,34 +180,29 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
     float3 triangleNormal = HitAttribute(vertexNormals, attr);
     float2 triangleUV = HitAttribute2D(vertexUVs, attr);
 
-    float4 diffuseColor = CalculateDiffuseLighting(hitPosition, triangleNormal);
-
 	float2 uv = triangleUV;
 	
 	float3 tex = text.SampleLevel(s1, uv, 0);
-	float4 norm_tex = float4(1, 1, 1, 1);
-	norm_tex = norm_text.SampleLevel(s2, uv, 0);
-	// LOOKAT
-//	if (tex.x == 0) {
-//		payload.color = float4(0, 0, 1, 1);
-//	}
-//	else
-//	{
-		float3 color = tex.rgb;// g_sceneCB.lightAmbientColor + diffuseColor;
-		float3 normal = norm_tex.rgb;
+	float4 norm_tex = norm_tex = norm_text.SampleLevel(s2, uv, 0);
+	
+	float3 color = tex.rgb;// g_sceneCB.lightAmbientColor + diffuseColor;
+	float3 normal = norm_tex.rgb;
+	// transform normal vector to range [-1,1]
+	normal = normalize(normal * 2.0 - 1.0);
 
-		float3 pixelToLight = normalize(g_sceneCB.lightPosition.xyz - hitPosition);
+	float3 lightPos = float3(0, 0, 1);
+	float3 pixelToLight = normalize(/*g_sceneCB.lightPosition.xyz*/ lightPos - hitPosition);
 
-		float3 ambient = float3(0.0f, 0.0f, 0.0f);
+	float3 ambient = float3(0.0f, 0.0f, 0.0f);
 
-		// Diffuse contribution.
-		float fNDotL = max(0.0f, dot(pixelToLight, normal));
-		float3 diffuse = color;// *fNDotL;
+	// Diffuse contribution.
+	float fNDotL = max(0.0f, dot(pixelToLight, normal));
+	float3 diffuse = g_sceneCB.lightDiffuseColor;// color;// *fNDotL;
 
-		float3 final_color = ambient + diffuse;
+	float3 final_color = ambient + diffuse;
 
-		payload.color = float4(final_color, 1.0f);
-		//payload.color = float4(triangleNormal, 1.0f);
+	payload.color = float4(final_color, 1.0f);
+	//payload.color = float4(triangleNormal, 1.0f);
 
 //	}
 }
