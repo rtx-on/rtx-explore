@@ -13,39 +13,36 @@
     <Filter Include="Assets\Shaders">
       <UniqueIdentifier>{8b0cb0c9-e0d8-4107-91c8-11654fac88e7}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Util">
-      <UniqueIdentifier>{500a71f9-a0df-431e-9f3b-5d4ab5e3942b}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\Util">
-      <UniqueIdentifier>{93d5e482-943e-4182-8023-5676929aec55}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Assets\Shaders\Util">
       <UniqueIdentifier>{87b45108-4083-4b05-a52d-914447b5fc90}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util">
+      <UniqueIdentifier>{29439c3e-b36c-4159-b308-d13309ffa838}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util\include">
+      <UniqueIdentifier>{1d07379d-9a6e-4357-8e07-d7ca58ac2e9f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util\src">
+      <UniqueIdentifier>{63f84f8c-3861-4ff2-9af5-10af08fbdfb6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util\CDX">
+      <UniqueIdentifier>{7d4edc65-b1b9-4edd-b34c-6d7e1146261d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util\CDX\include">
+      <UniqueIdentifier>{14fad6cd-3c2f-4527-a5ed-1466e94c30ef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util\CDX\src">
+      <UniqueIdentifier>{d1bdf214-099d-49bf-a0b1-8688e8d30949}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External">
+      <UniqueIdentifier>{11a2b192-51e0-4e99-818b-47e3f751d864}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\include">
+      <UniqueIdentifier>{4962d73b-24e2-4c9c-831f-aa2421cb9b2e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="d3dx12.h">
-      <Filter>Header Files\Util</Filter>
-    </ClInclude>
-    <ClInclude Include="DXSample.h">
-      <Filter>Header Files\Util</Filter>
-    </ClInclude>
-    <ClInclude Include="DXSampleHelper.h">
-      <Filter>Header Files\Util</Filter>
-    </ClInclude>
-    <ClInclude Include="StepTimer.h">
-      <Filter>Header Files\Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Win32Application.h">
-      <Filter>Header Files\Util</Filter>
-    </ClInclude>
-    <ClInclude Include="DeviceResources.h">
-      <Filter>Header Files\Util</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D12RaytracingSimpleLighting.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DirectXRaytracingHelper.h">
@@ -57,6 +54,45 @@
     <ClInclude Include="RaytracingHlslCompat.h">
       <Filter>Assets\Shaders</Filter>
     </ClInclude>
+    <ClInclude Include="D3D12Raytracingばか.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Win32Application.h">
+      <Filter>Util\CDX\include</Filter>
+    </ClInclude>
+    <ClInclude Include="d3dx12.h">
+      <Filter>Util\CDX\include</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceResources.h">
+      <Filter>Util\CDX\include</Filter>
+    </ClInclude>
+    <ClInclude Include="DXSample.h">
+      <Filter>Util\CDX\include</Filter>
+    </ClInclude>
+    <ClInclude Include="DXSampleHelper.h">
+      <Filter>Util\CDX\include</Filter>
+    </ClInclude>
+    <ClInclude Include="StepTimer.h">
+      <Filter>Util\CDX\include</Filter>
+    </ClInclude>
+    <ClInclude Include="CommandQueue.h">
+      <Filter>Util\include</Filter>
+    </ClInclude>
+    <ClInclude Include="llvm-expected.h">
+      <Filter>External\include</Filter>
+    </ClInclude>
+    <ClInclude Include="ResourceHelper.h">
+      <Filter>Util\include</Filter>
+    </ClInclude>
+    <ClInclude Include="RootAllocator.h">
+      <Filter>Util\include</Filter>
+    </ClInclude>
+    <ClInclude Include="RayTracingPipeline.h">
+      <Filter>Util\include</Filter>
+    </ClInclude>
+    <ClInclude Include="RayTracingShaderTable.h">
+      <Filter>Util\include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -65,17 +101,32 @@
     <ClCompile Include="Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Win32Application.cpp">
-      <Filter>Source Files\Util</Filter>
-    </ClCompile>
-    <ClCompile Include="DXSample.cpp">
-      <Filter>Source Files\Util</Filter>
+    <ClCompile Include="D3D12Raytracingばか.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DeviceResources.cpp">
-      <Filter>Source Files\Util</Filter>
+      <Filter>Util\CDX\src</Filter>
     </ClCompile>
-    <ClCompile Include="D3D12RaytracingSimpleLighting.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="DXSample.cpp">
+      <Filter>Util\CDX\src</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32Application.cpp">
+      <Filter>Util\CDX\src</Filter>
+    </ClCompile>
+    <ClCompile Include="CommandQueue.cpp">
+      <Filter>Util\src</Filter>
+    </ClCompile>
+    <ClCompile Include="ResourceHelper.cpp">
+      <Filter>Util\src</Filter>
+    </ClCompile>
+    <ClCompile Include="RootAllocator.cpp">
+      <Filter>Util\src</Filter>
+    </ClCompile>
+    <ClCompile Include="RayTracingPipeline.cpp">
+      <Filter>Util\src</Filter>
+    </ClCompile>
+    <ClCompile Include="RayTracingShaderTable.cpp">
+      <Filter>Util\src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

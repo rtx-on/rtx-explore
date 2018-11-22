@@ -33,6 +33,10 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+#include <map>
+#include <cstdint>  // For uint64_t
+#include <queue>    // For std::queue
+
 #include <atlbase.h>
 #include <assert.h>
 
@@ -52,3 +56,9 @@
 #include "DXSampleHelper.h"
 #include "DeviceResources.h"
 
+#include "llvm-expected.h"
+#include "CommandQueue.h"
+#include "ResourceHelper.h"
+#include "RootAllocator.h"
+
+#include "RayTracingPipeline.h"
