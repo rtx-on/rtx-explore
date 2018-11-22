@@ -146,8 +146,11 @@ private:
     XMVECTOR m_up;
 	XMVECTOR m_right;
 	XMVECTOR m_forward;
+	bool m_camChanged;
 	static const float c_rotateDegrees;
 	static const float c_movementAmountFactor;
+
+	static const unsigned int c_maxIteration;
 
     void EnableDirectXRaytracing(IDXGIAdapter1* adapter);
     void ParseCommandLineArgs(WCHAR* argv[], int argc);

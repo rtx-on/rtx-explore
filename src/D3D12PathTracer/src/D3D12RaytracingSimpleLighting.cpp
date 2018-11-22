@@ -28,6 +28,7 @@ const wchar_t* D3D12RaytracingSimpleLighting::c_closestHitShaderName = L"MyClose
 const wchar_t* D3D12RaytracingSimpleLighting::c_missShaderName = L"MyMissShader";
 const float D3D12RaytracingSimpleLighting::c_rotateDegrees = 5.f;
 const float D3D12RaytracingSimpleLighting::c_movementAmountFactor = 0.1f;
+const unsigned int D3D12RaytracingSimpleLighting::c_maxIteration = 6000;
 
 D3D12RaytracingSimpleLighting::D3D12RaytracingSimpleLighting(UINT width, UINT height, std::wstring name) :
     DXSample(width, height, name),
@@ -124,6 +125,8 @@ void D3D12RaytracingSimpleLighting::InitializeScene()
         m_right = { 1.0f, 0.0f, 0.0f, 1.0f };
 		m_up = { 0.0f, 1.0f, 0.0f, 1.0f };
 		m_forward = { 0.0f, 0.0f, 1.0f, 1.0f };
+
+		m_camChanged = true;
         
         UpdateCameraMatrices();
     }
@@ -143,9 +146,13 @@ void D3D12RaytracingSimpleLighting::InitializeScene()
 
         lightDiffuseColor = XMFLOAT4(1.0, 0.5f, 0.5f, 1.0f);
         m_sceneCB[frameIndex].lightDiffuseColor = XMLoadFloat4(&lightDiffuseColor);
-
-		m_sceneCB[frameIndex].iteration = 1;
     }
+
+	// Setup path tracing state
+	{
+		m_sceneCB[frameIndex].iteration = 1;
+		m_sceneCB[frameIndex].depth = 16;
+	}
 
     // Apply the initial values to all frames' buffer instances.
     for (auto& sceneCB : m_sceneCB)
@@ -1130,8 +1137,16 @@ void D3D12RaytracingSimpleLighting::OnUpdate()
         m_sceneCB[frameIndex].lightPosition = XMVector3Transform(prevLightPosition, rotate);
     }
 
-	if (m_sceneCB[frameIndex].iteration < 5000) {
-		m_sceneCB[frameIndex].iteration += 1;
+	{
+		if (m_camChanged) {
+			m_sceneCB[frameIndex].iteration = 1;
+			m_camChanged = false;
+		}
+		else {
+			if (m_sceneCB[frameIndex].iteration < c_maxIteration) {
+				m_sceneCB[frameIndex].iteration += 1;
+			}
+		}
 	}
 }
 
@@ -1481,6 +1496,7 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 
 		m_eye = XMVector3Transform(m_eye, translate);
 		m_at = XMVector3Transform(m_at, translate);
+		m_camChanged = true;
 		break;
 	}
 
@@ -1493,6 +1509,7 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 
 		m_eye = XMVector3Transform(m_eye, translate);
 		m_at = XMVector3Transform(m_at, translate);
+		m_camChanged = true;
 		break;
 	}
 
@@ -1505,6 +1522,7 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 
 		m_eye = XMVector3Transform(m_eye, translate);
 		m_at = XMVector3Transform(m_at, translate);
+		m_camChanged = true;
 		break;
 	}
 
@@ -1517,6 +1535,7 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 
 		m_eye = XMVector3Transform(m_eye, translate);
 		m_at = XMVector3Transform(m_at, translate);
+		m_camChanged = true;
 		break;
 	}
 
@@ -1529,6 +1548,7 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 
 		m_eye = XMVector3Transform(m_eye, translate);
 		m_at = XMVector3Transform(m_at, translate);
+		m_camChanged = true;
 		break;
 	}
 
@@ -1541,6 +1561,7 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 
 		m_eye = XMVector3Transform(m_eye, translate);
 		m_at = XMVector3Transform(m_at, translate);
+		m_camChanged = true;
 		break;
 	}
 
@@ -1551,6 +1572,7 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		m_up = XMVector3Transform(m_up, rotate);
 		m_forward = XMVector3Transform(m_forward, rotate);
 		m_at = XMVector3Transform(m_at, rotate);
+		m_camChanged = true;
 		break;
 	}
 
@@ -1561,6 +1583,7 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		m_up = XMVector3Transform(m_up, rotate);
 		m_forward = XMVector3Transform(m_forward, rotate);
 		m_at = XMVector3Transform(m_at, rotate);
+		m_camChanged = true;
 		break;
 	}
 
@@ -1571,6 +1594,7 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		m_right = XMVector3Transform(m_right, rotate);
 		m_forward = XMVector3Transform(m_forward, rotate);
 		m_at = XMVector3Transform(m_at, rotate);
+		m_camChanged = true;
 		break;
 	}
 
@@ -1581,9 +1605,7 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		m_right = XMVector3Transform(m_right, rotate);
 		m_forward = XMVector3Transform(m_forward, rotate);
 		m_at = XMVector3Transform(m_at, rotate);
-		m_sceneCB[0].iteration = 0;
-		m_sceneCB[1].iteration = 0;
-		m_sceneCB[2].iteration = 0;
+		m_camChanged = true;
 		break;
 	}
 	}

@@ -29,6 +29,7 @@ struct SceneConstantBuffer
     XMVECTOR lightAmbientColor;
     XMVECTOR lightDiffuseColor;
 	UINT iteration;
+	UINT depth;
 };
 
 struct CubeConstantBuffer

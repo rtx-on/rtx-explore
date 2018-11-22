@@ -15,6 +15,9 @@
 #define HLSL
 #include "RayTracingHlslCompat.h"
 
+#define AA 1
+#define DOF 0
+
 RaytracingAccelerationStructure Scene : register(t0, space0);
 RWTexture2D<float4> RenderTarget : register(u0);
 ByteAddressBuffer Indices : register(t1, space0);
@@ -31,19 +34,22 @@ static const float PI = 3.14159265f;
 static const float TWO_PI = 6.283185f;
 static const float SQRT_OF_ONE_THIRD = 0.577350f;
 
-// Functions for PRNG
-static uint rng_state;
-static const float png_01_convert = (1.0f / 4294967296.0f);
+static const float4 BACKGROUND_COLOR = float4(0,0,0,0);
+static const float4 INITIAL_COLOR = float4(1, 1, 1, 0);
+
+static uint rng_state; // the current seed
+static const float png_01_convert = (1.0f / 4294967296.0f); // to convert into a 01 distribution
+
+// Magic bit shifting algorithm from George Marsaglia's paper
 uint rand_xorshift()
 {
-	// Xorshift algorithm from George Marsaglia's paper
 	rng_state ^= uint(rng_state << 13);
 	rng_state ^= uint(rng_state >> 17);
 	rng_state ^= uint(rng_state << 5);
 	return rng_state;
 }
 
-// Wang hash
+// Wang hash for randomizing
 uint wang_hash(uint seed)
 {
 	seed = (seed ^ 61) ^ (seed >> 16);
@@ -54,12 +60,15 @@ uint wang_hash(uint seed)
 	return seed;
 }
 
-SamplerState MeshTextureSampler
-{
-	Filter = MIN_MAG_MIP_LINEAR;
-	AddressU = Wrap;
-	AddressV = Wrap;
-};
+// Sets the seed of the pseudo-rng calls using the index of the pixel, the iteration number, and the current depth
+void ComputeRngSeed(uint index, uint iteration, uint depth) {
+	rng_state = uint(wang_hash((1 << 31) | (depth << 22) | iteration) ^ wang_hash(index));
+}
+
+// Returns a pseudo-rng float between 0 and 1. Must call ComputeRngSeed at least once.
+float Uniform01() {
+	return float(rand_xorshift() * png_01_convert);
+}
 
 // Load three 16 bit indices from a byte addressed buffer.
 uint3 Load3x16BitIndices(uint offsetBytes)
@@ -123,10 +132,42 @@ float2 HitAttribute2D(float2 vertexAttribute[3], BuiltInTriangleIntersectionAttr
 		attr.barycentrics.y * (vertexAttribute[2] - vertexAttribute[0]);
 }
 
+/**
+ * Maps a (u,v) in [0, 1)^2 to a 2D unit disk centered at (0,0). Based on PBRT
+ */
+float2 CalculateConcentricSampleDisk(float u, float v) {
+	float2 uOffset = 2.0f * float2(u, v) - float2(1, 1);
+	if (uOffset.x == 0 && uOffset.y == 0) {
+		return float2(0.0f, 0.0f);
+	}
+
+	float theta, r;
+	if (abs(uOffset.x) > abs(uOffset.y)) {
+		r = uOffset.x;
+		theta = PI / 4 * (uOffset.y / uOffset.x);
+	}
+	else {
+		r = uOffset.y;
+		theta = (PI / 2) - (PI / 4 * (uOffset.x / uOffset.y));
+	}
+	return r * float2(cos(theta), sin(theta));
+}
+
 // Generate a ray in world space for a camera pixel corresponding to an index from the dispatched 2D grid.
 inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 direction)
 {
     float2 xy = index + 0.5f; // center in the middle of the pixel.
+
+#if AA
+	// Anti - aliasing
+	float epsilonX = 0;
+	float epsilonY = 0;
+	epsilonX = Uniform01();
+	epsilonY = Uniform01();
+	xy.x += epsilonX;
+	xy.y += epsilonY;
+#endif
+
     float2 screenPos = xy / DispatchRaysDimensions().xy * 2.0 - 1.0;
 
     // Invert Y for DirectX-style coordinates.
@@ -138,6 +179,17 @@ inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 directi
     world.xyz /= world.w;
     origin = g_sceneCB.cameraPosition.xyz;
     direction = normalize(world.xyz - origin);
+
+#if DOF
+	// Depth of Field
+	float lensRad = 0.5f;
+	float focalDist = 20.0f;
+	float3 pLens = float3(lensRad * CalculateConcentricSampleDisk(Uniform01(), Uniform01()), 0.0f);
+	float ft = focalDist / abs(direction.z);
+	float3 pFocus = direction * ft;
+	origin += pLens;
+	direction = normalize(pFocus - pLens);
+#endif
 }
 
 // Diffuse lighting calculation.
@@ -157,9 +209,9 @@ float4 CalculateDiffuseLighting(float3 hitPosition, float3 normal)
  */
 float3 CalculateRandomDirectionInHemisphere(float3 normal) {
 
-	float up = sqrt(float(rand_xorshift() * png_01_convert)); // cos(theta)
+	float up = sqrt(Uniform01()); // cos(theta)
 	float over = sqrt(1 - up * up); // sin(theta)
-	float around = float(rand_xorshift() * png_01_convert) * TWO_PI;
+	float around = Uniform01() * TWO_PI;
 
 	// Find a direction that is not the normal based off of whether or not the
 	// normal's components are all equal to sqrt(1/3) or whether or not at
@@ -191,37 +243,40 @@ float3 CalculateRandomDirectionInHemisphere(float3 normal) {
 [shader("raygeneration")]
 void MyRaygenShader()
 {
-    float3 rayDir;
-    float3 origin;
+	// Path tracing depth
+	int depth = g_sceneCB.depth;
+
+	// Set the seed of the prng factory
+	uint2 samplePt = DispatchRaysIndex().xy;
+	uint2 sampleDim = DispatchRaysDimensions().xy;
+	uint id = samplePt.x + sampleDim.x * samplePt.y;
+	ComputeRngSeed(id, g_sceneCB.iteration, depth);
+
+	// Ray state to be filled before the first TraceRay()
+	float3 rayDir;
+	float3 origin;
     
     // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
     GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
 
-    // Trace the ray.
-    // Set the ray's extents.
+	// Ray to be traced
     RayDesc ray;
     ray.Origin = origin;
     ray.Direction = rayDir;
-
-    // Set TMin to a non-zero small value to avoid aliasing issues due to floating - point errors.
-    // TMin should be kept small to prevent missing geometry at close contact areas.
     ray.TMin = 0.001;
     ray.TMax = 10000.0;
-    RayPayload payload = { float4(1, 1, 1, -1.0f), float3(0, 0, 0), float3(0, 0, 0)};
+
+	// Payload: color with w coord indicating type of hit, origin of the new ray, direction of new ray
+    RayPayload payload = { float4(INITIAL_COLOR.rgb, -1.0f), float3(0, 0, 0), float3(0, 0, 0)};
+
+
 	// for loop over path tracing depth
 	// given pay load data (missed, hit something), do something
 	// case 1: hit nothing - stop here
 	// case 2: hit light source - output accumulated color
 	// case 3: hit something else, keep going with new direction
-	int depth = 16; // MAKE THIS PART OF THE SEED
-
-	// Use PRNG to generate ray direction
-	uint2 samplePt = DispatchRaysIndex().xy;
-	uint2 sampleDim = DispatchRaysDimensions().xy;
+	// case 4: no more tracing and didnt hit light: stop here
 	for (int i = 0; i < depth; i++) {
-		uint id = samplePt.x + sampleDim.x * samplePt.y;
-		rng_state = uint(wang_hash((1 << 31) | (depth << 22) | g_sceneCB.iteration) ^ wang_hash(id));
-
 		TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
 
 		if (payload.color.w == 1.0f) {
@@ -230,7 +285,8 @@ void MyRaygenShader()
 			ray.Direction = payload.rayDir;
 			payload.color = float4(payload.color.rgb, -1.0f);
 			if (i == depth - 1) {
-				payload.color = float4(0.0f, 0.0f, 0.0f, 0.0f);
+				// if this is the final depth, then stop here with a black color
+				payload.color = BACKGROUND_COLOR;
 			}
 		}
 		else {
@@ -258,6 +314,8 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	float3 hitPosition = HitWorldPosition();
 	uint instanceId = InstanceID();
 	float hitType;
+
+	// TODO: needs to be edited with type of hit object later
 	if (instanceId == 1) {
 		hitType = 1; // object
 	}
@@ -307,8 +365,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 [shader("miss")]
 void MyMissShader(inout RayPayload payload)
 {
-	float3 background = float3(0.0f, 0.0f, 0.0f);
-	payload.color = float4(background.xyz, -1.0f);
+	payload.color = float4(BACKGROUND_COLOR.xyz, -1.0f); // -1 to indicate hit nothing
 }
 
 #endif // RAYTRACING_HLSL
