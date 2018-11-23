@@ -13,7 +13,7 @@ public:
                                  D3D12_RESOURCE_STATES before,
                                  D3D12_RESOURCE_STATES after);
 
-  ComPtr<ID3D12Resource>
+  static ComPtr<ID3D12Resource>
   CreateBuffer(ComPtr<ID3D12Device> device, UINT size, D3D12_RESOURCE_STATES state,
                const D3D12_HEAP_PROPERTIES &heap_properties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),std::wstring resource_name = L"",
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE);
