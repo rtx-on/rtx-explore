@@ -126,7 +126,6 @@ public:
 
     //glm::mat4 369
     //TODO matrices
-
     raytracing_instance_desc[0].InstanceID = 0;
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC acceleration_structure_desc{};

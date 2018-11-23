@@ -93,6 +93,9 @@
     <ClInclude Include="RayTracingShaderTable.h">
       <Filter>Util\include</Filter>
     </ClInclude>
+    <ClInclude Include="RayTracingAcclerationStructure.h">
+      <Filter>Util\include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -128,12 +131,8 @@
     <ClCompile Include="RayTracingShaderTable.cpp">
       <Filter>Util\src</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="readme.md" />
-    <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="Raytracing.hlsl" />
+    <ClCompile Include="RayTracingAcclerationStructure.cpp">
+      <Filter>Util\src</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

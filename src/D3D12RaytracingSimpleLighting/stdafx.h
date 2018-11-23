@@ -1,14 +1,3 @@
-//*********************************************************
-//
-// Copyright (c) Microsoft. All rights reserved.
-// This code is licensed under the MIT License (MIT).
-// THIS CODE IS PROVIDED *AS IS* WITHOUT WARRANTY OF
-// ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING ANY
-// IMPLIED WARRANTIES OF FITNESS FOR A PARTICULAR
-// PURPOSE, MERCHANTABILITY, OR NON-INFRINGEMENT.
-//
-//*********************************************************
-
 // stdafx.h : include file for standard system include files,
 // or project specific include files that are used frequently, but
 // are changed infrequently.
@@ -22,14 +11,14 @@
 #include <windows.h>
 
 // C RunTime Header Files
-#include <stdlib.h>
+#include <cassert>
+
+// C++
+#include <algorithm>
 #include <sstream>
 #include <iomanip>
-
 #include <list>
 #include <string>
-#include <wrl.h>
-#include <shellapi.h>
 #include <memory>
 #include <unordered_map>
 #include <vector>
@@ -37,9 +26,19 @@
 #include <cstdint>  // For uint64_t
 #include <queue>    // For std::queue
 
+// WINDOWS SPECIFIC
+#include <wrl.h>
+#include <shellapi.h>
 #include <atlbase.h>
-#include <assert.h>
 
+///EXTERNAL
+//GLM
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+
+//DIRECTX
 #include <dxgi1_6.h>
 #include "d3d12_1.h"
 #include <atlbase.h>
@@ -62,3 +61,5 @@
 #include "RootAllocator.h"
 
 #include "RayTracingPipeline.h"
+
+
