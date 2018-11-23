@@ -27,6 +27,8 @@ const wchar_t* D3D12RaytracingSimpleLighting::c_raygenShaderName = L"MyRaygenSha
 const wchar_t* D3D12RaytracingSimpleLighting::c_closestHitShaderName = L"MyClosestHitShader";
 const wchar_t* D3D12RaytracingSimpleLighting::c_missShaderName = L"MyMissShader";
 const float D3D12RaytracingSimpleLighting::c_rotateDegrees = 5.f;
+const float D3D12RaytracingSimpleLighting::c_movementAmountFactor = 0.1f;
+const unsigned int D3D12RaytracingSimpleLighting::c_maxIteration = 6000;
 
 D3D12RaytracingSimpleLighting::D3D12RaytracingSimpleLighting(UINT width, UINT height, std::wstring name) :
     DXSample(width, height, name),
@@ -123,6 +125,8 @@ void D3D12RaytracingSimpleLighting::InitializeScene()
         m_right = { 1.0f, 0.0f, 0.0f, 1.0f };
 		m_up = { 0.0f, 1.0f, 0.0f, 1.0f };
 		m_forward = { 0.0f, 0.0f, 1.0f, 1.0f };
+
+		m_camChanged = true;
         
         UpdateCameraMatrices();
     }
@@ -140,9 +144,15 @@ void D3D12RaytracingSimpleLighting::InitializeScene()
         lightAmbientColor = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
         m_sceneCB[frameIndex].lightAmbientColor = XMLoadFloat4(&lightAmbientColor);
 
-        lightDiffuseColor = XMFLOAT4(0, 0.0f, 0.5f, 1.0f);
+        lightDiffuseColor = XMFLOAT4(1.0, 0.5f, 0.5f, 1.0f);
         m_sceneCB[frameIndex].lightDiffuseColor = XMLoadFloat4(&lightDiffuseColor);
     }
+
+	// Setup path tracing state
+	{
+		m_sceneCB[frameIndex].iteration = 1;
+		m_sceneCB[frameIndex].depth = 16;
+	}
 
     // Apply the initial values to all frames' buffer instances.
     for (auto& sceneCB : m_sceneCB)
@@ -196,7 +206,7 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
     CreateDescriptorHeap();
 
     // Build geometry to be used in the sample.
-    //BuildGeometry();
+   // BuildGeometry();
 	BuildMesh("src/objects/wahoo.obj");
 
     // Build raytracing acceleration structures from the generated geometry.
@@ -222,7 +232,7 @@ bool D3D12RaytracingSimpleLighting::CreateTexture() {
 	D3D12_RESOURCE_DESC textureDesc;
 	int imageBytesPerRow;
 	BYTE* imageData;
-	int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, L"wahoo.bmp", imageBytesPerRow);
+	int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, L"src/textures/wahoo.bmp", imageBytesPerRow);
 
 	// make sure we have data
 	if (imageSize <= 0)
@@ -416,7 +426,6 @@ void D3D12RaytracingSimpleLighting::CreateRootSignatures()
 		rootParameters[GlobalRootSignatureParams::NormalTextureSlot].InitAsDescriptorTable(1, &ranges[3]);
         rootParameters[GlobalRootSignatureParams::SceneConstantSlot].InitAsConstantBufferView(0);
         rootParameters[GlobalRootSignatureParams::VertexBuffersSlot].InitAsDescriptorTable(1, &ranges[1]);
-		
 
 		// LOOKAT
 		// create a static sampler
@@ -437,7 +446,7 @@ void D3D12RaytracingSimpleLighting::CreateRootSignatures()
 
 		memcpy(&sampler[1], &sampler[0], sizeof(D3D12_STATIC_SAMPLER_DESC));
 		sampler[1].ShaderRegister = 1;
-        CD3DX12_ROOT_SIGNATURE_DESC globalRootSignatureDesc(ARRAYSIZE(rootParameters), rootParameters, 2, sampler);
+        CD3DX12_ROOT_SIGNATURE_DESC globalRootSignatureDesc(ARRAYSIZE(rootParameters), rootParameters, 2, &sampler[0]);
         SerializeAndCreateRaytracingRootSignature(globalRootSignatureDesc, &m_raytracingGlobalRootSignature);
     }
 
@@ -535,7 +544,7 @@ void D3D12RaytracingSimpleLighting::CreateRaytracingPipelineStateObject()
     // Shader config
     // Defines the maximum sizes in bytes for the ray payload and attribute structure.
     auto shaderConfig = raytracingPipeline.CreateSubobject<CD3D12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
-    UINT payloadSize = sizeof(XMFLOAT4);    // float4 pixelColor
+	UINT payloadSize = sizeof(XMFLOAT4) + sizeof(XMFLOAT3) * 2;    // float4 pixelColor
     UINT attributeSize = sizeof(XMFLOAT2);  // float2 barycentrics
     shaderConfig->Config(payloadSize, attributeSize);
 
@@ -599,7 +608,9 @@ void D3D12RaytracingSimpleLighting::CreateDescriptorHeap()
 
     D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
     // Allocate a heap for 5 descriptors:
-    // 3 - vertex and index buffer SRVs and texture
+    // 2 - vertex and index buffer SRVs
+	// 1 - tex
+	// 1 - norm tex
     // 1 - raytracing output texture SRV
     // 2 - bottom and top level acceleration structure fallback wrapped pointer UAVs
     descriptorHeapDesc.NumDescriptors = 7; 
@@ -612,6 +623,7 @@ void D3D12RaytracingSimpleLighting::CreateDescriptorHeap()
     m_descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
+/*
 void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 	// load mesh here
 	std::vector<tinyobj::shape_t> shapes;
@@ -673,10 +685,10 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 		UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, vertices.size(), sizeof(Vertex));
 		ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
 	}
-}
+} */
 
 // alternative function that adds shapes
-/*
+
 
 void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 	// load mesh here
@@ -696,16 +708,19 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 	}
 	else
 	{
-		int min_idx = 0;
-		//Read the information from the vector of shape_ts
+		// loop over shapes
+		int finalIdx = 0;
 		for (unsigned int s = 0; s < shapes.size(); s++)
 		{
 			size_t index_offset = 0;
+			// loop over  faces
 			for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
 				int fv = shapes[s].mesh.num_face_vertices[f];
 				std::vector<float> &positions = attrib.vertices;
 				std::vector<float> &normals = attrib.normals;
 				std::vector<float> &texcoords = attrib.texcoords;
+				
+				// loop over vertices in face, might be > 3
 				for (size_t v = 0; v < fv; v++) {
 					tinyobj::index_t index = shapes[s].mesh.indices[v + index_offset];
 
@@ -721,11 +736,12 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 						vert.texCoord = XMFLOAT2(texcoords[index.texcoord_index * 2], 1- texcoords[index.texcoord_index * 2 + 1]);
 					}
 					vertices.push_back(vert);
-					indices.push_back((Index)(index_offset + v));
+					indices.push_back((Index)(finalIdx + index_offset + v));
 				}
 
 				index_offset += fv;
 			}
+			finalIdx += index_offset;
 		}
 		auto device = m_deviceResources->GetD3DDevice();
 		Vertex* vPtr = vertices.data();
@@ -740,7 +756,7 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 		ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
 	}
 }
-*/
+
 
 // Build geometry used in the sample.
 void D3D12RaytracingSimpleLighting::BuildGeometry()
@@ -803,17 +819,16 @@ void D3D12RaytracingSimpleLighting::BuildGeometry()
         { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
     };
 
-    AllocateUploadBuffer(device, indices, sizeof(indices), &m_indexBuffer.resource);
-    AllocateUploadBuffer(device, vertices, sizeof(vertices), &m_vertexBuffer.resource);
+   // AllocateUploadBuffer(device, indices, sizeof(indices), &m_indexBufferCube.resource);
+   // AllocateUploadBuffer(device, vertices, sizeof(vertices), &m_vertexBufferCube.resource);
 
     // Vertex buffer is passed to the shader along with index buffer as a descriptor table.
     // Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
-   /* UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, sizeof(indices)/4, 0);
-    UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, ARRAYSIZE(vertices), sizeof(vertices[0]));*/
 
-	UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, 36 * sizeof(Index) / 4, 0);
-	UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, 6 , sizeof(vertices[0]));
-    ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
+	//UINT descriptorIndexIB = CreateBufferSRV(&m_indexBufferCube, 36 * sizeof(Index) / 4, 0);
+	//UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBufferCube, 6 , sizeof(vertices[0]));
+    //ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
+    //ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
 }
 
 // Build acceleration structures needed for raytracing.
@@ -827,6 +842,9 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
     // Reset the command list for the acceleration structure construction.
     commandList->Reset(commandAllocator, nullptr);
 
+	D3D12_RAYTRACING_GEOMETRY_DESC geometryDescs[1];
+
+	// Mesh Geom Desc
     D3D12_RAYTRACING_GEOMETRY_DESC geometryDesc = {};
     geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
 	geometryDesc.Triangles.IndexBuffer = m_indexBuffer.resource->GetGPUVirtualAddress();
@@ -843,6 +861,8 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
     // Note: When rays encounter opaque geometry an any hit shader will not be executed whether it is present or not.
     geometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
 
+	geometryDescs[0] = geometryDesc;
+
     // Get required sizes for an acceleration structure.
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS buildFlags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
     
@@ -850,15 +870,15 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS &bottomLevelInputs = bottomLevelBuildDesc.Inputs;
     bottomLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
     bottomLevelInputs.Flags = buildFlags;
-    bottomLevelInputs.NumDescs = 1;
+    bottomLevelInputs.NumDescs = 1; // WATCHOUT
     bottomLevelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-    bottomLevelInputs.pGeometryDescs = &geometryDesc;
+    bottomLevelInputs.pGeometryDescs = &geometryDescs[0];
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC topLevelBuildDesc = bottomLevelBuildDesc;
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS &topLevelInputs = topLevelBuildDesc.Inputs;
     topLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
     topLevelInputs.Flags = buildFlags;
-    topLevelInputs.NumDescs = 1;
+    topLevelInputs.NumDescs = 3;
     topLevelInputs.pGeometryDescs = nullptr;
     topLevelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 
@@ -924,12 +944,38 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
     ComPtr<ID3D12Resource> instanceDescs;
     if (m_raytracingAPI == RaytracingAPI::FallbackLayer)
     {
+		D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDescArray[3];
         D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDesc = {};
         instanceDesc.Transform[0][0] = instanceDesc.Transform[1][1] = instanceDesc.Transform[2][2] = 1;
         instanceDesc.InstanceMask = 1;
+		instanceDesc.InstanceID = 1;
+
+		D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDesc2= {};
+		instanceDesc2.Transform[0][0] = instanceDesc2.Transform[1][1] = instanceDesc2.Transform[2][2] = 4.0f;
+		instanceDesc2.Transform[0][3] = -10;
+		instanceDesc2.Transform[1][3] = 4;
+		instanceDesc2.Transform[2][3] = 5;
+		instanceDesc2.InstanceMask = 1;
+		instanceDesc2.InstanceID = 2;
+
+		D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDesc3 = {};
+		instanceDesc3.Transform[0][0] = instanceDesc3.Transform[1][1] = instanceDesc3.Transform[2][2] = 4.0f;
+		instanceDesc3.Transform[0][3] = 10;
+		instanceDesc3.Transform[1][3] = -3;
+		instanceDesc3.Transform[2][3] = -5;
+		instanceDesc3.InstanceMask = 1;
+		instanceDesc3.InstanceID = 3;
+
         UINT numBufferElements = static_cast<UINT>(bottomLevelPrebuildInfo.ResultDataMaxSizeInBytes) / sizeof(UINT32);
         instanceDesc.AccelerationStructure = CreateFallbackWrappedPointer(m_bottomLevelAccelerationStructure.Get(), numBufferElements); 
-        AllocateUploadBuffer(device, &instanceDesc, sizeof(instanceDesc), &instanceDescs, L"InstanceDescs");
+		instanceDesc2.AccelerationStructure = instanceDesc.AccelerationStructure;
+		instanceDesc3.AccelerationStructure = instanceDesc.AccelerationStructure;
+
+		instanceDescArray[0] = instanceDesc;
+		instanceDescArray[1] = instanceDesc2;
+		instanceDescArray[2] = instanceDesc3;
+
+        AllocateUploadBuffer(device, instanceDescArray, sizeof(D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC) * 3, &instanceDescs, L"InstanceDescs");
     }
     else // DirectX Raytracing
     {
@@ -1090,6 +1136,18 @@ void D3D12RaytracingSimpleLighting::OnUpdate()
         const XMVECTOR& prevLightPosition = m_sceneCB[prevFrameIndex].lightPosition;
         m_sceneCB[frameIndex].lightPosition = XMVector3Transform(prevLightPosition, rotate);
     }
+
+	{
+		if (m_camChanged) {
+			m_sceneCB[frameIndex].iteration = 1;
+			m_camChanged = false;
+		}
+		else {
+			if (m_sceneCB[frameIndex].iteration < c_maxIteration) {
+				m_sceneCB[frameIndex].iteration += 1;
+			}
+		}
+	}
 }
 
 
@@ -1142,7 +1200,6 @@ void D3D12RaytracingSimpleLighting::DoRaytracing()
         commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::VertexBuffersSlot, m_indexBuffer.gpuDescriptorHandle);
         commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::OutputViewSlot, m_raytracingOutputResourceUAVGpuDescriptor);
 		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, m_textureBuffer.gpuDescriptorHandle); // LOOKAT
-		//commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, meshes[0].material.diffuse.gpu_descriptor_handle); // LOOKAT
 		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::NormalTextureSlot, m_normalTextureBuffer.gpuDescriptorHandle); // LOOKAT
 	};
 
@@ -1235,7 +1292,6 @@ void D3D12RaytracingSimpleLighting::ReleaseDeviceDependentResources()
 
     m_bottomLevelAccelerationStructure.Reset();
     m_topLevelAccelerationStructure.Reset();
-
 }
 
 void D3D12RaytracingSimpleLighting::RecreateD3D()
@@ -1434,66 +1490,78 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 	case 0x44: // D
 	{
 		XMFLOAT4 right;
+		XMVector4Normalize(m_right);
 		XMStoreFloat4(&right, m_right);
-		XMMATRIX translate = XMMatrixTranslation(-right.x, -right.y, -right.z);
+		XMMATRIX translate = XMMatrixTranslation(-right.x * c_movementAmountFactor, -right.y * c_movementAmountFactor, -right.z * c_movementAmountFactor);
 
 		m_eye = XMVector3Transform(m_eye, translate);
 		m_at = XMVector3Transform(m_at, translate);
+		m_camChanged = true;
 		break;
 	}
 
 	case 0x41: // A
 	{
 		XMFLOAT4 right;
+		XMVector4Normalize(m_right);
 		XMStoreFloat4(&right, m_right);
-		XMMATRIX translate = XMMatrixTranslation(right.x, right.y, right.z);
+		XMMATRIX translate = XMMatrixTranslation(right.x * c_movementAmountFactor, right.y * c_movementAmountFactor, right.z * c_movementAmountFactor);
 
 		m_eye = XMVector3Transform(m_eye, translate);
 		m_at = XMVector3Transform(m_at, translate);
+		m_camChanged = true;
 		break;
 	}
 
 	case 0x53: // S
 	{
 		XMFLOAT4 up;
+		XMVector4Normalize(m_up);
 		XMStoreFloat4(&up, m_up);
-		XMMATRIX translate = XMMatrixTranslation(up.x, up.y, up.z);
+		XMMATRIX translate = XMMatrixTranslation(up.x * c_movementAmountFactor, up.y * c_movementAmountFactor, up.z * c_movementAmountFactor);
 
 		m_eye = XMVector3Transform(m_eye, translate);
 		m_at = XMVector3Transform(m_at, translate);
+		m_camChanged = true;
 		break;
 	}
 
 	case 0x57: // W
 	{
 		XMFLOAT4 up;
+		XMVector4Normalize(m_up);
 		XMStoreFloat4(&up, m_up);
-		XMMATRIX translate = XMMatrixTranslation(-up.x, -up.y, -up.z);
+		XMMATRIX translate = XMMatrixTranslation(-up.x * c_movementAmountFactor, -up.y * c_movementAmountFactor, -up.z * c_movementAmountFactor);
 
 		m_eye = XMVector3Transform(m_eye, translate);
 		m_at = XMVector3Transform(m_at, translate);
+		m_camChanged = true;
 		break;
 	}
 
 	case 0x45: // E
 	{
 		XMFLOAT4 forward;
+		XMVector4Normalize(m_forward);
 		XMStoreFloat4(&forward, m_forward);
-		XMMATRIX translate = XMMatrixTranslation(forward.x, forward.y, forward.z);
+		XMMATRIX translate = XMMatrixTranslation(forward.x * c_movementAmountFactor, forward.y * c_movementAmountFactor, forward.z * c_movementAmountFactor);
 
 		m_eye = XMVector3Transform(m_eye, translate);
 		m_at = XMVector3Transform(m_at, translate);
+		m_camChanged = true;
 		break;
 	}
 
 	case 0x51: // Q
 	{
 		XMFLOAT4 forward;
+		XMVector4Normalize(m_forward);
 		XMStoreFloat4(&forward, m_forward);
-		XMMATRIX translate = XMMatrixTranslation(-forward.x, -forward.y, -forward.z);
+		XMMATRIX translate = XMMatrixTranslation(-forward.x * c_movementAmountFactor, -forward.y * c_movementAmountFactor, -forward.z * c_movementAmountFactor);
 
 		m_eye = XMVector3Transform(m_eye, translate);
 		m_at = XMVector3Transform(m_at, translate);
+		m_camChanged = true;
 		break;
 	}
 
@@ -1504,6 +1572,7 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		m_up = XMVector3Transform(m_up, rotate);
 		m_forward = XMVector3Transform(m_forward, rotate);
 		m_at = XMVector3Transform(m_at, rotate);
+		m_camChanged = true;
 		break;
 	}
 
@@ -1514,6 +1583,7 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		m_up = XMVector3Transform(m_up, rotate);
 		m_forward = XMVector3Transform(m_forward, rotate);
 		m_at = XMVector3Transform(m_at, rotate);
+		m_camChanged = true;
 		break;
 	}
 
@@ -1524,6 +1594,7 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		m_right = XMVector3Transform(m_right, rotate);
 		m_forward = XMVector3Transform(m_forward, rotate);
 		m_at = XMVector3Transform(m_at, rotate);
+		m_camChanged = true;
 		break;
 	}
 
@@ -1534,6 +1605,7 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		m_right = XMVector3Transform(m_right, rotate);
 		m_forward = XMVector3Transform(m_forward, rotate);
 		m_at = XMVector3Transform(m_at, rotate);
+		m_camChanged = true;
 		break;
 	}
 	}

@@ -112,6 +112,7 @@ private:
     };
     D3DBuffer m_indexBuffer;
     D3DBuffer m_vertexBuffer;
+
 	D3DBuffer m_textureBuffer;
 	D3DBuffer m_normalTextureBuffer;
 	ID3D12Resource* textureBufferUploadHeap;
@@ -145,7 +146,11 @@ private:
     XMVECTOR m_up;
 	XMVECTOR m_right;
 	XMVECTOR m_forward;
+	bool m_camChanged;
 	static const float c_rotateDegrees;
+	static const float c_movementAmountFactor;
+
+	static const unsigned int c_maxIteration;
 
     void EnableDirectXRaytracing(IDXGIAdapter1* adapter);
     void ParseCommandLineArgs(WCHAR* argv[], int argc);
