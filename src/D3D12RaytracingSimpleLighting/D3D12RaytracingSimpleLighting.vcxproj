@@ -172,6 +172,7 @@ PrebuildCheck.bat</Command>
     <ClInclude Include="llvm-expected.h" />
     <ClInclude Include="RaytracingAcclerationStructure.h" />
     <ClInclude Include="RaytracingApi.h" />
+    <ClInclude Include="RaytracingDeviceHolder.h" />
     <ClInclude Include="RaytracingHlslCompat.h" />
     <ClInclude Include="RaytracingManager.h" />
     <ClInclude Include="RaytracingPipeline.h" />
@@ -191,6 +192,7 @@ PrebuildCheck.bat</Command>
     <ClCompile Include="DeviceResources.cpp" />
     <ClCompile Include="RaytracingAcclerationStructure.cpp" />
     <ClCompile Include="RaytracingApi.cpp" />
+    <ClCompile Include="RaytracingDeviceHolder.cpp" />
     <ClCompile Include="RaytracingManager.cpp" />
     <ClCompile Include="RaytracingPipeline.cpp" />
     <ClCompile Include="RaytracingShaderTable.cpp" />

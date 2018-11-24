@@ -8,7 +8,8 @@ enum class ResourceType
   UnorderedAccessView,
 };
 
-using Serializer = std::function<ComPtr<ID3D12Resource>()>;
+struct IRootResource;
+using Serializer = std::function<ComPtr<ID3D12Resource>(std::shared_ptr<DX::DeviceResources> device_resources, IRootResource* root_resource)>;
 
 struct IRootResource
 {
@@ -19,11 +20,11 @@ struct IRootResource
   {
   }
 
-  virtual ComPtr<ID3D12Resource> Serialize()
+  virtual ComPtr<ID3D12Resource> Serialize(std::shared_ptr<DX::DeviceResources> device_resources)
   {
     if (resource == nullptr)
     {
-      resource = serializer();
+      resource = serializer(device_resources, this);
     }
     return resource;
   }
@@ -111,8 +112,13 @@ struct RootConstant : IRootParameter
     return root_parameter;
   }
 
-  UINT number_of_32bytes;
-  UINT shader_register;
+  void SetResource(std::shared_ptr<IRootResource> resource)
+  {
+    root_resource = resource;
+  }
+
+  UINT number_of_32bytes = 0;
+  UINT shader_register = 0;
   UINT register_space = 0;
   D3D12_SHADER_VISIBILITY shader_visibility = D3D12_SHADER_VISIBILITY_ALL;
 
@@ -167,16 +173,31 @@ struct RootDescriptor : IRootParameter
     }
   }
 
-  UINT shader_register;
+  void SetResource(std::shared_ptr<IRootResource> resource)
+  {
+    root_resource = resource;
+  }
+
+  UINT shader_register = 0;
   UINT register_space = 0;
   D3D12_SHADER_VISIBILITY shader_visibility = D3D12_SHADER_VISIBILITY_ALL;
 
-  std::shared_ptr<IRootResource> root_resource;
+  std::shared_ptr<IRootResource> root_resource = nullptr;
 };
 
 struct RootDescriptorTable : IRootParameter
 {
   virtual ~RootDescriptorTable() = default;
+
+  std::shared_ptr<RootDescriptor> AllocateDescriptor(
+    UINT shader_register, UINT register_space = 0,
+    D3D12_SHADER_VISIBILITY shader_visibility = D3D12_SHADER_VISIBILITY_ALL)
+  {
+    auto root_parameter = std::make_shared<RootDescriptor>(
+      shader_register, register_space, shader_visibility);
+    descriptors.emplace_back(root_parameter);
+    return root_parameter;
+  }
 
   CD3DX12_ROOT_PARAMETER GetRootParameter() override
   {
@@ -228,7 +249,7 @@ constexpr UINT ROOT_DESCRIPTOR_DWORD_SIZE = 2;
 constexpr UINT ROOT_DESCRIPTOR_TABLE_DWORD_SIZE = 2;
 constexpr UINT ROOT_TABLE_DWORD_LIMIT = 64;
 
-class RootAllocator : RaytracingDeviceHolder
+class RootAllocator : public RaytracingDeviceHolder
 {
 public:
   //
@@ -350,14 +371,14 @@ public:
     {
       if (auto root_constant = std::dynamic_pointer_cast<RootConstant>(root_parameter))
       {
-        ComPtr<ID3D12Resource> resource = root_constant->root_resource->Serialize();
+        ComPtr<ID3D12Resource> resource = root_constant->root_resource->Serialize(device_resources);
         // command_list->SetComputeRoot32BitConstant(root_parameter_index, )
 
         // TODO allocator constant
       }
-      else if (auto root_desciptor = std::dynamic_pointer_cast<RootDescriptor>(root_parameter))
+      else if (auto root_descriptor = std::dynamic_pointer_cast<RootDescriptor>(root_parameter))
       {
-        ComPtr<ID3D12Resource> resource = root_desciptor->root_resource->Serialize();
+        ComPtr<ID3D12Resource> resource = root_descriptor->root_resource->Serialize(device_resources);
 
         // TODO allocator root descriptor, similiar to how its done in root
         // descriptor table
@@ -370,43 +391,34 @@ public:
         const UINT descriptor_heap_increment = device->GetDescriptorHandleIncrementSize(descriptor_heap->GetDesc().Type);
         UINT descriptor_heap_index = 0;
 
-        for (std::shared_ptr<IRootParameter> table_descriptor : table_descriptors)
+        for (std::shared_ptr<RootDescriptor> table_root_desciptor : table_descriptors)
         {
-          // only table that should be allowed
-          if (auto table_root_desciptor = std::dynamic_pointer_cast<RootDescriptor>(root_parameter))
+          std::shared_ptr<IRootResource> root_resource = table_root_desciptor->root_resource;
+          ComPtr<ID3D12Resource> resource = root_resource->Serialize(device_resources);
+
+          root_resource->cpu_handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(
+            descriptor_heap->GetCPUDescriptorHandleForHeapStart(),
+            descriptor_heap_index, descriptor_heap_increment);
+
+          root_resource->gpu_handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
+            descriptor_heap->GetGPUDescriptorHandleForHeapStart(),
+            descriptor_heap_index, descriptor_heap_increment);
+
+          if (auto cbv = std::dynamic_pointer_cast<RootResourceConstantBufferView>(root_resource))
           {
-            std::shared_ptr<IRootResource> root_resource = table_root_desciptor->root_resource;
-            ComPtr<ID3D12Resource> resource = root_resource->Serialize();
-
-            root_resource->cpu_handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(
-              descriptor_heap->GetCPUDescriptorHandleForHeapStart(),
-              descriptor_heap_index, descriptor_heap_increment);
-
-            root_resource->gpu_handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
-              descriptor_heap->GetGPUDescriptorHandleForHeapStart(),
-              descriptor_heap_index, descriptor_heap_increment);
-
-            if (auto cbv = std::dynamic_pointer_cast<RootResourceConstantBufferView>(root_resource))
-            {
-              device->CreateConstantBufferView(&cbv->desc, root_resource->cpu_handle);
-            }
-            else if (auto srv = std::dynamic_pointer_cast<RootResourceShaderResourceView>(root_resource))
-            {
-              device->CreateShaderResourceView(resource.Get(), &srv->desc, root_resource->cpu_handle);
-            }
-            else if (auto uav = std::dynamic_pointer_cast<RootResourceUnorderedAccessView>(root_resource))
-            {
-              // TODO uav needs another resource
-              // device->CreateUnorderedAccessView(resource.Get(), &srv->desc,
-              // root_resource->cpu_handle);
-            }
-            descriptor_heap_index++;
+            device->CreateConstantBufferView(&cbv->desc, root_resource->cpu_handle);
           }
-          else
+          else if (auto srv = std::dynamic_pointer_cast<RootResourceShaderResourceView>(root_resource))
           {
-            llvm::ExitOnError(
-              "Other types should be be in the descriptor table");
+            device->CreateShaderResourceView(resource.Get(), &srv->desc, root_resource->cpu_handle);
           }
+          else if (auto uav = std::dynamic_pointer_cast<RootResourceUnorderedAccessView>(root_resource))
+          {
+            // TODO uav needs another resource
+            // device->CreateUnorderedAccessView(resource.Get(), &srv->desc,
+            // root_resource->cpu_handle);
+          }
+          descriptor_heap_index++;
         }
       }
       else

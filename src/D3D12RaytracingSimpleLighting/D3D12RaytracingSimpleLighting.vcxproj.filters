@@ -99,6 +99,8 @@
     <ClInclude Include="RaytracingApi.h">
       <Filter>Util\include</Filter>
     </ClInclude>
+    <ClInclude Include="RaytracingManager.h" />
+    <ClInclude Include="RaytracingDeviceHolder.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -140,5 +142,7 @@
     <ClCompile Include="RaytracingApi.cpp">
       <Filter>Util\src</Filter>
     </ClCompile>
+    <ClCompile Include="RaytracingManager.cpp" />
+    <ClCompile Include="RaytracingDeviceHolder.cpp" />
   </ItemGroup>
 </Project>

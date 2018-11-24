@@ -29,10 +29,21 @@ public:
     device_resources->CreateDeviceResources();
     device_resources->CreateWindowSizeDependentResources();
 
+    //initalize everthing else
+    global_root_allocator.Init(device_resources, fallback_device,
+                        fallback_command_list, dxr_device, dxr_command_list,
+                        ray_tracing_api);
+    local_root_allocator.Init(device_resources, fallback_device,
+                        fallback_command_list, dxr_device, dxr_command_list,
+                        ray_tracing_api);
+
   }
   // Update camera matrices passed into the shader.
-void RaytracingManager::UpdateCameraMatrices()
+void RaytracingManager::UpdateCameraMatrices(XMVECTOR eye, XMVECTOR at, XMVECTOR up)
 {
+    m_eye = eye;
+    m_at = at;
+    m_up = up;
     auto frameIndex = device_resources->GetCurrentFrameIndex();
 
     m_sceneCB[frameIndex].cameraPosition = m_eye;
@@ -64,7 +75,7 @@ void InitializeScene()
         m_eye = XMVector3Transform(m_eye, rotate);
         m_up = XMVector3Transform(m_up, rotate);
         
-        UpdateCameraMatrices();
+        UpdateCameraMatrices(m_eye, m_at, m_up);
     }
 
     // Setup lights.
@@ -112,15 +123,29 @@ void InitializeScene()
       }
   }
 
-  void CreateRootSignatures()
-  {
-    root_signature_desc.AllocateRootDescriptorTable();
-
-  }
-
   std::shared_ptr<RaytracingApi> GetRayTracingApi()
   {
     return ray_tracing_api;
+  }
+
+  DXSample *GetDXSample()
+  { 
+    return sample;
+  }
+
+  RootAllocator& GetGlobalRootAllocator()
+  { 
+    return global_root_allocator;
+  }
+
+  RootAllocator& GetLocalRootAllocator()
+  { 
+    return local_root_allocator;
+  }
+
+  std::shared_ptr<DX::DeviceResources> GetDeviceResoures() const
+  {
+    return device_resources;
   }
 
 private:
@@ -142,5 +167,6 @@ private:
   XMVECTOR m_up;
 
   RaytracingAcclerationStructure raytracing_accleration_structure;
-  RootAllocator root_allocator;
+  RootAllocator global_root_allocator;
+  RootAllocator local_root_allocator;
 };

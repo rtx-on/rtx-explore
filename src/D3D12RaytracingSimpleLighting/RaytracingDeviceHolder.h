@@ -11,6 +11,7 @@ public:
     this->ray_tracing_api = ray_tracing_api;
   }
 
+protected:
   std::shared_ptr<DX::DeviceResources> device_resources;
   ComPtr<ID3D12RaytracingFallbackDevice> fallback_device;
   ComPtr<ID3D12RaytracingFallbackCommandList> fallback_command_list;

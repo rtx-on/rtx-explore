@@ -30,7 +30,7 @@ D3D12PathTracing::D3D12PathTracing(UINT width, UINT height, std::wstring name) :
     m_curRotationAngleRad(0.0f),
     m_isDxrSupported(false)
 {
-    manager.GetRayTracingApi().ForceSelectRaytracingAPI(RaytracingApiType::Fallback);
+    manager.GetRayTracingApi()->ForceSelectRaytracingAPI(RaytracingApiType::Fallback);
     UpdateForSizeChange(width, height);
 }
 
@@ -110,7 +110,7 @@ void D3D12PathTracing::SerializeAndCreateRaytracingRootSignature(D3D12_ROOT_SIGN
     ComPtr<ID3DBlob> blob;
     ComPtr<ID3DBlob> error;
 
-    if (manager.GetRayTracingApi() == RaytracingApiType::Fallback)
+    if (*manager.GetRayTracingApi() == RaytracingApiType::Fallback)
     {
         ThrowIfFailed(m_fallbackDevice->D3D12SerializeRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &error), error ? static_cast<wchar_t*>(error->GetBufferPointer()) : nullptr);
         ThrowIfFailed(m_fallbackDevice->CreateRootSignature(1, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS(&(*rootSig))));
@@ -122,9 +122,229 @@ void D3D12PathTracing::SerializeAndCreateRaytracingRootSignature(D3D12_ROOT_SIGN
     }
 }
 
+
 void D3D12PathTracing::CreateRootSignatures()
 {
-    auto device = m_deviceResources->GetD3DDevice();
+  
+  Index indices[] =
+    {
+        3,1,0,
+        2,1,3,
+
+        6,4,5,
+        7,4,6,
+
+        11,9,8,
+        10,9,11,
+
+        14,12,13,
+        15,12,14,
+
+        19,17,16,
+        18,17,19,
+
+        22,20,21,
+        23,20,22
+    };
+
+    // Cube vertices positions and corresponding triangle normals.
+    Vertex vertices[] =
+    {
+        { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+
+        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+
+        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+
+        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+
+        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+
+        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+    };
+
+
+  std::shared_ptr<DX::DeviceResources> device_resources = raytracing_manager.GetDeviceResoures();
+  RootAllocator& local_root_allocator = raytracing_manager.GetLocalRootAllocator();
+  RootAllocator& global_root_allocator = raytracing_manager.GetLocalRootAllocator();
+
+  std::shared_ptr<RootDescriptorTable> global_root_descriptor_table = global_root_allocator.AllocateRootDescriptorTable();
+  std::shared_ptr<RootResourceUnorderedAccessView> uav0 = std::make_shared<RootResourceUnorderedAccessView>(
+    [&raytracing_manager = this->raytracing_manager](std::shared_ptr<DX::DeviceResources> device_resources, IRootResource* root_resource)
+  {
+    ComPtr<ID3D12Resource> raytracing_output = nullptr;
+
+    RootResourceUnorderedAccessView *root_resource_uav = static_cast<RootResourceUnorderedAccessView *>(root_resource);
+
+    auto device = device_resources->GetD3DDevice();
+    auto backbufferFormat = device_resources->GetBackBufferFormat();
+
+    // Create the output resource. The dimensions and format should match the swap-chain.
+    auto uavDesc = CD3DX12_RESOURCE_DESC::Tex2D(backbufferFormat, raytracing_manager.GetDXSample()->GetWidth(), raytracing_manager.GetDXSample()->GetHeight(), 1, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+
+    auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    ThrowIfFailed(device->CreateCommittedResource(
+        &defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &uavDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&raytracing_output)));
+    NAME_D3D12_OBJECT(raytracing_output);
+
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
+    uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+    root_resource_uav->desc = uav_desc;
+
+    return raytracing_output;
+  });
+
+  std::shared_ptr<RootResourceShaderResourceView> srv1 = std::make_shared<RootResourceShaderResourceView>(
+    [&indices](std::shared_ptr<DX::DeviceResources> device_resources, IRootResource* root_resource)
+  {
+    // Vertex buffer is passed to the shader along with index buffer as a descriptor table.
+    // Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
+    ComPtr<ID3D12Resource> index_resource = nullptr;
+    RootResourceShaderResourceView *root_resource_srv = static_cast<RootResourceShaderResourceView *>(root_resource);
+    auto device = device_resources->GetD3DDevice();
+
+    //TODO change this to use resource helper
+    AllocateUploadBuffer(device, indices, sizeof(indices), &index_resource);
+    NAME_D3D12_OBJECT(index_resource);
+    UINT num_elements = sizeof(indices)/4;
+    UINT element_size = 0;
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+    srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srv_desc.Buffer.NumElements = num_elements;
+    
+    if (element_size == 0)
+    {
+        srv_desc.Format = DXGI_FORMAT_R32_TYPELESS;
+        srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+        srv_desc.Buffer.StructureByteStride = 0;
+    }
+    else
+    {
+        srv_desc.Format = DXGI_FORMAT_UNKNOWN;
+        srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+        srv_desc.Buffer.StructureByteStride = element_size;
+    }
+
+    root_resource_srv->desc = srv_desc;
+
+    return index_resource;
+  });
+  
+  std::shared_ptr<RootResourceShaderResourceView> srv2 = std::make_shared<RootResourceShaderResourceView>(
+    [&vertices](std::shared_ptr<DX::DeviceResources> device_resources, IRootResource* root_resource)
+  {
+    // Vertex buffer is passed to the shader along with index buffer as a descriptor table.
+    // Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
+    ComPtr<ID3D12Resource> vertex_resource = nullptr;
+    RootResourceShaderResourceView *root_resource_srv = static_cast<RootResourceShaderResourceView *>(root_resource);
+    auto device = device_resources->GetD3DDevice();
+
+    //TODO change this to use resource helper
+    AllocateUploadBuffer(device, vertices, sizeof(vertices), &vertex_resource);
+    NAME_D3D12_OBJECT(vertex_resource);
+    UINT num_elements = ARRAYSIZE(vertices);
+    UINT element_size = sizeof(vertices[0]);
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+    srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srv_desc.Buffer.NumElements = num_elements;
+    
+    if (element_size == 0)
+    {
+        srv_desc.Format = DXGI_FORMAT_R32_TYPELESS;
+        srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+        srv_desc.Buffer.StructureByteStride = 0;
+    }
+    else
+    {
+        srv_desc.Format = DXGI_FORMAT_UNKNOWN;
+        srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+        srv_desc.Buffer.StructureByteStride = element_size;
+    }
+
+    root_resource_srv->desc = srv_desc;
+
+    return vertex_resource;
+  });
+
+  std::shared_ptr<RootDescriptor> uav_descriptor = global_root_descriptor_table->AllocateDescriptor(0);
+  uav_descriptor->SetResource(uav0);
+  
+  std::shared_ptr<RootDescriptor> srv1_descriptor = global_root_descriptor_table->AllocateDescriptor(1);
+  srv1_descriptor->SetResource(srv1);
+  
+  std::shared_ptr<RootDescriptor> srv2_descriptor = global_root_descriptor_table->AllocateDescriptor(2);
+  srv2_descriptor->SetResource(srv2);
+
+  global_root_allocator.Serialize();
+
+  std::shared_ptr<RootResourceConstantBufferView> cb_view = std::make_shared<RootResourceConstantBufferView>(
+    [&vertices](std::shared_ptr<DX::DeviceResources> device_resources, IRootResource* root_resource)
+  {
+    // Vertex buffer is passed to the shader along with index buffer as a descriptor table.
+    // Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
+    ComPtr<ID3D12Resource> vertex_resource = nullptr;
+    RootResourceShaderResourceView *root_resource_srv = static_cast<RootResourceShaderResourceView *>(root_resource);
+    auto device = device_resources->GetD3DDevice();
+
+    //TODO change this to use resource helper
+    AllocateUploadBuffer(device, vertices, sizeof(vertices), &vertex_resource);
+    NAME_D3D12_OBJECT(vertex_resource);
+    UINT num_elements = ARRAYSIZE(vertices);
+    UINT element_size = sizeof(vertices[0]);
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+    srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srv_desc.Buffer.NumElements = num_elements;
+    
+    if (element_size == 0)
+    {
+        srv_desc.Format = DXGI_FORMAT_R32_TYPELESS;
+        srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+        srv_desc.Buffer.StructureByteStride = 0;
+    }
+    else
+    {
+        srv_desc.Format = DXGI_FORMAT_UNKNOWN;
+        srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+        srv_desc.Buffer.StructureByteStride = element_size;
+    }
+
+    root_resource_srv->desc = srv_desc;
+
+    return vertex_resource;
+  });
+
+  std::shared_ptr<RootDescriptor> cb_descriptor = local_root_allocator.AllocateRootConstant(SizeOfInUint32(m_cubeCB), 1);
+  cb_descriptor->SetResource(srv1);
+
+  local_root_allocator.Serialize();
+
+  /**/
+
+  auto device = device_resources->GetD3DDevice();
 
     // Global Root Signature
     // This is a root signature that is shared across all raytracing shaders invoked during a DispatchRays() call.
@@ -240,7 +460,7 @@ void D3D12PathTracing::CreateRaytracingPipelineStateObject()
 #endif
 
     // Create the state object.
-    if (manager.GetRayTracingApi() == RaytracingApiType::Fallback)
+    if (*manager.GetRayTracingApi() == RaytracingApiType::Fallback)
     {
         ThrowIfFailed(m_fallbackDevice->CreateStateObject(raytracingPipeline, IID_PPV_ARGS(&m_fallbackStateObject)), L"Couldn't create DirectX Raytracing state object.\n");
     }
@@ -409,7 +629,7 @@ void D3D12PathTracing::BuildAccelerationStructures()
     topLevelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO topLevelPrebuildInfo = {};
-    if (manager.GetRayTracingApi() == RaytracingApiType::Fallback)
+    if (*manager.GetRayTracingApi() == RaytracingApiType::Fallback)
     {
         m_fallbackDevice->GetRaytracingAccelerationStructurePrebuildInfo(&topLevelInputs, &topLevelPrebuildInfo);
     }
@@ -420,7 +640,7 @@ void D3D12PathTracing::BuildAccelerationStructures()
     ThrowIfFalse(topLevelPrebuildInfo.ResultDataMaxSizeInBytes > 0);
 
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO bottomLevelPrebuildInfo = {};
-    if (manager.GetRayTracingApi() == RaytracingApiType::Fallback)
+    if (*manager.GetRayTracingApi() == RaytracingApiType::Fallback)
     {
         m_fallbackDevice->GetRaytracingAccelerationStructurePrebuildInfo(&bottomLevelInputs, &bottomLevelPrebuildInfo);
     }
@@ -442,7 +662,7 @@ void D3D12PathTracing::BuildAccelerationStructures()
     //  - from the app point of view, synchronization of writes/reads to acceleration structures is accomplished using UAV barriers.
     {
         D3D12_RESOURCE_STATES initialResourceState;
-        if (manager.GetRayTracingApi() == RaytracingApiType::Fallback)
+        if (*manager.GetRayTracingApi() == RaytracingApiType::Fallback)
         {
             initialResourceState = m_fallbackDevice->GetAccelerationStructureResourceState();
         }
@@ -468,7 +688,7 @@ void D3D12PathTracing::BuildAccelerationStructures()
 
     // Create an instance desc for the bottom-level acceleration structure.
     ComPtr<ID3D12Resource> instanceDescs;
-    if (manager.GetRayTracingApi() == RaytracingApiType::Fallback)
+    if (*manager.GetRayTracingApi() == RaytracingApiType::Fallback)
     {
         D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDesc = {};
         instanceDesc.Transform[0][0] = instanceDesc.Transform[1][1] = instanceDesc.Transform[2][2] = 1;
@@ -487,7 +707,7 @@ void D3D12PathTracing::BuildAccelerationStructures()
     }
 
     // Create a wrapped pointer to the acceleration structure.
-    if (manager.GetRayTracingApi() == RaytracingApiType::Fallback)
+    if (*manager.GetRayTracingApi() == RaytracingApiType::Fallback)
     {
         UINT numBufferElements = static_cast<UINT>(topLevelPrebuildInfo.ResultDataMaxSizeInBytes) / sizeof(UINT32);
         m_fallbackTopLevelAccelerationStructurePointer = CreateFallbackWrappedPointer(m_topLevelAccelerationStructure.Get(), numBufferElements); 
@@ -514,7 +734,7 @@ void D3D12PathTracing::BuildAccelerationStructures()
     };
 
     // Build acceleration structure.
-    if (manager.GetRayTracingApi() == RaytracingApiType::Fallback)
+    if (*manager.GetRayTracingApi() == RaytracingApiType::Fallback)
     {
         // Set the descriptor heaps to be used during acceleration structure build for the Fallback Layer.
         ID3D12DescriptorHeap *pDescriptorHeaps[] = { m_descriptorHeap.Get() };
@@ -552,7 +772,7 @@ void D3D12PathTracing::BuildShaderTables()
 
     // Get shader identifiers.
     UINT shaderIdentifierSize;
-    if (manager.GetRayTracingApi() == RaytracingApiType::Fallback)
+    if (*manager.GetRayTracingApi() == RaytracingApiType::Fallback)
     {
         GetShaderIdentifiers(m_fallbackStateObject.Get());
         shaderIdentifierSize = m_fallbackDevice->GetShaderIdentifierSize();
@@ -601,23 +821,23 @@ void D3D12PathTracing::BuildShaderTables()
 void D3D12PathTracing::OnKeyDown(UINT8 key)
 {
     // Store previous values.
-    RaytracingApiType prev_raytracing_api_type = manager.GetRayTracingApi().GetRayTracingApiType();
+    RaytracingApiType prev_raytracing_api_type = manager.GetRayTracingApi()->GetRayTracingApiType();
 
     switch (key)
     {
     case VK_NUMPAD1:
     case '1': // Fallback Layer
-        manager.GetRayTracingApi().ForceSelectRaytracingAPI(RaytracingApiType::Fallback);
+        manager.GetRayTracingApi()->ForceSelectRaytracingAPI(RaytracingApiType::Fallback);
         break;
     case VK_NUMPAD2:
     case '2': // DirectX Raytracing
-        manager.GetRayTracingApi().ForceSelectRaytracingAPI(RaytracingApiType::DXR);
+        manager.GetRayTracingApi()->ForceSelectRaytracingAPI(RaytracingApiType::DXR);
         break;
     default:
         break;
     }
     
-    if (prev_raytracing_api_type != manager.GetRayTracingApi().GetRayTracingApiType())
+    if (prev_raytracing_api_type != manager.GetRayTracingApi()->GetRayTracingApiType())
     {
         // Raytracing API selection changed, recreate everything.
         RecreateD3D();
@@ -641,7 +861,7 @@ void D3D12PathTracing::OnUpdate()
         m_eye = XMVector3Transform(m_eye, rotate);
         m_up = XMVector3Transform(m_up, rotate);
         m_at = XMVector3Transform(m_at, rotate);
-        UpdateCameraMatrices();
+        raytracing_manager.UpdateCameraMatrices(m_eye, m_up, m_at);
     }
 
     // Rotate the second light around Y axis.
@@ -712,7 +932,7 @@ void D3D12PathTracing::DoRaytracing()
    
     // Bind the heaps, acceleration structure and dispatch rays.
     D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
-    if (manager.GetRayTracingApi() == RaytracingApiType::Fallback)
+    if (*manager.GetRayTracingApi() == RaytracingApiType::Fallback)
     {
         SetCommonPipelineState(m_fallbackCommandList.Get());
         m_fallbackCommandList->SetTopLevelAccelerationStructure(GlobalRootSignatureParams::AccelerationStructureSlot, m_fallbackTopLevelAccelerationStructurePointer);
@@ -756,7 +976,9 @@ void D3D12PathTracing::CopyRaytracingOutputToBackbuffer()
 void D3D12PathTracing::CreateWindowSizeDependentResources()
 {
     CreateRaytracingOutputResource(); 
-    UpdateCameraMatrices();
+    
+  //TODO
+  //UpdateCameraMatrices();
 }
 
 // Release resources that are dependent on the size of the main window.
@@ -864,7 +1086,7 @@ void D3D12PathTracing::CalculateFrameStats()
 
         wstringstream windowText;
 
-        if (manager.GetRayTracingApi() == RaytracingApiType::Fallback)
+        if (*manager.GetRayTracingApi() == RaytracingApiType::Fallback)
         {
             if (m_fallbackDevice->UsingRaytracingDriver())
             {
