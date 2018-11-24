@@ -37,6 +37,7 @@ static const float SQRT_OF_ONE_THIRD = 0.577350f;
 static const float4 BACKGROUND_COLOR = float4(0,0,0,0);
 static const float4 INITIAL_COLOR = float4(1, 1, 1, 0);
 static const float4 SPECULAR_COLOR = float4(1, 1, 1, 1);
+static const float INV_PI = 0.3183098861837906715377675267450287240689f;
 
 static uint rng_state; // the current seed
 static const float png_01_convert = (1.0f / 4294967296.0f); // to convert into a 01 distribution
@@ -437,7 +438,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	float3 triangleNormal = HitAttribute(vertexNormals, attr);
 	float2 triangleUV = HitAttribute2D(vertexUVs, attr);
 
-	if (hitType == 1) // Do both a R E F L E C C and a R E F R A C C
+	if (hitType == 1) // Do both a R E F L E C C and a R E F R A C C with fresnel effects
 	{
 		float indexOfRefraction = 1.2f; // TODO: Change this to be more general
 
@@ -461,7 +462,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	{
 		RefractiveBounce(triangleNormal, hitPosition, hitType, payload);
 	}
-	else if (hitType == 2) // Do a diffuse bounce
+	else if (hitType == 4) // Do a diffuse bounce
 	{
 		DiffuseBounce(triangleNormal, hitPosition, hitType, triangleUV, payload);
 	}
