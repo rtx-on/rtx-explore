@@ -36,6 +36,7 @@ static const float SQRT_OF_ONE_THIRD = 0.577350f;
 
 static const float4 BACKGROUND_COLOR = float4(0,0,0,0);
 static const float4 INITIAL_COLOR = float4(1, 1, 1, 0);
+static const float4 SPECULAR_COLOR = float4(1, 1, 1, 1);
 
 static uint rng_state; // the current seed
 static const float png_01_convert = (1.0f / 4294967296.0f); // to convert into a 01 distribution
@@ -203,6 +204,11 @@ float4 CalculateDiffuseLighting(float3 hitPosition, float3 normal)
     return col * g_sceneCB.lightDiffuseColor * fNDotL;
 }
 
+float dotProd(float3 input1, float3 input2)
+{
+	return (input1.x * input2.x) + (input1.y * input2.y) + (input1.z * input2.z);
+}
+
 /**
  * Computes a cosine-weighted random direction in a hemisphere.
  * Used for diffuse lighting.
@@ -319,7 +325,8 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	if (instanceId == 1) {
 		hitType = 1; // object
 	}
-	else {
+	else
+	{
 		hitType = 0; // light
 	}
 
@@ -351,15 +358,63 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	float3 triangleNormal = HitAttribute(vertexNormals, attr);
 	float2 triangleUV = HitAttribute2D(vertexUVs, attr);
 
-	// get diffuse direction
-	float3 newDir = CalculateRandomDirectionInHemisphere(triangleNormal);
-	payload.rayDir = newDir;
-	payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;;
+	if (hitType == 1) // Do a R E F R A C C
+	{
+		float indexOfRefraction = 1.2f; // TODO: Change this to be more general
 
-	// get the color
-	float3 tex = text.SampleLevel(s1, triangleUV, 0);
-	float3 color = payload.color.rgb * tex.rgb;
-	payload.color = float4(color.xyz, hitType);
+		// adjust eta & normal according to direction of ray (inside or outside mat)
+		bool inside = dot(WorldRayDirection(), triangleNormal) > 0.f;
+		float3 tempNormal = triangleNormal * (inside ? -1.0f : 1.0f);
+		float eta = inside ? indexOfRefraction : (1.0f / indexOfRefraction);
+
+		// normal refraction
+		float3 newDir = refract(WorldRayDirection(), tempNormal, eta);
+
+		// internal total reflection
+		if (length(newDir) < 0.01f) {
+			payload.color *= 0;
+			newDir = reflect(WorldRayDirection(), triangleNormal);
+		}
+
+		// use schlick's approx
+		float schlick_0 = pow((inside ? indexOfRefraction - 1.0f : 1.0f - indexOfRefraction) /
+			(1.0f + indexOfRefraction), 2.0f);
+		float schlick_coef = schlick_0 +
+			(1 - schlick_0) * pow(1 - max(0.0f, dot(WorldRayDirection(), triangleNormal)), 5);
+
+		// based on coef, pick either a refraction or reflection
+		newDir = schlick_coef < Uniform01() ? reflect(WorldRayDirection(), triangleNormal) : newDir;
+		payload.rayDir = newDir;
+		payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;
+
+		float3 color = payload.color.rgb * SPECULAR_COLOR;
+		payload.color = float4(color, hitType);
+	}
+	else if (hitType == 2) // Do a diffuse bounce
+	{
+		float3 newDir = CalculateRandomDirectionInHemisphere(triangleNormal);
+		payload.rayDir = newDir;
+		payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;
+
+		float3 tex = text.SampleLevel(s1, triangleUV, 0);
+		float3 color = payload.color.rgb * tex.rgb * 3.0f;
+		payload.color = float4(color.xyz, hitType);
+	}
+	else if (hitType == 0) // I think this means its a light
+	{
+		float3 tex = text.SampleLevel(s1, triangleUV, 0);
+		float3 color = payload.color.rgb * tex.rgb * 3.0f;
+		payload.color = float4(color.xyz, hitType);
+	}
+	else // do a R E F L E C C
+	{
+		float3 newDir = reflect(WorldRayDirection(), triangleNormal);
+		payload.rayDir = newDir;
+		payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;
+
+		float3 color = payload.color.rgb * SPECULAR_COLOR;
+		payload.color = float4(color, hitType);
+	}
 }
 
 [shader("miss")]

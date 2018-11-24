@@ -562,7 +562,7 @@ void D3D12RaytracingSimpleLighting::CreateRaytracingPipelineStateObject()
     auto pipelineConfig = raytracingPipeline.CreateSubobject<CD3D12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
     // PERFOMANCE TIP: Set max recursion depth as low as needed 
     // as drivers may apply optimization strategies for low recursion depths.
-    UINT maxRecursionDepth = 1; // ~ primary rays only. 
+    UINT maxRecursionDepth = 4; // ~ primary rays only. // TODO: Possibly fix when trying to recurse during pathtracing
     pipelineConfig->Config(maxRecursionDepth);
 
 #if _DEBUG
@@ -944,11 +944,19 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
     ComPtr<ID3D12Resource> instanceDescs;
     if (m_raytracingAPI == RaytracingAPI::FallbackLayer)
     {
-		D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDescArray[3];
+		D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDescArray[4];
         D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDesc = {};
         instanceDesc.Transform[0][0] = instanceDesc.Transform[1][1] = instanceDesc.Transform[2][2] = 1;
         instanceDesc.InstanceMask = 1;
 		instanceDesc.InstanceID = 1;
+
+		D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDesc4 = {};
+		instanceDesc4.Transform[0][0] = instanceDesc4.Transform[1][1] = instanceDesc4.Transform[2][2] = 2.0f;
+		instanceDesc4.Transform[0][3] = -1;
+		instanceDesc4.Transform[1][3] = 1;
+		instanceDesc4.Transform[2][3] = 1;
+		instanceDesc4.InstanceMask = 1;
+		instanceDesc4.InstanceID = 4;
 
 		D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDesc2= {};
 		instanceDesc2.Transform[0][0] = instanceDesc2.Transform[1][1] = instanceDesc2.Transform[2][2] = 4.0f;
@@ -965,17 +973,19 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
 		instanceDesc3.Transform[2][3] = -5;
 		instanceDesc3.InstanceMask = 1;
 		instanceDesc3.InstanceID = 3;
-
+		
         UINT numBufferElements = static_cast<UINT>(bottomLevelPrebuildInfo.ResultDataMaxSizeInBytes) / sizeof(UINT32);
         instanceDesc.AccelerationStructure = CreateFallbackWrappedPointer(m_bottomLevelAccelerationStructure.Get(), numBufferElements); 
 		instanceDesc2.AccelerationStructure = instanceDesc.AccelerationStructure;
 		instanceDesc3.AccelerationStructure = instanceDesc.AccelerationStructure;
+		instanceDesc4.AccelerationStructure = instanceDesc.AccelerationStructure;
 
 		instanceDescArray[0] = instanceDesc;
 		instanceDescArray[1] = instanceDesc2;
 		instanceDescArray[2] = instanceDesc3;
+		instanceDescArray[3] = instanceDesc4;
 
-        AllocateUploadBuffer(device, instanceDescArray, sizeof(D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC) * 3, &instanceDescs, L"InstanceDescs");
+        AllocateUploadBuffer(device, instanceDescArray, sizeof(D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC) * 4, &instanceDescs, L"InstanceDescs");
     }
     else // DirectX Raytracing
     {
