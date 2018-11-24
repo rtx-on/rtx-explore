@@ -1,8 +1,8 @@
 #include "stdafx.h"
-#include "RayTracingPipeline.h"
+#include "RaytracingPipeline.h"
 #include "../D3D12PathTracer/obj/x64/Debug/CompiledShaders/Raytracing.hlsl.h"
 
-void RayTracingPipeline::CreateDxilLibrary(std::wstring hlsl_file,
+void RaytracingPipeline::CreateDxilLibrary(std::wstring hlsl_file,
                                            std::wstring raygen_shader_name,
                                            std::wstring closest_hit_shader_name,
                                            std::wstring miss_shader_name)
@@ -21,7 +21,7 @@ void RayTracingPipeline::CreateDxilLibrary(std::wstring hlsl_file,
   dxil_library_subobject->DefineExport(miss_shader_name.c_str());
 }
 
-void RayTracingPipeline::CreateHitGroup(std::wstring hit_group_export_name,
+void RaytracingPipeline::CreateHitGroup(std::wstring hit_group_export_name,
                                         std::wstring closest_hit_shader_name,
                                         std::wstring any_hit_shader_name,
                                         std::wstring intersection_hit_shader_name
@@ -46,7 +46,7 @@ void RayTracingPipeline::CreateHitGroup(std::wstring hit_group_export_name,
   }
 }
 
-CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT* RayTracingPipeline::CreateLocalRootSignature(ComPtr<ID3D12Device> device, RootSignatureDesc desc)
+CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT* RaytracingPipeline::CreateLocalRootSignature(ComPtr<ID3D12Device> device, RootSignatureDesc desc)
 {
   CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT* local_root_signature_subobject = subobjects.CreateSubobject<CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
 
@@ -58,7 +58,7 @@ CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT* RayTracingPipeline::CreateLocalRootSignat
   return local_root_signature_subobject;
 }
 
-CD3D12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT* RayTracingPipeline::CreateGlobalRootSignature(ComPtr<ID3D12Device> device,
+CD3D12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT* RaytracingPipeline::CreateGlobalRootSignature(ComPtr<ID3D12Device> device,
                                                    RootSignatureDesc desc)
 {
   CD3D12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT* global_root_signature_subobject = subobjects.CreateSubobject<CD3D12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
@@ -70,7 +70,7 @@ CD3D12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT* RayTracingPipeline::CreateGlobalRootSign
   return global_root_signature_subobject;
 }
 
-CD3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT* RayTracingPipeline::CreateExportAssiocation(
+CD3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT* RaytracingPipeline::CreateExportAssiocation(
     const D3D12_STATE_SUBOBJECT &subobject,
     std::vector<std::wstring> export_strings)
 {
@@ -84,7 +84,7 @@ CD3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT* RayTracingPipeline::CreateExp
   return association_subobject;
 }
 
-CD3D12_RAYTRACING_SHADER_CONFIG_SUBOBJECT* RayTracingPipeline::CreateShaderConfig(UINT payload_size,
+CD3D12_RAYTRACING_SHADER_CONFIG_SUBOBJECT* RaytracingPipeline::CreateShaderConfig(UINT payload_size,
                                             UINT attribute_size)
 {
   CD3D12_RAYTRACING_SHADER_CONFIG_SUBOBJECT* shader_config_subobject = subobjects.CreateSubobject<CD3D12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
@@ -93,7 +93,7 @@ CD3D12_RAYTRACING_SHADER_CONFIG_SUBOBJECT* RayTracingPipeline::CreateShaderConfi
   return shader_config_subobject;
 }
 
-CD3D12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT* RayTracingPipeline::CreatePipelineConfig(UINT max_recursion_depth)
+CD3D12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT* RaytracingPipeline::CreatePipelineConfig(UINT max_recursion_depth)
 {
   CD3D12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT* pipeline_config_subobject = subobjects.CreateSubobject<CD3D12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
   pipeline_config_subobject->Config(max_recursion_depth);
@@ -101,7 +101,7 @@ CD3D12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT* RayTracingPipeline::CreatePipelineC
   return pipeline_config_subobject;
 }
 
-ComPtr<ID3D12RaytracingFallbackStateObject> RayTracingPipeline::CreateFallbackStateObject(
+ComPtr<ID3D12RaytracingFallbackStateObject> RaytracingPipeline::CreateFallbackStateObject(
     ComPtr<ID3D12RaytracingFallbackDevice> device)
 {
   ComPtr<ID3D12RaytracingFallbackStateObject> fallback_state_object;
@@ -110,7 +110,7 @@ ComPtr<ID3D12RaytracingFallbackStateObject> RayTracingPipeline::CreateFallbackSt
 }
 
 ComPtr<ID3D12StateObject>
-RayTracingPipeline::CreateDXRStateObject(ComPtr<ID3D12Device5> device) {
+RaytracingPipeline::CreateDXRStateObject(ComPtr<ID3D12Device5> device) {
   ComPtr<ID3D12StateObject> state_object;
   device->CreateStateObject(subobjects, IID_PPV_ARGS(&state_object));
   return state_object;

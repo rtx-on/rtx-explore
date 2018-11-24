@@ -14,6 +14,7 @@
 #include <cassert>
 
 // C++
+#include <functional>
 #include <algorithm>
 #include <sstream>
 #include <iomanip>
@@ -46,6 +47,8 @@
 #include "D3D12RaytracingHelpers.hpp"
 #include "d3dx12.h"
 
+#include "DXSample.h"
+
 #include <DirectXMath.h>
 
 #ifdef _DEBUG
@@ -54,12 +57,16 @@
 
 #include "DXSampleHelper.h"
 #include "DeviceResources.h"
+#include "DirectXRaytracingHelper.h"
 
 #include "llvm-expected.h"
 #include "CommandQueue.h"
 #include "ResourceHelper.h"
 #include "RootAllocator.h"
 
-#include "RayTracingPipeline.h"
+#include "RaytracingPipeline.h"
+#include "RaytracingAcclerationStructure.h"
+#include "RaytracingApi.h"
 
-
+#include "RaytracingHlslCompat.h"
+#include "RaytracingManager.h"

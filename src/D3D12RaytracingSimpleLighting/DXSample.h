@@ -50,8 +50,8 @@ public:
     void UpdateForSizeChange(UINT clientWidth, UINT clientHeight);
     void SetWindowBounds(int left, int top, int right, int bottom);
     std::wstring GetAssetFullPath(LPCWSTR assetName);
-
-protected:
+    //TODO FIX (Maybe friend?)
+//protected:
     void SetCustomWindowText(LPCWSTR text);
 
     // Viewport dimensions.
@@ -68,8 +68,8 @@ protected:
     // D3D device resources
     UINT m_adapterIDoverride;
     std::unique_ptr<DX::DeviceResources> m_deviceResources;
-
-private:
+    //TODO FIX
+//private:
     // Root assets path.
     std::wstring m_assetsPath;
 

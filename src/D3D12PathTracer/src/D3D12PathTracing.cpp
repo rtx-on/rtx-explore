@@ -11,7 +11,7 @@
 
 #include "stdafx.h"
 #include "model_loading/tiny_obj_loader.h"
-#include "D3D12RaytracingSimpleLighting.h"
+#include "D3D12PathTracing.h"
 #include "DirectXRaytracingHelper.h"
 #include "CompiledShaders\Raytracing.hlsl.h"
 #include "TextureLoader.h"
@@ -22,13 +22,13 @@
 using namespace std;
 using namespace DX;
 
-const wchar_t* D3D12RaytracingSimpleLighting::c_hitGroupName = L"MyHitGroup";
-const wchar_t* D3D12RaytracingSimpleLighting::c_raygenShaderName = L"MyRaygenShader";
-const wchar_t* D3D12RaytracingSimpleLighting::c_closestHitShaderName = L"MyClosestHitShader";
-const wchar_t* D3D12RaytracingSimpleLighting::c_missShaderName = L"MyMissShader";
-const float D3D12RaytracingSimpleLighting::c_rotateDegrees = 5.f;
+const wchar_t* D3D12PathTracing::c_hitGroupName = L"MyHitGroup";
+const wchar_t* D3D12PathTracing::c_raygenShaderName = L"MyRaygenShader";
+const wchar_t* D3D12PathTracing::c_closestHitShaderName = L"MyClosestHitShader";
+const wchar_t* D3D12PathTracing::c_missShaderName = L"MyMissShader";
+const float D3D12PathTracing::c_rotateDegrees = 5.f;
 
-D3D12RaytracingSimpleLighting::D3D12RaytracingSimpleLighting(UINT width, UINT height, std::wstring name) :
+D3D12PathTracing::D3D12PathTracing(UINT width, UINT height, std::wstring name) :
     DXSample(width, height, name),
     m_raytracingOutputResourceUAVDescriptorHeapIndex(UINT_MAX),
     m_isDxrSupported(false)
@@ -38,7 +38,7 @@ D3D12RaytracingSimpleLighting::D3D12RaytracingSimpleLighting(UINT width, UINT he
     UpdateForSizeChange(width, height);
 }
 
-void D3D12RaytracingSimpleLighting::EnableDirectXRaytracing(IDXGIAdapter1* adapter)
+void D3D12PathTracing::EnableDirectXRaytracing(IDXGIAdapter1* adapter)
 {
     // Fallback Layer uses an experimental feature and needs to be enabled before creating a D3D12 device.
     bool isFallbackSupported = EnableComputeRaytracingFallback(adapter);
@@ -63,7 +63,7 @@ void D3D12RaytracingSimpleLighting::EnableDirectXRaytracing(IDXGIAdapter1* adapt
     }
 }
 
-void D3D12RaytracingSimpleLighting::OnInit()
+void D3D12PathTracing::OnInit()
 {
     m_deviceResources = std::make_unique<DeviceResources>(
         DXGI_FORMAT_R8G8B8A8_UNORM,
@@ -90,7 +90,7 @@ void D3D12RaytracingSimpleLighting::OnInit()
 }
 
 // Update camera matrices passed into the shader.
-void D3D12RaytracingSimpleLighting::UpdateCameraMatrices()
+void D3D12PathTracing::UpdateCameraMatrices()
 {
     auto frameIndex = m_deviceResources->GetCurrentFrameIndex();
 
@@ -105,7 +105,7 @@ void D3D12RaytracingSimpleLighting::UpdateCameraMatrices()
 }
 
 // Initialize scene rendering parameters.
-void D3D12RaytracingSimpleLighting::InitializeScene()
+void D3D12PathTracing::InitializeScene()
 {
     auto frameIndex = m_deviceResources->GetCurrentFrameIndex();
 
@@ -152,7 +152,7 @@ void D3D12RaytracingSimpleLighting::InitializeScene()
 }
 
 // Create constant buffers.
-void D3D12RaytracingSimpleLighting::CreateConstantBuffers()
+void D3D12PathTracing::CreateConstantBuffers()
 {
     auto device = m_deviceResources->GetD3DDevice();
     auto frameCount = m_deviceResources->GetBackBufferCount();
@@ -179,7 +179,7 @@ void D3D12RaytracingSimpleLighting::CreateConstantBuffers()
 }
 
 // Create resources that depend on the device.
-void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
+void D3D12PathTracing::CreateDeviceDependentResources()
 {
     // Initialize raytracing pipeline.
 
@@ -216,7 +216,7 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
     CreateRaytracingOutputResource();
 }
 
-bool D3D12RaytracingSimpleLighting::CreateTexture() {
+bool D3D12PathTracing::CreateTexture() {
 	
 	// Load the image from file
 	D3D12_RESOURCE_DESC textureDesc;
@@ -297,7 +297,7 @@ bool D3D12RaytracingSimpleLighting::CreateTexture() {
 	m_deviceResources->WaitForGpu();
 }
 
-bool D3D12RaytracingSimpleLighting::CreateNormalTexture() {
+bool D3D12PathTracing::CreateNormalTexture() {
 
 	// Load the image from file
 	D3D12_RESOURCE_DESC textureDesc;
@@ -378,7 +378,7 @@ bool D3D12RaytracingSimpleLighting::CreateNormalTexture() {
 	m_deviceResources->WaitForGpu();
 }
 
-void D3D12RaytracingSimpleLighting::SerializeAndCreateRaytracingRootSignature(D3D12_ROOT_SIGNATURE_DESC& desc, ComPtr<ID3D12RootSignature>* rootSig)
+void D3D12PathTracing::SerializeAndCreateRaytracingRootSignature(D3D12_ROOT_SIGNATURE_DESC& desc, ComPtr<ID3D12RootSignature>* rootSig)
 {
     auto device = m_deviceResources->GetD3DDevice();
     ComPtr<ID3DBlob> blob;
@@ -396,7 +396,7 @@ void D3D12RaytracingSimpleLighting::SerializeAndCreateRaytracingRootSignature(D3
     }
 }
 
-void D3D12RaytracingSimpleLighting::CreateRootSignatures()
+void D3D12PathTracing::CreateRootSignatures()
 {
     auto device = m_deviceResources->GetD3DDevice();
 
@@ -453,7 +453,7 @@ void D3D12RaytracingSimpleLighting::CreateRootSignatures()
 }
 
 // Create raytracing device and command list.
-void D3D12RaytracingSimpleLighting::CreateRaytracingInterfaces()
+void D3D12PathTracing::CreateRaytracingInterfaces()
 {
     auto device = m_deviceResources->GetD3DDevice();
     auto commandList = m_deviceResources->GetCommandList();
@@ -475,7 +475,7 @@ void D3D12RaytracingSimpleLighting::CreateRaytracingInterfaces()
 
 // Local root signature and shader association
 // This is a root signature that enables a shader to have unique arguments that come from shader tables.
-void D3D12RaytracingSimpleLighting::CreateLocalRootSignatureSubobjects(CD3D12_STATE_OBJECT_DESC* raytracingPipeline)
+void D3D12PathTracing::CreateLocalRootSignatureSubobjects(CD3D12_STATE_OBJECT_DESC* raytracingPipeline)
 {
     // Ray gen and miss shaders in this sample are not using a local root signature and thus one is not associated with them.
 
@@ -493,7 +493,7 @@ void D3D12RaytracingSimpleLighting::CreateLocalRootSignatureSubobjects(CD3D12_ST
 // Create a raytracing pipeline state object (RTPSO).
 // An RTPSO represents a full set of shaders reachable by a DispatchRays() call,
 // with all configuration options resolved, such as local signatures and other state.
-void D3D12RaytracingSimpleLighting::CreateRaytracingPipelineStateObject()
+void D3D12PathTracing::CreateRaytracingPipelineStateObject()
 {
     // Create 7 subobjects that combine into a RTPSO:
     // Subobjects need to be associated with DXIL exports (i.e. shaders) either by way of default or explicit associations.
@@ -572,7 +572,7 @@ void D3D12RaytracingSimpleLighting::CreateRaytracingPipelineStateObject()
 }
 
 // Create 2D output texture for raytracing.
-void D3D12RaytracingSimpleLighting::CreateRaytracingOutputResource()
+void D3D12PathTracing::CreateRaytracingOutputResource()
 {
     auto device = m_deviceResources->GetD3DDevice();
     auto backbufferFormat = m_deviceResources->GetBackBufferFormat();
@@ -593,7 +593,7 @@ void D3D12RaytracingSimpleLighting::CreateRaytracingOutputResource()
 	m_raytracingOutputResourceUAVGpuDescriptor = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_descriptorHeap->GetGPUDescriptorHandleForHeapStart(), m_raytracingOutputResourceUAVDescriptorHeapIndex, m_descriptorSize);
 }
 
-void D3D12RaytracingSimpleLighting::CreateDescriptorHeap()
+void D3D12PathTracing::CreateDescriptorHeap()
 {
     auto device = m_deviceResources->GetD3DDevice();
 
@@ -612,7 +612,7 @@ void D3D12RaytracingSimpleLighting::CreateDescriptorHeap()
     m_descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
-void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
+void D3D12PathTracing::BuildMesh(std::string path) {
 	// load mesh here
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
@@ -678,7 +678,7 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 // alternative function that adds shapes
 /*
 
-void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
+void D3D12PathTracing::BuildMesh(std::string path) {
 	// load mesh here
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
@@ -743,7 +743,7 @@ void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 */
 
 // Build geometry used in the sample.
-void D3D12RaytracingSimpleLighting::BuildGeometry()
+void D3D12PathTracing::BuildGeometry()
 {
     auto device = m_deviceResources->GetD3DDevice();
 
@@ -817,7 +817,7 @@ void D3D12RaytracingSimpleLighting::BuildGeometry()
 }
 
 // Build acceleration structures needed for raytracing.
-void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
+void D3D12PathTracing::BuildAccelerationStructures()
 {
     auto device = m_deviceResources->GetD3DDevice();
     auto commandList = m_deviceResources->GetCommandList();
@@ -989,7 +989,7 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
 
 // Build shader tables.
 // This encapsulates all shader records - shaders and the arguments for their local root signatures.
-void D3D12RaytracingSimpleLighting::BuildShaderTables()
+void D3D12PathTracing::BuildShaderTables()
 {
     auto device = m_deviceResources->GetD3DDevice();
 
@@ -1052,7 +1052,7 @@ void D3D12RaytracingSimpleLighting::BuildShaderTables()
     }
 }
 
-void D3D12RaytracingSimpleLighting::SelectRaytracingAPI(RaytracingAPI type)
+void D3D12PathTracing::SelectRaytracingAPI(RaytracingAPI type)
 {
     if (type == RaytracingAPI::FallbackLayer)
     {
@@ -1072,7 +1072,7 @@ void D3D12RaytracingSimpleLighting::SelectRaytracingAPI(RaytracingAPI type)
 }
 
 // Update frame-based values.
-void D3D12RaytracingSimpleLighting::OnUpdate()
+void D3D12PathTracing::OnUpdate()
 {
     m_timer.Tick();
     CalculateFrameStats();
@@ -1094,7 +1094,7 @@ void D3D12RaytracingSimpleLighting::OnUpdate()
 
 
 // Parse supplied command line args.
-void D3D12RaytracingSimpleLighting::ParseCommandLineArgs(WCHAR* argv[], int argc)
+void D3D12PathTracing::ParseCommandLineArgs(WCHAR* argv[], int argc)
 {
     DXSample::ParseCommandLineArgs(argv, argc);
 
@@ -1112,7 +1112,7 @@ void D3D12RaytracingSimpleLighting::ParseCommandLineArgs(WCHAR* argv[], int argc
     }
 }
 
-void D3D12RaytracingSimpleLighting::DoRaytracing()
+void D3D12PathTracing::DoRaytracing()
 {
     auto commandList = m_deviceResources->GetCommandList();
     auto frameIndex = m_deviceResources->GetCurrentFrameIndex();
@@ -1170,13 +1170,13 @@ void D3D12RaytracingSimpleLighting::DoRaytracing()
 }
 
 // Update the application state with the new resolution.
-void D3D12RaytracingSimpleLighting::UpdateForSizeChange(UINT width, UINT height)
+void D3D12PathTracing::UpdateForSizeChange(UINT width, UINT height)
 {
     DXSample::UpdateForSizeChange(width, height);
 }
 
 // Copy the raytracing output to the backbuffer.
-void D3D12RaytracingSimpleLighting::CopyRaytracingOutputToBackbuffer()
+void D3D12PathTracing::CopyRaytracingOutputToBackbuffer()
 {
     auto commandList= m_deviceResources->GetCommandList();
     auto renderTarget = m_deviceResources->GetRenderTarget();
@@ -1196,20 +1196,20 @@ void D3D12RaytracingSimpleLighting::CopyRaytracingOutputToBackbuffer()
 }
 
 // Create resources that are dependent on the size of the main window.
-void D3D12RaytracingSimpleLighting::CreateWindowSizeDependentResources()
+void D3D12PathTracing::CreateWindowSizeDependentResources()
 {
     CreateRaytracingOutputResource(); 
     UpdateCameraMatrices();
 }
 
 // Release resources that are dependent on the size of the main window.
-void D3D12RaytracingSimpleLighting::ReleaseWindowSizeDependentResources()
+void D3D12PathTracing::ReleaseWindowSizeDependentResources()
 {
     m_raytracingOutput.Reset();
 }
 
 // Release all resources that depend on the device.
-void D3D12RaytracingSimpleLighting::ReleaseDeviceDependentResources()
+void D3D12PathTracing::ReleaseDeviceDependentResources()
 {
     m_fallbackDevice.Reset();
     m_fallbackCommandList.Reset();
@@ -1238,7 +1238,7 @@ void D3D12RaytracingSimpleLighting::ReleaseDeviceDependentResources()
 
 }
 
-void D3D12RaytracingSimpleLighting::RecreateD3D()
+void D3D12PathTracing::RecreateD3D()
 {
     // Give GPU a chance to finish its execution in progress.
     try
@@ -1253,7 +1253,7 @@ void D3D12RaytracingSimpleLighting::RecreateD3D()
 }
 
 // Render the scene.
-void D3D12RaytracingSimpleLighting::OnRender()
+void D3D12PathTracing::OnRender()
 {
     if (!m_deviceResources->IsWindowVisible())
     {
@@ -1267,7 +1267,7 @@ void D3D12RaytracingSimpleLighting::OnRender()
     m_deviceResources->Present(D3D12_RESOURCE_STATE_PRESENT);
 }
 
-void D3D12RaytracingSimpleLighting::OnDestroy()
+void D3D12PathTracing::OnDestroy()
 {
     // Let GPU finish before releasing D3D resources.
     m_deviceResources->WaitForGpu();
@@ -1275,21 +1275,21 @@ void D3D12RaytracingSimpleLighting::OnDestroy()
 }
 
 // Release all device dependent resouces when a device is lost.
-void D3D12RaytracingSimpleLighting::OnDeviceLost()
+void D3D12PathTracing::OnDeviceLost()
 {
     ReleaseWindowSizeDependentResources();
     ReleaseDeviceDependentResources();
 }
 
 // Create all device dependent resources when a device is restored.
-void D3D12RaytracingSimpleLighting::OnDeviceRestored()
+void D3D12PathTracing::OnDeviceRestored()
 {
     CreateDeviceDependentResources();
     CreateWindowSizeDependentResources();
 }
 
 // Compute the average frames per second and million rays per second.
-void D3D12RaytracingSimpleLighting::CalculateFrameStats()
+void D3D12PathTracing::CalculateFrameStats()
 {
     static int frameCnt = 0;
     static double elapsedTime = 0.0f;
@@ -1332,7 +1332,7 @@ void D3D12RaytracingSimpleLighting::CalculateFrameStats()
 }
 
 // Handle OnSizeChanged message event.
-void D3D12RaytracingSimpleLighting::OnSizeChanged(UINT width, UINT height, bool minimized)
+void D3D12PathTracing::OnSizeChanged(UINT width, UINT height, bool minimized)
 {
     if (!m_deviceResources->WindowSizeChanged(width, height, minimized))
     {
@@ -1346,7 +1346,7 @@ void D3D12RaytracingSimpleLighting::OnSizeChanged(UINT width, UINT height, bool 
 }
 
 // Create a wrapped pointer for the Fallback Layer path.
-WRAPPED_GPU_POINTER D3D12RaytracingSimpleLighting::CreateFallbackWrappedPointer(ID3D12Resource* resource, UINT bufferNumElements)
+WRAPPED_GPU_POINTER D3D12PathTracing::CreateFallbackWrappedPointer(ID3D12Resource* resource, UINT bufferNumElements)
 {
     auto device = m_deviceResources->GetD3DDevice();
 
@@ -1370,7 +1370,7 @@ WRAPPED_GPU_POINTER D3D12RaytracingSimpleLighting::CreateFallbackWrappedPointer(
 
 // Allocate a descriptor and return its index. 
 // If the passed descriptorIndexToUse is valid, it will be used instead of allocating a new one.
-UINT D3D12RaytracingSimpleLighting::AllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* cpuDescriptor, UINT descriptorIndexToUse)
+UINT D3D12PathTracing::AllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* cpuDescriptor, UINT descriptorIndexToUse)
 {
     auto descriptorHeapCpuBase = m_descriptorHeap->GetCPUDescriptorHandleForHeapStart();
     if (descriptorIndexToUse >= m_descriptorHeap->GetDesc().NumDescriptors)
@@ -1382,7 +1382,7 @@ UINT D3D12RaytracingSimpleLighting::AllocateDescriptor(D3D12_CPU_DESCRIPTOR_HAND
 }
 
 // Create SRV for a buffer.
-UINT D3D12RaytracingSimpleLighting::CreateBufferSRV(D3DBuffer* buffer, UINT numElements, UINT elementSize)
+UINT D3D12PathTracing::CreateBufferSRV(D3DBuffer* buffer, UINT numElements, UINT elementSize)
 {
     auto device = m_deviceResources->GetD3DDevice();
 
@@ -1409,7 +1409,7 @@ UINT D3D12RaytracingSimpleLighting::CreateBufferSRV(D3DBuffer* buffer, UINT numE
     return descriptorIndex;
 }
 
-void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
+void D3D12PathTracing::OnKeyDown(UINT8 key)
 {
 	// Store previous values.
 	RaytracingAPI previousRaytracingAPI = m_raytracingAPI;

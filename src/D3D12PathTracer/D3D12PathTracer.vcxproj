@@ -168,7 +168,7 @@ PrebuildCheck.bat</Command>
     <ClInclude Include="src\core\Common.h" />
     <ClInclude Include="src\core\Texture.h" />
     <ClInclude Include="src\core\Vertex.h" />
-    <ClInclude Include="src\D3D12RaytracingSimpleLighting.h" />
+    <ClInclude Include="src\D3D12PathTracing.h" />
     <ClInclude Include="src\DeviceResources.h" />
     <ClInclude Include="src\DirectXRaytracingHelper.h" />
     <ClInclude Include="src\DXSample.h" />
@@ -192,7 +192,7 @@ PrebuildCheck.bat</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\AssetManager.cpp" />
-    <ClCompile Include="src\D3D12RaytracingSimpleLighting.cpp" />
+    <ClCompile Include="src\D3D12PathTracing.cpp" />
     <ClCompile Include="src\DeviceResources.cpp" />
     <ClCompile Include="src\DXSample.cpp" />
     <ClCompile Include="src\Main.cpp" />

@@ -10,11 +10,11 @@
 //*********************************************************
 
 #include "stdafx.h"
-#include "D3D12RaytracingSimpleLighting.h"
+#include "D3D12PathTracing.h"
 
 _Use_decl_annotations_
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 {
-    D3D12RaytracingSimpleLighting sample(1280, 720, L"DXR Path Tracer");
+    D3D12PathTracing sample(1280, 720, L"DXR Path Tracer");
     return Win32Application::Run(&sample, hInstance, nCmdShow);
 }

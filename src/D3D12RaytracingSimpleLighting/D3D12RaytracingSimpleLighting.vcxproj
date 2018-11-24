@@ -170,10 +170,12 @@ PrebuildCheck.bat</Command>
     <ClInclude Include="DirectXRaytracingHelper.h" />
     <ClInclude Include="HlslCompat.h" />
     <ClInclude Include="llvm-expected.h" />
-    <ClInclude Include="RayTracingAcclerationStructure.h" />
+    <ClInclude Include="RaytracingAcclerationStructure.h" />
+    <ClInclude Include="RaytracingApi.h" />
     <ClInclude Include="RaytracingHlslCompat.h" />
-    <ClInclude Include="RayTracingPipeline.h" />
-    <ClInclude Include="RayTracingShaderTable.h" />
+    <ClInclude Include="RaytracingManager.h" />
+    <ClInclude Include="RaytracingPipeline.h" />
+    <ClInclude Include="RaytracingShaderTable.h" />
     <ClInclude Include="ResourceHelper.h" />
     <ClInclude Include="RootAllocator.h" />
     <ClInclude Include="StepTimer.h" />
@@ -187,9 +189,11 @@ PrebuildCheck.bat</Command>
   <ItemGroup>
     <ClCompile Include="CommandQueue.cpp" />
     <ClCompile Include="DeviceResources.cpp" />
-    <ClCompile Include="RayTracingAcclerationStructure.cpp" />
-    <ClCompile Include="RayTracingPipeline.cpp" />
-    <ClCompile Include="RayTracingShaderTable.cpp" />
+    <ClCompile Include="RaytracingAcclerationStructure.cpp" />
+    <ClCompile Include="RaytracingApi.cpp" />
+    <ClCompile Include="RaytracingManager.cpp" />
+    <ClCompile Include="RaytracingPipeline.cpp" />
+    <ClCompile Include="RaytracingShaderTable.cpp" />
     <ClCompile Include="ResourceHelper.cpp" />
     <ClCompile Include="RootAllocator.cpp" />
     <ClCompile Include="Win32Application.cpp" />

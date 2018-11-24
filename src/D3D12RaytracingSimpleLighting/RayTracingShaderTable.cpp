@@ -1,3 +1,3 @@
 #include "stdafx.h"
-#include "RayTracingShaderTable.h"
+#include "RaytracingShaderTable.h"
 

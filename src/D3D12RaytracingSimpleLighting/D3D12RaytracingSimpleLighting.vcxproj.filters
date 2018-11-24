@@ -96,6 +96,9 @@
     <ClInclude Include="RayTracingAcclerationStructure.h">
       <Filter>Util\include</Filter>
     </ClInclude>
+    <ClInclude Include="RaytracingApi.h">
+      <Filter>Util\include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -132,6 +135,9 @@
       <Filter>Util\src</Filter>
     </ClCompile>
     <ClCompile Include="RayTracingAcclerationStructure.cpp">
+      <Filter>Util\src</Filter>
+    </ClCompile>
+    <ClCompile Include="RaytracingApi.cpp">
       <Filter>Util\src</Filter>
     </ClCompile>
   </ItemGroup>

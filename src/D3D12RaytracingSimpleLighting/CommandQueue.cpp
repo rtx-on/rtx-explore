@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "CommandQueue.h"
 
-CommandQueue::CommandQueue(ComPtr<ID3D12Device> device, D3D12_COMMAND_LIST_TYPE command_list_type)
+CommandQueue::CommandQueue(ComPtr<ID3D12Device5> device, D3D12_COMMAND_LIST_TYPE command_list_type)
     : device(device),
       command_list_type(command_list_type)
 {
@@ -85,6 +85,10 @@ CommandQueue::GetCommandList() {
 
 ComPtr<ID3D12CommandQueue> CommandQueue::GetCommandQueue() const {
   return command_queue;
+}
+
+ComPtr<ID3D12Device5> CommandQueue::GetDevice() const {
+  return device;
 }
 
 llvm::Expected<ComPtr<ID3D12CommandAllocator>> CommandQueue::CreateCommandAllocator() const

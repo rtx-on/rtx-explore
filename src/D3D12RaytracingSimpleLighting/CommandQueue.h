@@ -5,12 +5,13 @@ using Microsoft::WRL::ComPtr;
 class CommandQueue  : public llvm::ErrorInfo<CommandQueue>
 {
 public:
-  explicit CommandQueue(ComPtr<ID3D12Device> device, D3D12_COMMAND_LIST_TYPE command_list_type);
+  explicit CommandQueue(ComPtr<ID3D12Device5> device, D3D12_COMMAND_LIST_TYPE command_list_type);
 
   llvm::Expected<bool> Initialize();
 
   llvm::Expected<ComPtr<ID3D12GraphicsCommandList>> GetCommandList();
   ComPtr<ID3D12CommandQueue> GetCommandQueue() const;
+  ComPtr<ID3D12Device5> GetDevice() const;
 
   llvm::Expected<ComPtr<ID3D12CommandAllocator>> CreateCommandAllocator() const;
   llvm::Expected<ComPtr<ID3D12GraphicsCommandList>> CreateCommandList(ComPtr<ID3D12CommandAllocator> allocator) const;
@@ -33,7 +34,7 @@ private:
   std::queue<CommandAllocatorEntry> command_allocators;
   std::queue<ComPtr<ID3D12GraphicsCommandList>> command_lists;
 
-  ComPtr<ID3D12Device> device = nullptr;
+  ComPtr<ID3D12Device5> device = nullptr;
   ComPtr<ID3D12CommandQueue> command_queue = nullptr;
   ComPtr<ID3D12Fence> fence = nullptr;
 

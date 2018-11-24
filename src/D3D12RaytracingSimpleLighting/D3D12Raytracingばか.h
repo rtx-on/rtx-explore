@@ -38,15 +38,10 @@ namespace LocalRootSignatureParams {
 // Fallback Layer uses DirectX Raytracing if a driver and OS supports it. 
 // Otherwise, it falls back to compute pipeline to emulate raytracing.
 // Developers aiming for a wider HW support should target Fallback Layer.
-class D3D12RaytracingSimpleLighting : public DXSample
+class D3D12PathTracing : public DXSample
 {
-    enum class RaytracingAPI {
-        FallbackLayer,
-        DirectXRaytracing,
-    };
-
 public:
-    D3D12RaytracingSimpleLighting(UINT width, UINT height, std::wstring name);
+    D3D12PathTracing(UINT width, UINT height, std::wstring name);
 
     // IDeviceNotify
     virtual void OnDeviceLost() override;
@@ -129,8 +124,6 @@ private:
     ComPtr<ID3D12Resource> m_rayGenShaderTable;
     
     // Application state
-    RaytracingAPI m_raytracingAPI;
-    bool m_forceComputeFallback;
     StepTimer m_timer;
     float m_curRotationAngleRad;
     XMVECTOR m_eye;
@@ -139,8 +132,6 @@ private:
 
     void EnableDirectXRaytracing(IDXGIAdapter1* adapter);
     void ParseCommandLineArgs(WCHAR* argv[], int argc);
-    void UpdateCameraMatrices();
-    void InitializeScene();
     void RecreateD3D();
     void DoRaytracing();
     void CreateConstantBuffers();
@@ -148,7 +139,6 @@ private:
     void CreateWindowSizeDependentResources();
     void ReleaseDeviceDependentResources();
     void ReleaseWindowSizeDependentResources();
-    void CreateRaytracingInterfaces();
     void SerializeAndCreateRaytracingRootSignature(D3D12_ROOT_SIGNATURE_DESC& desc, ComPtr<ID3D12RootSignature>* rootSig);
     void CreateRootSignatures();
     void CreateLocalRootSignatureSubobjects(CD3D12_STATE_OBJECT_DESC* raytracingPipeline);
@@ -158,11 +148,12 @@ private:
     void BuildGeometry();
     void BuildAccelerationStructures();
     void BuildShaderTables();
-    void SelectRaytracingAPI(RaytracingAPI type);
     void UpdateForSizeChange(UINT clientWidth, UINT clientHeight);
     void CopyRaytracingOutputToBackbuffer();
     void CalculateFrameStats();
     UINT AllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* cpuDescriptor, UINT descriptorIndexToUse = UINT_MAX);
     UINT CreateBufferSRV(D3DBuffer* buffer, UINT numElements, UINT elementSize);
     WRAPPED_GPU_POINTER CreateFallbackWrappedPointer(ID3D12Resource* resource, UINT bufferNumElements);
+
+    RaytracingManager raytracing_manager;
 };

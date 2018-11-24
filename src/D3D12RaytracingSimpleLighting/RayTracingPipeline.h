@@ -1,6 +1,6 @@
 #pragma once
 
-class RayTracingPipeline {
+class RaytracingPipeline {
 public:
   CD3D12_STATE_OBJECT_DESC subobjects = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE;
   void CreateDxilLibrary(std::wstring hlsl_file,

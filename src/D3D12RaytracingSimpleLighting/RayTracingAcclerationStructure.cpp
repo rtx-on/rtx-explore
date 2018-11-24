@@ -1,2 +1,2 @@
 #include "stdafx.h"
-#include "RayTracingAcclerationStructure.h"
+#include "RaytracingAcclerationStructure.h"
