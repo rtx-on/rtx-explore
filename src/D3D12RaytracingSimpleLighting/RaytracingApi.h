@@ -72,6 +72,11 @@ public:
     return is_fallback ? RaytracingApiType::Fallback : RaytracingApiType::DXR;
   }
 
+  bool IsFallback() const
+  {
+    return is_fallback;
+  }
+
 private:
   bool is_fallback = true;
 

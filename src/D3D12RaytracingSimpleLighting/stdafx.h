@@ -59,6 +59,14 @@
 #include "DeviceResources.h"
 #include "DirectXRaytracingHelper.h"
 
+//NVIDIA STUFF
+#include "DXRHelper.h"
+#include "BottomLevelASGenerator.h"
+#include "TopLevelASGenerator.h"
+#include "RaytracingPipelineGenerator.h"
+#include "RootSignatureGenerator.h"
+#include "ShaderBindingTableGenerator.h"
+
 #include "llvm-expected.h"
 #include "CommandQueue.h"
 #include "ResourceHelper.h"
