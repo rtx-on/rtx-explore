@@ -23,7 +23,8 @@ public:
     device_resources->SetWindow(Win32Application::GetHwnd(), sample->GetWidth(), sample->GetHeight());
     device_resources->InitializeDXGIAdapter();
 
-    GetRayTracingApi().CheckDXRSupport(device_resources->GetAdapter());
+    ray_tracing_api = std::make_shared<RaytracingApi>();
+    ray_tracing_api->CheckDXRSupport(device_resources->GetAdapter());
 
     device_resources->CreateDeviceResources();
     device_resources->CreateWindowSizeDependentResources();
@@ -96,7 +97,7 @@ void InitializeScene()
       auto device = device_resources->GetD3DDevice();
       auto commandList = device_resources->GetCommandList();
 
-      if (ray_tracing_api == RaytracingApiType::Fallback)
+      if (*ray_tracing_api == RaytracingApiType::Fallback)
       {
           CreateRaytracingFallbackDeviceFlags createDeviceFlags =
             CreateRaytracingFallbackDeviceFlags::None;
@@ -117,7 +118,7 @@ void InitializeScene()
 
   }
 
-  RaytracingApi& GetRayTracingApi()
+  std::shared_ptr<RaytracingApi> GetRayTracingApi()
   {
     return ray_tracing_api;
   }
@@ -130,6 +131,7 @@ private:
   ComPtr<ID3D12RaytracingFallbackCommandList> fallback_command_list;
   ComPtr<ID3D12Device5> dxr_device;
   ComPtr<ID3D12GraphicsCommandList5> dxr_command_list;
+  std::shared_ptr<RaytracingApi> ray_tracing_api;
 
   UINT frame_count = 3;
 
@@ -139,7 +141,6 @@ private:
   XMVECTOR m_at;
   XMVECTOR m_up;
 
-  RaytracingApi ray_tracing_api;
   RaytracingAcclerationStructure raytracing_accleration_structure;
-  RootSignatureDesc root_signature_desc;
+  RootAllocator root_allocator;
 };

@@ -62,11 +62,13 @@
 #include "llvm-expected.h"
 #include "CommandQueue.h"
 #include "ResourceHelper.h"
-#include "RootAllocator.h"
 
+#include "RaytracingApi.h"
+#include "RaytracingDeviceHolder.h"
+
+#include "RootAllocator.h"
 #include "RaytracingPipeline.h"
 #include "RaytracingAcclerationStructure.h"
-#include "RaytracingApi.h"
 
 #include "RaytracingHlslCompat.h"
 #include "RaytracingManager.h"
