@@ -48,14 +48,6 @@ namespace nv_helpers_dx12
 //--------------------------------------------------------------------------------------------------
 // The pipeline helper requires access to the device, as well as the
 // raytracing device prior to Windows 10 RS5.
-RayTracingPipelineGenerator::RayTracingPipelineGenerator(ID3D12Device* device,
-                                                         ID3D12DeviceRaytracingPrototype* rtDevice)
-    : m_device(device), m_rtDevice(rtDevice)
-{
-  // The pipeline creation requires having at least one empty global and local root signatures, so
-  // we systematically create both, as this does not incur any overhead
-  CreateDummyRootSignatures();
-}
 
 //--------------------------------------------------------------------------------------------------
 //
@@ -133,7 +125,7 @@ void RayTracingPipelineGenerator::SetMaxRecursionDepth(UINT maxDepth)
 //--------------------------------------------------------------------------------------------------
 //
 // Compiles the raytracing state object
-ID3D12StateObjectPrototype* RayTracingPipelineGenerator::Generate()
+void RayTracingPipelineGenerator::Generate()
 {
   // The pipeline is made of a set of sub-objects, representing the DXIL libraries, hit group
   // declarations, root signature associations, plus some configuration objects
@@ -239,7 +231,7 @@ ID3D12StateObjectPrototype* RayTracingPipelineGenerator::Generate()
 
   // The pipeline construction always requires an empty global root signature
   D3D12_STATE_SUBOBJECT globalRootSig;
-  globalRootSig.Type = D3D12_STATE_SUBOBJECT_TYPE_ROOT_SIGNATURE;
+  globalRootSig.Type = D3D12_STATE_SUBOBJECT_TYPE_GLOBAL_ROOT_SIGNATURE;
   ID3D12RootSignature* dgSig = m_dummyGlobalRootSignature;
   globalRootSig.pDesc = &dgSig;
 
@@ -268,15 +260,15 @@ ID3D12StateObjectPrototype* RayTracingPipelineGenerator::Generate()
   pipelineDesc.NumSubobjects = currentIndex; // static_cast<UINT>(subobjects.size());
   pipelineDesc.pSubobjects = subobjects.data();
 
-  ID3D12StateObjectPrototype* rtStateObject = nullptr;
-
   // Create the state object
-  HRESULT hr = m_rtDevice->CreateStateObject(&pipelineDesc, IID_PPV_ARGS(&rtStateObject));
-  if (FAILED(hr))
+  if (ray_tracing_api->IsFallback())
   {
-    throw std::logic_error("Could not create the raytracing state object");
+    ThrowIfFailed(fallback_device->CreateStateObject(&pipelineDesc, IID_PPV_ARGS(&fallback_state_object)), L"Couldn't create DirectX Raytracing state object.\n");
   }
-  return rtStateObject;
+  else // DirectX Raytracing
+  {
+    ThrowIfFailed(dxr_device->CreateStateObject(&pipelineDesc, IID_PPV_ARGS(&dxr_state_object)), L"Couldn't create DirectX Raytracing state object.\n");
+  }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -298,15 +290,22 @@ void RayTracingPipelineGenerator::CreateDummyRootSignatures()
   ID3DBlob* error;
 
   // Create the empty global root signature
-  hr = D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1,
-                                   &serializedRootSignature, &error);
-  if (FAILED(hr))
+  auto device = device_resources->GetD3DDevice();
+
+  if (ray_tracing_api->IsFallback())
   {
-    throw std::logic_error("Could not serialize the global root signature");
+    ThrowIfFailed(fallback_device->D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1, &serializedRootSignature, &error), error ? static_cast<wchar_t*>(error->GetBufferPointer()) : nullptr);
+    ThrowIfFailed(fallback_device->CreateRootSignature(0, serializedRootSignature->GetBufferPointer(),
+                                         serializedRootSignature->GetBufferSize(),
+                                         IID_PPV_ARGS(&m_dummyGlobalRootSignature)));
   }
-  hr = m_device->CreateRootSignature(0, serializedRootSignature->GetBufferPointer(),
-                                     serializedRootSignature->GetBufferSize(),
-                                     IID_PPV_ARGS(&m_dummyGlobalRootSignature));
+  else
+  {
+    ThrowIfFailed(D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1, &serializedRootSignature, &error), error ? static_cast<wchar_t*>(error->GetBufferPointer()) : nullptr);
+    ThrowIfFailed(device->CreateRootSignature(0, serializedRootSignature->GetBufferPointer(),
+                                         serializedRootSignature->GetBufferSize(),
+                                         IID_PPV_ARGS(&m_dummyGlobalRootSignature)));
+  }
 
   serializedRootSignature->Release();
   if (FAILED(hr))
@@ -316,15 +315,21 @@ void RayTracingPipelineGenerator::CreateDummyRootSignatures()
 
   // Create the local root signature, reusing the same descriptor but altering the creation flag
   rootDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
-  hr = D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1,
-                                   &serializedRootSignature, &error);
-  if (FAILED(hr))
+
+  if (ray_tracing_api->IsFallback())
   {
-    throw std::logic_error("Could not serialize the local root signature");
+    ThrowIfFailed(fallback_device->D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1, &serializedRootSignature, &error), error ? static_cast<wchar_t*>(error->GetBufferPointer()) : nullptr);
+    ThrowIfFailed(fallback_device->CreateRootSignature(0, serializedRootSignature->GetBufferPointer(),
+                                                       serializedRootSignature->GetBufferSize(),
+                                                       IID_PPV_ARGS(&m_dummyLocalRootSignature)));
   }
-  hr = m_device->CreateRootSignature(0, serializedRootSignature->GetBufferPointer(),
-                                     serializedRootSignature->GetBufferSize(),
-                                     IID_PPV_ARGS(&m_dummyLocalRootSignature));
+  else
+  {
+    ThrowIfFailed(D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1, &serializedRootSignature, &error), error ? static_cast<wchar_t*>(error->GetBufferPointer()) : nullptr);
+    ThrowIfFailed(device->CreateRootSignature(0, serializedRootSignature->GetBufferPointer(),
+                                              serializedRootSignature->GetBufferSize(),
+                                              IID_PPV_ARGS(&m_dummyLocalRootSignature)));
+  }
 
   serializedRootSignature->Release();
   if (FAILED(hr))

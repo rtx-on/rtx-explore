@@ -5,9 +5,11 @@
  * Want to use this for data that doesn't change frequently, ex textures
  */
 llvm::Expected<ComPtr<ID3D12Resource>> ResourceHelper::UploadResourceToGPUSync(
-    ComPtr<ID3D12Device> device, CommandQueue *command_queue,
+    std::shared_ptr<DX::DeviceResources> device_resources,
     std::size_t num_elements, std::size_t element_size, void *data) {
-  if (auto command_list = command_queue->GetCommandList()) {
+  auto device = device_resources->GetD3DDevice();
+  auto command_queue = device_resources->GetCommandQueue();
+  if (auto command_list = device_resources->GetCommandList()) {
     // make sure command list is reset to make sure it is able to allocate
     // commands command_list->Reset()
 
@@ -53,16 +55,11 @@ llvm::Expected<ComPtr<ID3D12Resource>> ResourceHelper::UploadResourceToGPUSync(
 
     // upload copy data to CPU upload heap and then copy data to GPU default
     // heap
-    UpdateSubresources(command_list->Get(), gpu_resource_buffer.Get(),
+    UpdateSubresources(command_list, gpu_resource_buffer.Get(),
                        cpu_resource_buffer.Get(), 0, 0, 1, &subresource_data);
 
     // execute the upload
-    if (auto fence_value =
-            command_queue->ExecuteCommandList(command_list->Get())) {
-      command_queue->WaitForFence(*fence_value);
-    } else {
-      return fence_value.takeError();
-    }
+    device_resources->WaitForGpu();
 
     return gpu_resource_buffer;
   } else {

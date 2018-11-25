@@ -65,12 +65,16 @@ namespace nv_helpers_dx12
 {
 
 /// Helper class to create raytracing pipelines
-class RayTracingPipelineGenerator
+class RayTracingPipelineGenerator : public RaytracingDeviceHolder
 {
 public:
   /// The pipeline helper requires access to the device, as well as the
   /// raytracing device prior to Windows 10 RS5.
-  RayTracingPipelineGenerator(ID3D12Device* device, ID3D12DeviceRaytracingPrototype* rtDevice);
+  void Init(std::shared_ptr<DX::DeviceResources> device_resources, ComPtr<ID3D12RaytracingFallbackDevice> fallback_device, ComPtr<ID3D12RaytracingFallbackCommandList> fallback_command_list, ComPtr<ID3D12RaytracingFallbackStateObject> fallback_state_object, ComPtr<ID3D12Device5> dxr_device, ComPtr<ID3D12GraphicsCommandList5> dxr_command_list, ComPtr<ID3D12StateObject> dxr_state_object, std::shared_ptr<RaytracingApi> ray_tracing_api) override
+  {
+    RaytracingDeviceHolder::Init(device_resources, fallback_device, fallback_command_list, fallback_state_object, dxr_device, dxr_command_list, dxr_state_object, ray_tracing_api);
+    CreateDummyRootSignatures();
+  }
 
   /// Add a DXIL library to the pipeline. Note that this library has to be
   /// compiled with dxc, using a lib_6_3 target. The exported symbols must correspond exactly to the
@@ -112,8 +116,8 @@ public:
   /// algorithms must be flattened to a loop in the ray generation program for best performance.
   void SetMaxRecursionDepth(UINT maxDepth);
 
-  /// Compiles the raytracing state object
-  ID3D12StateObjectPrototype* Generate();
+  /// Compiles the raytracing state object, result is stored in the fallback_state_object or dxr_state_object
+  void Generate();
 
 private:
   /// Storage for DXIL libraries and their exported symbols
@@ -180,11 +184,9 @@ private:
   /// Maximum recursion depth, initialized to 1 to at least allow tracing primary rays
   UINT m_maxRecursionDepth = 1;
 
-  ID3D12Device* m_device;
   ID3D12RootSignature* m_dummyLocalRootSignature;
   ID3D12RootSignature* m_dummyGlobalRootSignature;
 
-  ID3D12DeviceRaytracingPrototype* m_rtDevice;
 };
 
 } // namespace nv_helpers_dx12

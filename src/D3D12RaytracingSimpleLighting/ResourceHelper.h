@@ -5,7 +5,7 @@ using Microsoft::WRL::ComPtr;
 class ResourceHelper {
 public:
   static llvm::Expected<ComPtr<ID3D12Resource>>
-  UploadResourceToGPUSync(ComPtr<ID3D12Device> device, CommandQueue* command_queue,
+  UploadResourceToGPUSync(std::shared_ptr<DX::DeviceResources> device_resources,
                           std::size_t num_elements, std::size_t element_size,
                           void* data);
   

@@ -110,7 +110,7 @@ desc.HitGroupTable.StrideInBytes = m_sbtHelper.GetHitGroupEntrySize();
 namespace nv_helpers_dx12
 {
 /// Helper class to create and maintain a Shader Binding Table
-class ShaderBindingTableGenerator
+class ShaderBindingTableGenerator : public RaytracingDeviceHolder
 {
 public:
   /// Add a ray generation program by name, with its list of data pointers or values according to
@@ -126,13 +126,12 @@ public:
   void AddHitGroup(const std::wstring& entryPoint, const std::vector<void*>& inputData);
 
   /// Compute the size of the SBT based on the set of programs and hit groups it contains
-  uint32_t ComputeSBTSize(ID3D12DeviceRaytracingPrototype* rtDevice);
+  uint32_t ComputeSBTSize();
 
   /// Build the SBT and store it into sbtBuffer, which has to be pre-allocated on the upload heap.
   /// Access to the raytracing pipeline object is required to fetch program identifiers using their
   /// names
-  void Generate(ID3D12Resource* sbtBuffer,
-                ID3D12StateObjectPropertiesPrototype* raytracingPipeline);
+  void Generate(ID3D12Resource* sbtBuffer);
 
   /// Reset the sets of programs and hit groups
   void Reset();
@@ -169,8 +168,7 @@ private:
   /// For each entry, copy the shader identifier followed by its resource pointers and/or root
   /// constants in outputData, with a stride in bytes of entrySize, and returns the size in bytes
   /// actually written to outputData.
-  uint32_t CopyShaderData(ID3D12StateObjectPropertiesPrototype* raytracingPipeline,
-                          uint8_t* outputData, const std::vector<SBTEntry>& shaders,
+  uint32_t CopyShaderData(uint8_t* outputData, const std::vector<SBTEntry>& shaders,
                           uint32_t entrySize);
 
   /// Compute the size of the SBT entries for a set of entries, which is determined by the maximum

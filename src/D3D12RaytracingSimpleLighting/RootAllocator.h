@@ -34,6 +34,9 @@ struct IRootResource
   Serializer serializer = nullptr;
   CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle;
   CD3DX12_GPU_DESCRIPTOR_HANDLE gpu_handle;
+
+  //FALLBACK ONLY
+  UINT descriptor_heap_index;
 };
 
 struct RootResourceConstantBufferView : IRootResource
@@ -122,6 +125,8 @@ struct RootConstant : IRootParameter
   UINT register_space = 0;
   D3D12_SHADER_VISIBILITY shader_visibility = D3D12_SHADER_VISIBILITY_ALL;
 
+  //TODO
+    //after serialization??
   std::shared_ptr<IRootResource> root_resource = nullptr;
 };
 
@@ -178,15 +183,23 @@ struct RootDescriptor : IRootParameter
     root_resource = resource;
   }
 
+  //defs
   UINT shader_register = 0;
   UINT register_space = 0;
   D3D12_SHADER_VISIBILITY shader_visibility = D3D12_SHADER_VISIBILITY_ALL;
 
+  //after serialization
   std::shared_ptr<IRootResource> root_resource = nullptr;
 };
 
 struct RootDescriptorTable : IRootParameter
 {
+  explicit RootDescriptorTable(D3D12_DESCRIPTOR_HEAP_TYPE type, D3D12_SHADER_VISIBILITY shader_visibility)
+    : type(type),
+      shader_visibility(shader_visibility)
+  {
+  }
+
   virtual ~RootDescriptorTable() = default;
 
   std::shared_ptr<RootDescriptor> AllocateDescriptor(
@@ -218,7 +231,19 @@ struct RootDescriptorTable : IRootParameter
     return root_parameter;
   }
 
+  UINT GetDescriptorHeapElementSize(ComPtr<ID3D12Device> device) const
+  {
+    return device->GetDescriptorHandleIncrementSize(type);
+  }
+
+  //defs
+  D3D12_DESCRIPTOR_HEAP_TYPE type;
+  D3D12_SHADER_VISIBILITY shader_visibility;
+
   std::vector<std::shared_ptr<RootDescriptor>> descriptors;
+
+  //after serialization
+  ComPtr<ID3D12DescriptorHeap> descriptor_heap = nullptr;
 };
 
 struct StaticSampler
@@ -252,7 +277,7 @@ constexpr UINT ROOT_TABLE_DWORD_LIMIT = 64;
 class RootAllocator : public RaytracingDeviceHolder
 {
 public:
-  //
+  //TODO llvm
   UINT root_table_dword_size = 0;
 
   ComPtr<ID3D12RootSignature> d3d12_root_signature;
@@ -295,7 +320,7 @@ public:
     return root_parameter;
   }
 
-  std::shared_ptr<RootDescriptorTable> AllocateRootDescriptorTable()
+  std::shared_ptr<RootDescriptorTable> AllocateRootDescriptorTable(D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_SHADER_VISIBILITY shader_visibility = D3D12_SHADER_VISIBILITY_ALL)
   {
     //TODO fix with llvm
     if (root_table_dword_size > ROOT_TABLE_DWORD_LIMIT)
@@ -305,7 +330,7 @@ public:
 
     root_table_dword_size += ROOT_DESCRIPTOR_TABLE_DWORD_SIZE;
 
-    auto root_parameter = std::make_shared<RootDescriptorTable>();
+    auto root_parameter = std::make_shared<RootDescriptorTable>(type, shader_visibility);
     root_parameters.emplace_back(root_parameter);
     return root_parameter;
   }
@@ -336,7 +361,7 @@ public:
     }
   }
 
-  void Serialize()
+  ComPtr<ID3D12RootSignature> Serialize()
   {
     auto device = device_resources->GetD3DDevice();
     auto command_list = device_resources->GetCommandList();
@@ -387,23 +412,32 @@ public:
       {
         const auto& table_descriptors = root_descriptor_table->descriptors;
 
-        ComPtr<ID3D12DescriptorHeap> descriptor_heap = ResourceHelper::CreateDescriptorHeap(device, table_descriptors.size());
-        const UINT descriptor_heap_increment = device->GetDescriptorHandleIncrementSize(descriptor_heap->GetDesc().Type);
-        UINT descriptor_heap_index = 0;
+        root_descriptor_table->descriptor_heap = ResourceHelper::CreateDescriptorHeap(device, table_descriptors.size());
+        
+        const UINT descriptor_heap_element_size = root_descriptor_table->GetDescriptorHeapElementSize(device);
 
+        UINT descriptor_heap_index = 0;
+        
         for (std::shared_ptr<RootDescriptor> table_root_desciptor : table_descriptors)
         {
           std::shared_ptr<IRootResource> root_resource = table_root_desciptor->root_resource;
+
+          //serialize the resource
           ComPtr<ID3D12Resource> resource = root_resource->Serialize(device_resources);
 
+          //set heap index (USED  FOR WRAPPED POINTER)
+          root_resource->descriptor_heap_index = descriptor_heap_index;
+
+          //set the CPU/GPU handles
           root_resource->cpu_handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(
-            descriptor_heap->GetCPUDescriptorHandleForHeapStart(),
-            descriptor_heap_index, descriptor_heap_increment);
+            root_descriptor_table->descriptor_heap->GetCPUDescriptorHandleForHeapStart(),
+            descriptor_heap_index, descriptor_heap_element_size);
 
           root_resource->gpu_handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
-            descriptor_heap->GetGPUDescriptorHandleForHeapStart(),
-            descriptor_heap_index, descriptor_heap_increment);
+            root_descriptor_table->descriptor_heap->GetGPUDescriptorHandleForHeapStart(),
+            descriptor_heap_index, descriptor_heap_element_size);
 
+          //create the resource to the view
           if (auto cbv = std::dynamic_pointer_cast<RootResourceConstantBufferView>(root_resource))
           {
             device->CreateConstantBufferView(&cbv->desc, root_resource->cpu_handle);
@@ -414,10 +448,10 @@ public:
           }
           else if (auto uav = std::dynamic_pointer_cast<RootResourceUnorderedAccessView>(root_resource))
           {
-            // TODO uav needs another resource
-            // device->CreateUnorderedAccessView(resource.Get(), &srv->desc,
-            // root_resource->cpu_handle);
+            device->CreateUnorderedAccessView(resource.Get(), nullptr, &uav->desc, root_resource->cpu_handle);
           }
+
+          //increment to next heap index
           descriptor_heap_index++;
         }
       }
@@ -426,6 +460,8 @@ public:
         llvm::ExitOnError("Root type not parsable");
       }
     }
+
+    return d3d12_root_signature;
   }
 
 };

@@ -62,9 +62,20 @@ namespace nv_helpers_dx12
 // represented by a bottom-level AS, a transform, an instance ID and the index
 // of the hit group indicating which shaders are executed upon hitting any
 // geometry within the instance
-void TopLevelASGenerator::AddInstance(Instance instance)
+void TopLevelASGenerator::AddInstance(
+    AccelerationStructureBuffers bottomLevelAS,      // Bottom-level acceleration structure containing the
+                                        // actual geometric data of the instance
+    const DirectX::XMMATRIX& transform, // Transform matrix to apply to the instance, allowing the
+                                        // same bottom-level AS to be used at several world-space
+                                        // positions
+    UINT instanceID,                    // Instance ID, which can be used in the shaders to
+                                        // identify this specific instance
+    UINT hitGroupIndex                  // Hit group index, corresponding the the index of the
+                                        // hit group in the Shader Binding Table that will be
+                                        // invocated upon hitting the geometry
+)
 {
-  m_instances.emplace_back(std::move(instance));
+  m_instances.emplace_back(Instance(bottomLevelAS, transform, instanceID, hitGroupIndex));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -150,6 +161,11 @@ void TopLevelASGenerator::ComputeASBufferSizes(
     //
     // The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
     // which will either be an emulated GPU pointer for the compute - based path or a GPU_VIRTUAL_ADDRESS for the DXR path.
+  WRAPPED_GPU_POINTER TopLevelASGenerator::CreateFallbackWrappedPointer(ComPtr<ID3D12Device> device, ComPtr<ID3D12RaytracingFallbackDevice> fallback_device, CD3DX12_GPU_DESCRIPTOR_HANDLE resource_handle, UINT bufferNumElements)
+  {
+    //first param doesn't mean anything... 
+    return fallback_device->GetWrappedPointerSimple(0, resource_handle.ptr);
+  }
 
   //--------------------------------------------------------------------------------------------------
 //
@@ -209,12 +225,13 @@ void TopLevelASGenerator::ComputeASBufferSizes(
       // be accessible from outside
       instanceDescs[i].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
       // Instance transform matrix
-      DirectX::XMMATRIX m = m_instances[i].transform; //INSTANCE_DESC is row major
+      DirectX::XMMATRIX m = XMMatrixTranspose(
+        m_instances[i].transform); // GLM is column major, the INSTANCE_DESC is row major
       memcpy(instanceDescs[i].Transform, &m, sizeof(instanceDescs[i].Transform));
       // Get access to the bottom level
 
-      UINT numBufferElements = m_instances[i].bottomLevelAS.ResultDataMaxSizeInBytes / sizeof(UINT32);
-      instanceDescs[i].AccelerationStructure = fallback_device->GetWrappedPointerSimple(0, heap_handle.ptr); //TODO no good, expects one GPU handle for each one
+        UINT numBufferElements = m_instances[i].bottomLevelAS.ResultDataMaxSizeInBytes / sizeof(UINT32);
+        instanceDescs[i].AccelerationStructure = CreateFallbackWrappedPointer(device, fallback_device, heap_handle, m_instances[i].bottomLevelAS.accelerationStructure.Get(), numBufferElements);
       
       // Visibility mask, always visible here - TODO: should be accessible from
       // outside
@@ -253,11 +270,12 @@ void TopLevelASGenerator::ComputeASBufferSizes(
       // be accessible from outside
       instanceDescs[i].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
       // Instance transform matrix
-      DirectX::XMMATRIX m = m_instances[i].transform; //INSTANCE_DESC is row major
+      DirectX::XMMATRIX m = XMMatrixTranspose(
+        m_instances[i].transform); // GLM is column major, the INSTANCE_DESC is row major
       memcpy(instanceDescs[i].Transform, &m, sizeof(instanceDescs[i].Transform));
       // Get access to the bottom level
 
-      instanceDescs[i].AccelerationStructure = m_instances[i].bottomLevelAS.accelerationStructure->GetGPUVirtualAddress();
+        instanceDescs[i].AccelerationStructure = m_instances[i].bottomLevelAS.accelerationStructure->GetGPUVirtualAddress();
       // Visibility mask, always visible here - TODO: should be accessible from
       // outside
       instanceDescs[i].InstanceMask = 0xFF;
@@ -339,5 +357,9 @@ void TopLevelASGenerator::ComputeASBufferSizes(
 //--------------------------------------------------------------------------------------------------
 //
 //
-
+TopLevelASGenerator::Instance::Instance(AccelerationStructureBuffers blAS, const DirectX::XMMATRIX& tr, UINT iID,
+                                        UINT hgId)
+    : bottomLevelAS(blAS), transform(tr), instanceID(iID), hitGroupIndex(hgId)
+{
+}
 } // namespace nv_helpers_dx12

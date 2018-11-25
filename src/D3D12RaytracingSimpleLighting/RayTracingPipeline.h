@@ -15,9 +15,9 @@ public:
                       std::wstring intersection_hit_shader_name);
 
   //creates both local root signature and exports association
-  CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT* CreateLocalRootSignature(ComPtr<ID3D12Device> device, RootSignatureDesc desc);
+  CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT* CreateLocalRootSignature(ComPtr<ID3D12Device> device);
 
-  CD3D12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT* CreateGlobalRootSignature(ComPtr<ID3D12Device> device, RootSignatureDesc desc);
+  CD3D12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT* CreateGlobalRootSignature(ComPtr<ID3D12Device> device);
 
   CD3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT* CreateExportAssiocation(const D3D12_STATE_SUBOBJECT &subobject, std::vector<std::wstring> export_strings);
 

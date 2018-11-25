@@ -99,8 +99,6 @@
     <ClInclude Include="RaytracingApi.h">
       <Filter>Util\include</Filter>
     </ClInclude>
-    <ClInclude Include="RaytracingManager.h" />
-    <ClInclude Include="RaytracingDeviceHolder.h" />
     <ClInclude Include="RaytracingPipelineGenerator.h">
       <Filter>External\NvidiaHelpers</Filter>
     </ClInclude>
@@ -127,6 +125,12 @@
     </ClInclude>
     <ClInclude Include="dxc\dxcapi.use.h">
       <Filter>External\NvidiaHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="RaytracingDeviceHolder.h">
+      <Filter>Util\include</Filter>
+    </ClInclude>
+    <ClInclude Include="RaytracingManager.h">
+      <Filter>Util\include</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -166,8 +170,6 @@
     <ClCompile Include="RaytracingApi.cpp">
       <Filter>Util\src</Filter>
     </ClCompile>
-    <ClCompile Include="RaytracingManager.cpp" />
-    <ClCompile Include="RaytracingDeviceHolder.cpp" />
     <ClCompile Include="RaytracingPipelineGenerator.cpp">
       <Filter>External\NvidiaHelpers</Filter>
     </ClCompile>
@@ -184,6 +186,12 @@
       <Filter>External\NvidiaHelpers</Filter>
     </ClCompile>
     <ClCompile Include="RaytracingAcclerationStructures.cpp">
+      <Filter>Util\src</Filter>
+    </ClCompile>
+    <ClCompile Include="RaytracingDeviceHolder.cpp">
+      <Filter>Util\src</Filter>
+    </ClCompile>
+    <ClCompile Include="RaytracingManager.cpp">
       <Filter>Util\src</Filter>
     </ClCompile>
   </ItemGroup>

@@ -62,7 +62,7 @@ namespace nv_helpers_dx12
 // represented by a bottom-level AS, a transform, an instance ID and the index
 // of the hit group indicating which shaders are executed upon hitting any
 // geometry within the instance
-void TopLevelASGenerator::AddInstance(Instance instance)
+void TopLevelASGenerator::AddInstance(const Instance& instance)
 {
   m_instances.emplace_back(std::move(instance));
 }

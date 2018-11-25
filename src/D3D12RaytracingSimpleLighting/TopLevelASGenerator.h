@@ -71,6 +71,43 @@ return buffers;
 namespace nv_helpers_dx12
 {
 
+  /// Helper struct storing the instance data
+  struct Instance
+  {
+    Instance() {}
+    Instance(AccelerationStructureBuffers bottom_level_as, DirectX::XMMATRIX transform = DirectX::XMMatrixIdentity(), UINT instance_id = 0, UINT hit_group_index = 0)
+      : bottomLevelAS(bottom_level_as),
+        transform(transform),
+        instanceID(instance_id),
+        hitGroupIndex(hit_group_index)
+    {
+
+    }
+
+    Instance(AccelerationStructureBuffers bottom_level_as, DirectX::XMMATRIX transform = DirectX::XMMatrixIdentity(), UINT instance_id = 0, UINT hit_group_index = 0, UINT bottom_level_resource_heap_index = 0, ComPtr<ID3D12Resource> bottom_level_resource = nullptr)
+      : bottomLevelAS(bottom_level_as),
+        transform(transform),
+        instanceID(instance_id),
+        hitGroupIndex(hit_group_index),
+        bottom_level_resource_heap_index(bottom_level_resource_heap_index),
+        bottom_level_resource(bottom_level_resource)
+    {
+    }
+
+    /// Bottom-level AS
+    AccelerationStructureBuffers bottomLevelAS;
+    /// Transform matrix
+    DirectX::XMMATRIX transform;
+    /// Instance ID visible in the shader
+    UINT instanceID;
+    /// Hit group index used to fetch the shaders from the SBT
+    UINT hitGroupIndex;
+
+    //FALLBACK ONLY
+    UINT bottom_level_resource_heap_index = 0;
+    ComPtr<ID3D12Resource> bottom_level_resource = nullptr;
+  };
+
 /// Helper class to generate top-level acceleration structures for raytracing
 class TopLevelASGenerator
 {
@@ -80,17 +117,12 @@ public:
   /// index of the hit group indicating which shaders are executed upon hitting
   /// any geometry within the instance
   void
-  AddInstance(AccelerationStructureBuffers bottomLevelAS, /// Bottom-level acceleration structure containing the
-                                             /// actual geometric data of the instance
-              const DirectX::XMMATRIX& transform, /// Transform matrix to apply to the instance,
-                                                  /// allowing the same bottom-level AS to be used
-                                                  /// at several world-space positions
-              UINT instanceID,   /// Instance ID, which can be used in the shaders to
-                                 /// identify this specific instance
-              UINT hitGroupIndex /// Hit group index, corresponding the the index of the
-                                 /// hit group in the Shader Binding Table that will be
-                                 /// invocated upon hitting the geometry
-  );
+  AddInstance(Instance instance);
+
+  void ClearInstances()
+  { 
+    m_instances.clear();
+  }
 
   /// Compute the size of the scratch space required to build the acceleration
   /// structure, as well as the size of the resulting structure. The allocation
@@ -115,24 +147,15 @@ public:
   /// acceleration structure in case of iterative updates. Note that the update
   /// can be done in place: the result and previousResult pointers can be the
   /// same.
-  using AllocateDescriptor = std::function<std::pair<CD3DX12_CPU_DESCRIPTOR_HANDLE, UINT>(ComPtr<ID3D12DescriptorHeap>)>;
-  WRAPPED_GPU_POINTER CreateFallbackWrappedPointer(
-      ComPtr<ID3D12Device> device, 
-      ComPtr<ID3D12RaytracingFallbackDevice> fallback_device, 
-      ComPtr<ID3D12DescriptorHeap> descriptor_heap,
-      AllocateDescriptor allocate_descriptor,
-      ID3D12Resource *resource, UINT bufferNumElements);
 
-  void Generate(
+  WRAPPED_GPU_POINTER Generate(
       ComPtr<ID3D12Device> device,
       ComPtr<ID3D12RaytracingFallbackDevice> fallback_device,
-      WRAPPED_GPU_POINTER* top_level_gpu_pointer,
       ID3D12GraphicsCommandList* command_list, // Command list on which the build will be enqueued
       bool is_fallback, 
-      ComPtr<ID3D12DescriptorHeap> fallback_required_descriptor_heap, 
       ComPtr<ID3D12RaytracingFallbackCommandList> fallback_command_list,
       ComPtr<ID3D12GraphicsCommandList5> dxr_command_list,
-      AllocateDescriptor allocate_descriptor,
+      CD3DX12_GPU_DESCRIPTOR_HANDLE heap_handle,
       ID3D12Resource* scratchBuffer,     /// Scratch buffer used by the builder to
                                          /// store temporary data
       ID3D12Resource* resultBuffer,      /// Result buffer storing the acceleration structure
@@ -145,19 +168,6 @@ public:
   );
 
 private:
-  /// Helper struct storing the instance data
-  struct Instance
-  {
-    Instance(AccelerationStructureBuffers blAS, const DirectX::XMMATRIX& tr, UINT iID, UINT hgId);
-    /// Bottom-level AS
-    AccelerationStructureBuffers bottomLevelAS;
-    /// Transform matrix
-    const DirectX::XMMATRIX& transform;
-    /// Instance ID visible in the shader
-    UINT instanceID;
-    /// Hit group index used to fetch the shaders from the SBT
-    UINT hitGroupIndex;
-  };
 
   /// Construction flags, indicating whether the AS supports iterative updates
   D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS m_flags;

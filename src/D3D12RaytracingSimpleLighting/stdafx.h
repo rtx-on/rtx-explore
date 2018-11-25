@@ -27,6 +27,10 @@
 #include <cstdint>  // For uint64_t
 #include <queue>    // For std::queue
 #include <tuple>
+#include <variant>
+#include <thread>
+#include <condition_variable>
+#include <unordered_set>
 
 // WINDOWS SPECIFIC
 #include <wrl.h>
@@ -59,6 +63,13 @@
 #include "DeviceResources.h"
 #include "DirectXRaytracingHelper.h"
 
+//COMPILED
+#include "CompiledShaders\Raytracing.hlsl.h"
+
+//helpers
+#include "RaytracingApi.h"
+#include "RaytracingDeviceHolder.h"
+
 //NVIDIA STUFF
 #include "dxc/dxcapi.use.h"
 #include "dxc/dxcapi.h"
@@ -68,13 +79,11 @@
 #include "RaytracingPipelineGenerator.h"
 #include "RootSignatureGenerator.h"
 #include "ShaderBindingTableGenerator.h"
+//
 
 #include "llvm-expected.h"
 #include "CommandQueue.h"
 #include "ResourceHelper.h"
-
-#include "RaytracingApi.h"
-#include "RaytracingDeviceHolder.h"
 
 #include "RootAllocator.h"
 #include "RaytracingPipeline.h"

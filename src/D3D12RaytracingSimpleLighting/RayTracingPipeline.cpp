@@ -1,6 +1,5 @@
 #include "stdafx.h"
 #include "RaytracingPipeline.h"
-#include "../D3D12PathTracer/obj/x64/Debug/CompiledShaders/Raytracing.hlsl.h"
 
 void RaytracingPipeline::CreateDxilLibrary(std::wstring hlsl_file,
                                            std::wstring raygen_shader_name,
@@ -46,25 +45,24 @@ void RaytracingPipeline::CreateHitGroup(std::wstring hit_group_export_name,
   }
 }
 
-CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT* RaytracingPipeline::CreateLocalRootSignature(ComPtr<ID3D12Device> device, RootSignatureDesc desc)
+CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT* RaytracingPipeline::CreateLocalRootSignature(ComPtr<ID3D12Device> device)
 {
   CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT* local_root_signature_subobject = subobjects.CreateSubobject<CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
 
   // Local root signature to be used in a hit group.
   ComPtr<ID3D12RootSignature> root_signature;
-  desc.SerializeAndCreateRaytracingRootSignature(device, &root_signature);
+  //desc.SerializeAndCreateRaytracingRootSignature(device, &root_signature);
   local_root_signature_subobject->SetRootSignature(root_signature.Get());
 
   return local_root_signature_subobject;
 }
 
-CD3D12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT* RaytracingPipeline::CreateGlobalRootSignature(ComPtr<ID3D12Device> device,
-                                                   RootSignatureDesc desc)
+CD3D12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT* RaytracingPipeline::CreateGlobalRootSignature(ComPtr<ID3D12Device> device)
 {
   CD3D12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT* global_root_signature_subobject = subobjects.CreateSubobject<CD3D12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
   
   ComPtr<ID3D12RootSignature> root_signature;
-  desc.SerializeAndCreateRaytracingRootSignature(device, &root_signature);
+  //desc.SerializeAndCreateRaytracingRootSignature(device, &root_signature);
   global_root_signature_subobject->SetRootSignature(root_signature.Get());
 
   return global_root_signature_subobject;
