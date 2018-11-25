@@ -107,11 +107,6 @@ desc.HitGroupTable.StrideInBytes = m_sbtHelper.GetHitGroupEntrySize();
 
 #pragma once
 
-#include "d3d12.h"
-#include "d3d12_1.h"
-
-#include <vector>
-
 namespace nv_helpers_dx12
 {
 /// Helper class to create and maintain a Shader Binding Table

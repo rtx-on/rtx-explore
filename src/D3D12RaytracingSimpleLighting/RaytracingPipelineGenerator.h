@@ -61,13 +61,6 @@ rtStateObject = pipeline.Generate();
 
 #pragma once
 
-#include "d3d12.h"
-#include "d3d12_1.h"
-#include "dxc/dxcapi.h"
-
-#include <string>
-#include <vector>
-
 namespace nv_helpers_dx12
 {
 

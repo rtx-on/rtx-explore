@@ -166,7 +166,7 @@ private:
   XMVECTOR m_at;
   XMVECTOR m_up;
 
-  RaytracingAcclerationStructure raytracing_accleration_structure;
+  RaytracingAcclerationStructures raytracing_accleration_structure;
   RootAllocator global_root_allocator;
   RootAllocator local_root_allocator;
 };

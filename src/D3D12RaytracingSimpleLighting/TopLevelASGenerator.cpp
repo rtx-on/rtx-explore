@@ -63,7 +63,7 @@ namespace nv_helpers_dx12
 // of the hit group indicating which shaders are executed upon hitting any
 // geometry within the instance
 void TopLevelASGenerator::AddInstance(
-    ID3D12Resource* bottomLevelAS,      // Bottom-level acceleration structure containing the
+    AccelerationStructureBuffers bottomLevelAS,      // Bottom-level acceleration structure containing the
                                         // actual geometric data of the instance
     const DirectX::XMMATRIX& transform, // Transform matrix to apply to the instance, allowing the
                                         // same bottom-level AS to be used at several world-space
@@ -102,7 +102,7 @@ void TopLevelASGenerator::ComputeASBufferSizes(
   // size of the AS as well as the temporary memory requirements, and hence has
   // to be set before the actual build
   m_flags = allowUpdate ? D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE
-                        : D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
+                        : D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE; //TODO change to D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE; 
 
   // Describe the work being requested, in this case the construction of a
   // (possibly dynamic) top-level hierarchy, with the given instance descriptors
@@ -151,21 +151,58 @@ void TopLevelASGenerator::ComputeASBufferSizes(
   *descriptorsSizeInBytes = m_instanceDescsSizeInBytes;
 }
 
-//--------------------------------------------------------------------------------------------------
+    // Note on Emulated GPU pointers (AKA Wrapped pointers) requirement in Fallback Layer:
+    // The primary point of divergence between the DXR API and the compute-based Fallback layer is the handling of GPU pointers. 
+    // DXR fundamentally requires that GPUs be able to dynamically read from arbitrary addresses in GPU memory. 
+    // The existing Direct Compute API today is more rigid than DXR and requires apps to explicitly inform the GPU what blocks of memory it will access with SRVs/UAVs.
+    // In order to handle the requirements of DXR, the Fallback Layer uses the concept of Emulated GPU pointers, 
+    // which requires apps to create views around all memory they will access for raytracing, 
+    // but retains the DXR-like flexibility of only needing to bind the top level acceleration structure at DispatchRays.
+    //
+    // The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
+    // which will either be an emulated GPU pointer for the compute - based path or a GPU_VIRTUAL_ADDRESS for the DXR path.
+  WRAPPED_GPU_POINTER TopLevelASGenerator::CreateFallbackWrappedPointer(ComPtr<ID3D12Device> device, ComPtr<ID3D12RaytracingFallbackDevice> fallback_device, ComPtr<ID3D12DescriptorHeap> descriptor_heap, AllocateDescriptor allocate_descriptor, ID3D12Resource* resource, UINT bufferNumElements)
+  {
+      D3D12_UNORDERED_ACCESS_VIEW_DESC rawBufferUavDesc = {};
+      rawBufferUavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+      rawBufferUavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+      rawBufferUavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+      rawBufferUavDesc.Buffer.NumElements = bufferNumElements;
+
+      D3D12_CPU_DESCRIPTOR_HANDLE bottomLevelDescriptor;
+     
+      // Only compute fallback requires a valid descriptor index when creating a wrapped pointer.
+      UINT descriptorHeapIndex = 0;
+      if (!fallback_device->UsingRaytracingDriver())
+      {
+        std::pair<CD3DX12_CPU_DESCRIPTOR_HANDLE, UINT> handles = allocate_descriptor(descriptor_heap);
+        descriptorHeapIndex = handles.second;
+        //FUCK
+          device->CreateUnorderedAccessView(resource, nullptr, &rawBufferUavDesc, handles.first);
+      }
+      return fallback_device->GetWrappedPointerSimple(descriptorHeapIndex, resource->GetGPUVirtualAddress());
+  }
+
+  //--------------------------------------------------------------------------------------------------
 //
 // Enqueue the construction of the acceleration structure on a command list,
 // using application-provided buffers and possibly a pointer to the previous
 // acceleration structure in case of iterative updates. Note that the update can
 // be done in place: the result and previousResult pointers can be the same.
-void TopLevelASGenerator::Generate(
+  void TopLevelASGenerator::Generate(
+    ComPtr<ID3D12Device> device,
+    ComPtr<ID3D12RaytracingFallbackDevice> fallback_device,
+    WRAPPED_GPU_POINTER* top_level_gpu_pointer,
     ID3D12GraphicsCommandList* command_list, // Command list on which the build will be enqueued
     bool is_fallback, 
     ComPtr<ID3D12DescriptorHeap> fallback_required_descriptor_heap, 
     ComPtr<ID3D12RaytracingFallbackCommandList> fallback_command_list,
-    ComPtr<ID3D12GraphicsCommandList5> dxr_command_list, 
+    ComPtr<ID3D12GraphicsCommandList5> dxr_command_list,
+    AllocateDescriptor allocate_descriptor,
     ID3D12Resource* scratchBuffer,     // Scratch buffer used by the builder to
                                        // store temporary data
     ID3D12Resource* resultBuffer,      // Result buffer storing the acceleration structure
+    UINT result_buffer_size,
     ID3D12Resource* descriptorsBuffer, // Auxiliary result buffer containing the instance
                                        // descriptors, has to be in upload heap
     bool updateOnly /*= false*/,       // If true, simply refit the existing
@@ -175,70 +212,95 @@ void TopLevelASGenerator::Generate(
                                                  // is requested
 )
 {
-    if (is_fallback)
-    {
-        D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDesc = {};
-        instanceDesc.Transform[0][0] = instanceDesc.Transform[1][1] = instanceDesc.Transform[2][2] = 1;
-        instanceDesc.InstanceMask = 1;
-        UINT numBufferElements = static_cast<UINT>(bottomLevelPrebuildInfo.ResultDataMaxSizeInBytes) / sizeof(UINT32);
-        instanceDesc.AccelerationStructure = CreateFallbackWrappedPointer(m_bottomLevelAccelerationStructure.Get(), numBufferElements); 
-        AllocateUploadBuffer(device, &instanceDesc, sizeof(instanceDesc), &instanceDescs, L"InstanceDescs");
-    }
-    else // DirectX Raytracing
-    {
-        D3D12_RAYTRACING_INSTANCE_DESC instanceDesc = {};
-        instanceDesc.Transform[0][0] = instanceDesc.Transform[1][1] = instanceDesc.Transform[2][2] = 1;
-        instanceDesc.InstanceMask = 1;
-        instanceDesc.AccelerationStructure = m_bottomLevelAccelerationStructure->GetGPUVirtualAddress();
-        AllocateUploadBuffer(device, &instanceDesc, sizeof(instanceDesc), &instanceDescs, L"InstanceDescs");
-    }
   // Copy the descriptors in the target descriptor buffer
-  D3D12_RAYTRACING_INSTANCE_DESC* fallback_instance_descs;
-  D3D12_RAYTRACING_INSTANCE_DESC* dxr_instance_descs;
   if (is_fallback)
   {
+    D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC* instanceDescs;
     descriptorsBuffer->Map(0, nullptr, reinterpret_cast<void**>(&instanceDescs));
-  } 
-  else 
-  {
-  }
-  descriptorsBuffer->Map(0, nullptr, reinterpret_cast<void**>(&instanceDescs));
-  if (!instanceDescs)
-  {
-    throw std::logic_error("Cannot map the instance descriptor buffer - is it "
-                           "in the upload heap?");
-  }
+    
+    if (!instanceDescs)
+    {
+      throw std::logic_error("Cannot map the instance descriptor buffer - is it "
+                             "in the upload heap?");
+    }
 
-  auto instanceCount = static_cast<UINT>(m_instances.size());
+    auto instanceCount = static_cast<UINT>(m_instances.size());
 
-  // Initialize the memory to zero on the first time only
-  if (!updateOnly)
-  {
-    ZeroMemory(instanceDescs, m_instanceDescsSizeInBytes);
-  }
+    // Initialize the memory to zero on the first time only
+    if (!updateOnly)
+    {
+      ZeroMemory(instanceDescs, m_instanceDescsSizeInBytes);
+    }
 
-  // Create the description for each instance
-  for (uint32_t i = 0; i < instanceCount; i++)
-  {
-    // Instance ID visible in the shader in InstanceID()
-    instanceDescs[i].InstanceID = m_instances[i].instanceID;
-    // Index of the hit group invoked upon intersection
-    instanceDescs[i].InstanceContributionToHitGroupIndex = m_instances[i].hitGroupIndex;
-    // Instance flags, including backface culling, winding, etc - TODO: should
-    // be accessible from outside
-    instanceDescs[i].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
-    // Instance transform matrix
-    DirectX::XMMATRIX m = XMMatrixTranspose(
+    // Create the description for each instance
+    for (uint32_t i = 0; i < instanceCount; i++)
+    {
+      // Instance ID visible in the shader in InstanceID()
+      instanceDescs[i].InstanceID = m_instances[i].instanceID;
+      // Index of the hit group invoked upon intersection
+      instanceDescs[i].InstanceContributionToHitGroupIndex = m_instances[i].hitGroupIndex;
+      // Instance flags, including backface culling, winding, etc - TODO: should
+      // be accessible from outside
+      instanceDescs[i].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
+      // Instance transform matrix
+      DirectX::XMMATRIX m = XMMatrixTranspose(
         m_instances[i].transform); // GLM is column major, the INSTANCE_DESC is row major
-    memcpy(instanceDescs[i].Transform, &m, sizeof(instanceDescs[i].Transform));
-    // Get access to the bottom level
-    instanceDescs[i].AccelerationStructure = m_instances[i].bottomLevelAS->GetGPUVirtualAddress();
-    // Visibility mask, always visible here - TODO: should be accessible from
-    // outside
-    instanceDescs[i].InstanceMask = 0xFF;
-  }
+      memcpy(instanceDescs[i].Transform, &m, sizeof(instanceDescs[i].Transform));
+      // Get access to the bottom level
 
-  descriptorsBuffer->Unmap(0, nullptr);
+        UINT numBufferElements = m_instances[i].bottomLevelAS.ResultDataMaxSizeInBytes / sizeof(UINT32);
+        instanceDescs[i].AccelerationStructure = CreateFallbackWrappedPointer(device, fallback_device, fallback_required_descriptor_heap, allocate_descriptor, m_instances[i].bottomLevelAS.accelerationStructure.Get(), numBufferElements);
+      
+      // Visibility mask, always visible here - TODO: should be accessible from
+      // outside
+      instanceDescs[i].InstanceMask = 0xFF;
+    }
+
+    descriptorsBuffer->Unmap(0, nullptr);
+  }
+  else
+  {
+    D3D12_RAYTRACING_INSTANCE_DESC* instanceDescs;
+    descriptorsBuffer->Map(0, nullptr, reinterpret_cast<void**>(&instanceDescs));
+    
+    if (!instanceDescs)
+    {
+      throw std::logic_error("Cannot map the instance descriptor buffer - is it "
+                             "in the upload heap?");
+    }
+
+    auto instanceCount = static_cast<UINT>(m_instances.size());
+
+    // Initialize the memory to zero on the first time only
+    if (!updateOnly)
+    {
+      ZeroMemory(instanceDescs, m_instanceDescsSizeInBytes);
+    }
+
+    // Create the description for each instance
+    for (uint32_t i = 0; i < instanceCount; i++)
+    {
+      // Instance ID visible in the shader in InstanceID()
+      instanceDescs[i].InstanceID = m_instances[i].instanceID;
+      // Index of the hit group invoked upon intersection
+      instanceDescs[i].InstanceContributionToHitGroupIndex = m_instances[i].hitGroupIndex;
+      // Instance flags, including backface culling, winding, etc - TODO: should
+      // be accessible from outside
+      instanceDescs[i].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
+      // Instance transform matrix
+      DirectX::XMMATRIX m = XMMatrixTranspose(
+        m_instances[i].transform); // GLM is column major, the INSTANCE_DESC is row major
+      memcpy(instanceDescs[i].Transform, &m, sizeof(instanceDescs[i].Transform));
+      // Get access to the bottom level
+
+        instanceDescs[i].AccelerationStructure = m_instances[i].bottomLevelAS.accelerationStructure->GetGPUVirtualAddress();
+      // Visibility mask, always visible here - TODO: should be accessible from
+      // outside
+      instanceDescs[i].InstanceMask = 0xFF;
+    }
+
+    descriptorsBuffer->Unmap(0, nullptr);
+  }
 
   // If this in an update operation we need to provide the source buffer
   D3D12_GPU_VIRTUAL_ADDRESS pSourceAS = updateOnly ? previousResult->GetGPUVirtualAddress() : 0;
@@ -262,37 +324,58 @@ void TopLevelASGenerator::Generate(
     throw std::logic_error("Top-level hierarchy update requires the previous hierarchy");
   }
 
+     // Create a wrapped pointer to the acceleration structure.
+    if (is_fallback)
+    {
+        UINT numBufferElements = result_buffer_size / sizeof(UINT32);
+        *top_level_gpu_pointer = CreateFallbackWrappedPointer(device, fallback_device, fallback_required_descriptor_heap, allocate_descriptor, resultBuffer, numBufferElements);
+    }
+  
   // Create a descriptor of the requested builder work, to generate a top-level
   // AS from the input parameters
   D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};
-  buildDesc.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
-  buildDesc.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-  buildDesc.InstanceDescs = descriptorsBuffer->GetGPUVirtualAddress();
-  buildDesc.NumDescs = instanceCount;
-  buildDesc.DestAccelerationStructureData = {resultBuffer->GetGPUVirtualAddress(),
-                                             m_resultSizeInBytes};
-  buildDesc.ScratchAccelerationStructureData = {scratchBuffer->GetGPUVirtualAddress(),
-                                                m_scratchSizeInBytes};
+  prebuildDesc.InstanceDescs = descriptorsBuffer->GetGPUVirtualAddress();
+  buildDesc.Inputs = prebuildDesc;
+  buildDesc.DestAccelerationStructureData = resultBuffer->GetGPUVirtualAddress();
+  buildDesc.ScratchAccelerationStructureData = scratchBuffer->GetGPUVirtualAddress();
   buildDesc.SourceAccelerationStructureData = pSourceAS;
-  buildDesc.Flags = flags;
+
+  // Build acceleration structure.
+  auto BuildAccelerationStructure = [&](auto* raytracingCommandList)
+  {
+    raytracingCommandList->BuildRaytracingAccelerationStructure(&buildDesc, 0, nullptr);
+    command_list->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(resultBuffer));
+  };
 
   // Build the top-level AS
-  rtCmdList->BuildRaytracingAccelerationStructure(&buildDesc);
+  if (is_fallback)
+  {
+    // Set the descriptor heaps to be used during acceleration structure build for the Fallback Layer.
+    ID3D12DescriptorHeap* pDescriptorHeaps[] = {fallback_required_descriptor_heap.Get()};
+    fallback_command_list->SetDescriptorHeaps(ARRAYSIZE(pDescriptorHeaps), pDescriptorHeaps);
+    BuildAccelerationStructure(fallback_command_list.Get());
+  }
+  else // DirectX Raytracing
+  {
+    BuildAccelerationStructure(dxr_command_list.Get());
+  }
 
   // Wait for the builder to complete by setting a barrier on the resulting
   // buffer. This can be important in case the rendering is triggered
   // immediately afterwards, without executing the command list
+  /*
   D3D12_RESOURCE_BARRIER uavBarrier;
   uavBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
   uavBarrier.UAV.pResource = resultBuffer;
   uavBarrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
   commandList->ResourceBarrier(1, &uavBarrier);
+  */
 }
 
 //--------------------------------------------------------------------------------------------------
 //
 //
-TopLevelASGenerator::Instance::Instance(ID3D12Resource* blAS, const DirectX::XMMATRIX& tr, UINT iID,
+TopLevelASGenerator::Instance::Instance(AccelerationStructureBuffers blAS, const DirectX::XMMATRIX& tr, UINT iID,
                                         UINT hgId)
     : bottomLevelAS(blAS), transform(tr), instanceID(iID), hitGroupIndex(hgId)
 {

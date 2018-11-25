@@ -337,8 +337,8 @@ void D3D12PathTracing::CreateRootSignatures()
     return vertex_resource;
   });
 
-  std::shared_ptr<RootDescriptor> cb_descriptor = local_root_allocator.AllocateRootConstant(SizeOfInUint32(m_cubeCB), 1);
-  cb_descriptor->SetResource(srv1);
+  std::shared_ptr<RootConstant> cb_root_constant = local_root_allocator.AllocateRootConstant(SizeOfInUint32(m_cubeCB), 1);
+  cb_root_constant->SetResource(cb_view);
 
   local_root_allocator.Serialize();
 

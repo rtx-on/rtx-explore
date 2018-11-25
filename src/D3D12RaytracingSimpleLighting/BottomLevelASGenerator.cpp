@@ -132,7 +132,7 @@ void BottomLevelASGenerator::ComputeASBufferSizes(
   // size of the AS as well as the temporary memory requirements, and hence has
   // to be set before the actual build
   m_flags = allowUpdate ? D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE
-                        : D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
+                        : D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE; //TODO change to D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE; 
 
   // Describe the work being requested, in this case the construction of a
   // (possibly dynamic) bottom-level hierarchy, with the given vertex buffers

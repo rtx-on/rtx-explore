@@ -68,12 +68,6 @@ return buffers;
 
 #pragma once
 
-#include "d3d12.h"
-#include "d3d12_1.h"
-#include <DirectXMath.h>
-
-#include <vector>
-
 namespace nv_helpers_dx12
 {
 
@@ -86,7 +80,7 @@ public:
   /// index of the hit group indicating which shaders are executed upon hitting
   /// any geometry within the instance
   void
-  AddInstance(ID3D12Resource* bottomLevelAS, /// Bottom-level acceleration structure containing the
+  AddInstance(AccelerationStructureBuffers bottomLevelAS, /// Bottom-level acceleration structure containing the
                                              /// actual geometric data of the instance
               const DirectX::XMMATRIX& transform, /// Transform matrix to apply to the instance,
                                                   /// allowing the same bottom-level AS to be used
@@ -121,15 +115,28 @@ public:
   /// acceleration structure in case of iterative updates. Note that the update
   /// can be done in place: the result and previousResult pointers can be the
   /// same.
+  using AllocateDescriptor = std::function<std::pair<CD3DX12_CPU_DESCRIPTOR_HANDLE, UINT>(ComPtr<ID3D12DescriptorHeap>)>;
+  WRAPPED_GPU_POINTER CreateFallbackWrappedPointer(
+      ComPtr<ID3D12Device> device, 
+      ComPtr<ID3D12RaytracingFallbackDevice> fallback_device, 
+      ComPtr<ID3D12DescriptorHeap> descriptor_heap,
+      AllocateDescriptor allocate_descriptor,
+      ID3D12Resource *resource, UINT bufferNumElements);
+
   void Generate(
+      ComPtr<ID3D12Device> device,
+      ComPtr<ID3D12RaytracingFallbackDevice> fallback_device,
+      WRAPPED_GPU_POINTER* top_level_gpu_pointer,
       ID3D12GraphicsCommandList* command_list, // Command list on which the build will be enqueued
       bool is_fallback, 
       ComPtr<ID3D12DescriptorHeap> fallback_required_descriptor_heap, 
       ComPtr<ID3D12RaytracingFallbackCommandList> fallback_command_list,
-      ComPtr<ID3D12GraphicsCommandList5> dxr_command_list, 
+      ComPtr<ID3D12GraphicsCommandList5> dxr_command_list,
+      AllocateDescriptor allocate_descriptor,
       ID3D12Resource* scratchBuffer,     /// Scratch buffer used by the builder to
                                          /// store temporary data
       ID3D12Resource* resultBuffer,      /// Result buffer storing the acceleration structure
+      UINT result_buffer_size,
       ID3D12Resource* descriptorsBuffer, /// Auxiliary result buffer containing the instance
                                          /// descriptors, has to be in upload heap
       bool updateOnly = false, /// If true, simply refit the existing acceleration structure
@@ -141,9 +148,9 @@ private:
   /// Helper struct storing the instance data
   struct Instance
   {
-    Instance(ID3D12Resource* blAS, const DirectX::XMMATRIX& tr, UINT iID, UINT hgId);
+    Instance(AccelerationStructureBuffers blAS, const DirectX::XMMATRIX& tr, UINT iID, UINT hgId);
     /// Bottom-level AS
-    ID3D12Resource* bottomLevelAS;
+    AccelerationStructureBuffers bottomLevelAS;
     /// Transform matrix
     const DirectX::XMMATRIX& transform;
     /// Instance ID visible in the shader

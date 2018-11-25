@@ -67,10 +67,6 @@ return buffers;
 
 #pragma once
 
-#include "d3d12.h"
-#include "d3d12_1.h"
-#include <vector>
-
 namespace nv_helpers_dx12
 {
 

@@ -26,6 +26,7 @@
 #include <map>
 #include <cstdint>  // For uint64_t
 #include <queue>    // For std::queue
+#include <tuple>
 
 // WINDOWS SPECIFIC
 #include <wrl.h>
@@ -37,7 +38,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-
 
 //DIRECTX
 #include <dxgi1_6.h>
@@ -60,6 +60,8 @@
 #include "DirectXRaytracingHelper.h"
 
 //NVIDIA STUFF
+#include "dxc/dxcapi.use.h"
+#include "dxc/dxcapi.h"
 #include "DXRHelper.h"
 #include "BottomLevelASGenerator.h"
 #include "TopLevelASGenerator.h"
@@ -76,7 +78,7 @@
 
 #include "RootAllocator.h"
 #include "RaytracingPipeline.h"
-#include "RaytracingAcclerationStructure.h"
+#include "RaytracingAcclerationStructures.h"
 
 #include "RaytracingHlslCompat.h"
 #include "RaytracingManager.h"

@@ -1,6 +1,6 @@
 #pragma once
 
-class RaytracingAcclerationStructure : public RaytracingDeviceHolder {
+class RaytracingAcclerationStructures : public RaytracingDeviceHolder {
 public:
   //--------------------------------------------------------------------------------------------------
   //
@@ -17,7 +17,7 @@ public:
     bool opaque = true;
   };
 
-  AccelerationStructureBuffers CreateBottomLevelAS(std::vector<BottomLevelASPack> bottom_as_packs)
+  AccelerationStructureBuffers CreateBottomLevelAS(ComPtr<ID3D12DescriptorHeap> descriptor_heap, std::vector<BottomLevelASPack> bottom_as_packs)
   {
     auto device = device_resources->GetD3DDevice();
     auto command_list = device_resources->GetCommandList();
@@ -64,6 +64,8 @@ public:
         device, resultSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
         initial_resource_state, nv_helpers_dx12::kDefaultHeapProps);
 
+    buffers.ResultDataMaxSizeInBytes = resultSizeInBytes;
+
     // Before Win10 RS5, we need to cast the command list into a raytracing command list to access the
     // AS building method IGNORED
     //ID3D12CommandListRaytracingPrototype* rtCmdList;
@@ -73,7 +75,7 @@ public:
     // on the generated AS, so that it can be used to compute a top-level AS right
     // after this method.
     //TODO update ID3D12DESCRIPTORHEAP passed in
-    bottomLevelAS.Generate(command_list, ray_tracing_api->IsFallback(), ComPtr<ID3D12DescriptorHeap>(), fallback_command_list, dxr_command_list, buffers.scratch.Get(),
+    bottomLevelAS.Generate(command_list, ray_tracing_api->IsFallback(), descriptor_heap, fallback_command_list, dxr_command_list, buffers.scratch.Get(),
                            buffers.accelerationStructure.Get(), false, nullptr);
 
     return buffers;
@@ -87,13 +89,13 @@ public:
 
   struct TopLevelASPack
   {
-    ComPtr<ID3D12Resource> bottom_level_as_buffer; //buffers.accelerationStructure
+    AccelerationStructureBuffers bottom_level_as_buffer; //buffers.accelerationStructure
     DirectX::XMMATRIX transform = DirectX::XMMatrixIdentity();
     UINT instance_id = 0;
     UINT hit_group_id = 0;
   };
 
-  void CreateTopLevelAS(std::vector<TopLevelASPack> instances) // pair of bottom level AS and matrix of the instance
+  void CreateTopLevelAS(ComPtr<ID3D12DescriptorHeap> descriptor_heap, std::vector<TopLevelASPack> instances) // pair of bottom level AS and matrix of the instance
   {
     auto device = device_resources->GetD3DDevice();
     auto command_list = device_resources->GetCommandList();
@@ -101,7 +103,7 @@ public:
     // Gather all the instances into the builder helper
     for (size_t i = 0; i < instances.size(); i++)
     {
-      topLevelAS.AddInstance(instances[i].bottom_level_as_buffer.Get(), instances[i].transform,
+      topLevelAS.AddInstance(instances[i].bottom_level_as_buffer, instances[i].transform,
                                        instances[i].instance_id, instances[i].hit_group_id);
     }
 
@@ -145,15 +147,19 @@ public:
 
     // Before Win10 RS5, we need to cast the command list into a raytracing command list to access the
     // AS building method
-    ID3D12CommandListRaytracingPrototype* rtCmdList;
-    ThrowIfFailed(m_commandList->QueryInterface(IID_PPV_ARGS(&rtCmdList)));
+    //ID3D12CommandListRaytracingPrototype* rtCmdList;
+    //ThrowIfFailed(m_commandList->QueryInterface(IID_PPV_ARGS(&rtCmdList)));
 
     // After all the buffers are allocated, or if only an update is required, we can build the
     // acceleration structure. Note that in the case of the update we also pass the existing AS as the
     // 'previous' AS, so that it can be refitted in place.
-    m_topLevelASGenerator.Generate(m_commandList.Get(), rtCmdList, m_topLevelASBuffers.pScratch.Get(),
-                                 m_topLevelASBuffers.pResult.Get(),
-                                 m_topLevelASBuffers.pInstanceDesc.Get());
+    WRAPPED_GPU_POINTER top_level_gpu_pointer;
+    topLevelAS.Generate(command_list, fallback_device, command_list, ray_tracing_api->IsFallback(), descriptor_heap, fallback_command_list, dxr_command_list, 
+      [](ComPtr<ID3D12DescriptorHeap> heap)
+    {
+      //TODO
+          return std::make_pair(CD3DX12_CPU_DESCRIPTOR_HANDLE(heap->GetCPUDescriptorHandleForHeapStart()), 0);
+    }, buffers.scratch.Get(), buffers.accelerationStructure.Get(), buffers.instanceDesc.Get());
   }
 
   AccelerationStructureBuffers CreateFallbackBottomLevelAccelerationStructure(ComPtr<ID3D12RaytracingFallbackCommandList> fallback_command_list, ComPtr<ID3D12GraphicsCommandList> command_list, ComPtr<ID3D12RaytracingFallbackDevice> fallback_device, ComPtr<ID3D12Device> device, ComPtr<ID3D12Resource> vertices, UINT vertices_count, UINT vertex_stride, ComPtr<ID3D12Resource> indices, UINT indices_count)

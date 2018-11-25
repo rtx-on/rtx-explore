@@ -39,10 +39,8 @@ compiling in debug mode.
 
 */
 
+#include "stdafx.h"
 #include "RaytracingPipelineGenerator.h"
-
-#include "dxc/dxcapi.use.h"
-#include <unordered_set>
 
 namespace nv_helpers_dx12
 {

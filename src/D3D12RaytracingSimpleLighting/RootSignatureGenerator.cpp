@@ -34,7 +34,7 @@ important as it will define the slots of the heap or of the Shader Binding Table
 pointers will be bound.
 
 */
-
+#include "stdafx.h"
 #include "RootSignatureGenerator.h"
 
 namespace nv_helpers_dx12

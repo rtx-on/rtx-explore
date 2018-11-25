@@ -165,21 +165,29 @@ PrebuildCheck.bat</Command>
     </PreLinkEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="BottomLevelASGenerator.h" />
     <ClInclude Include="CommandQueue.h" />
     <ClInclude Include="DeviceResources.h" />
     <ClInclude Include="DirectXRaytracingHelper.h" />
+    <ClInclude Include="dxc\dxcapi.h" />
+    <ClInclude Include="dxc\dxcapi.use.h" />
+    <ClInclude Include="DXRHelper.h" />
     <ClInclude Include="HlslCompat.h" />
     <ClInclude Include="llvm-expected.h" />
-    <ClInclude Include="RaytracingAcclerationStructure.h" />
+    <ClInclude Include="RaytracingAcclerationStructures.h" />
     <ClInclude Include="RaytracingApi.h" />
     <ClInclude Include="RaytracingDeviceHolder.h" />
     <ClInclude Include="RaytracingHlslCompat.h" />
     <ClInclude Include="RaytracingManager.h" />
     <ClInclude Include="RaytracingPipeline.h" />
+    <ClInclude Include="RaytracingPipelineGenerator.h" />
     <ClInclude Include="RaytracingShaderTable.h" />
     <ClInclude Include="ResourceHelper.h" />
     <ClInclude Include="RootAllocator.h" />
+    <ClInclude Include="RootSignatureGenerator.h" />
+    <ClInclude Include="ShaderBindingTableGenerator.h" />
     <ClInclude Include="StepTimer.h" />
+    <ClInclude Include="TopLevelASGenerator.h" />
     <ClInclude Include="Win32Application.h" />
     <ClInclude Include="D3D12Raytracingばか.h" />
     <ClInclude Include="d3dx12.h" />
@@ -188,16 +196,21 @@ PrebuildCheck.bat</Command>
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BottomLevelASGenerator.cpp" />
     <ClCompile Include="CommandQueue.cpp" />
     <ClCompile Include="DeviceResources.cpp" />
-    <ClCompile Include="RaytracingAcclerationStructure.cpp" />
+    <ClCompile Include="RaytracingAcclerationStructures.cpp" />
     <ClCompile Include="RaytracingApi.cpp" />
     <ClCompile Include="RaytracingDeviceHolder.cpp" />
     <ClCompile Include="RaytracingManager.cpp" />
     <ClCompile Include="RaytracingPipeline.cpp" />
+    <ClCompile Include="RaytracingPipelineGenerator.cpp" />
     <ClCompile Include="RaytracingShaderTable.cpp" />
     <ClCompile Include="ResourceHelper.cpp" />
     <ClCompile Include="RootAllocator.cpp" />
+    <ClCompile Include="RootSignatureGenerator.cpp" />
+    <ClCompile Include="ShaderBindingTableGenerator.cpp" />
+    <ClCompile Include="TopLevelASGenerator.cpp" />
     <ClCompile Include="Win32Application.cpp" />
     <ClCompile Include="D3D12Raytracingばか.cpp" />
     <ClCompile Include="DXSample.cpp" />
@@ -211,6 +224,9 @@ PrebuildCheck.bat</Command>
     <ProjectReference Include="..\..\Libraries\D3D12RaytracingFallback\src\FallbackLayer.vcxproj">
       <Project>{4be280a6-1066-41ca-acdd-6bb7e532508b}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Raytracing.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

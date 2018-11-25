@@ -34,6 +34,7 @@ dispatch rays description.
 
 */
 
+#include "stdafx.h"
 #include "ShaderBindingTableGenerator.h"
 
 // Helper to compute aligned buffer sizes

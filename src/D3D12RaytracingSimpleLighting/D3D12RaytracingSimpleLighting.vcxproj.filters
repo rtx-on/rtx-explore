@@ -40,6 +40,9 @@
     <Filter Include="External\include">
       <UniqueIdentifier>{4962d73b-24e2-4c9c-831f-aa2421cb9b2e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="External\NvidiaHelpers">
+      <UniqueIdentifier>{5cbe019d-7e5a-4642-a3c7-9e995316a762}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -93,14 +96,38 @@
     <ClInclude Include="RayTracingShaderTable.h">
       <Filter>Util\include</Filter>
     </ClInclude>
-    <ClInclude Include="RayTracingAcclerationStructure.h">
-      <Filter>Util\include</Filter>
-    </ClInclude>
     <ClInclude Include="RaytracingApi.h">
       <Filter>Util\include</Filter>
     </ClInclude>
     <ClInclude Include="RaytracingManager.h" />
     <ClInclude Include="RaytracingDeviceHolder.h" />
+    <ClInclude Include="RaytracingPipelineGenerator.h">
+      <Filter>External\NvidiaHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="RootSignatureGenerator.h">
+      <Filter>External\NvidiaHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderBindingTableGenerator.h">
+      <Filter>External\NvidiaHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="TopLevelASGenerator.h">
+      <Filter>External\NvidiaHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="BottomLevelASGenerator.h">
+      <Filter>External\NvidiaHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="DXRHelper.h">
+      <Filter>External\NvidiaHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="RaytracingAcclerationStructures.h">
+      <Filter>Util\include</Filter>
+    </ClInclude>
+    <ClInclude Include="dxc\dxcapi.h">
+      <Filter>External\NvidiaHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="dxc\dxcapi.use.h">
+      <Filter>External\NvidiaHelpers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -136,13 +163,33 @@
     <ClCompile Include="RayTracingShaderTable.cpp">
       <Filter>Util\src</Filter>
     </ClCompile>
-    <ClCompile Include="RayTracingAcclerationStructure.cpp">
-      <Filter>Util\src</Filter>
-    </ClCompile>
     <ClCompile Include="RaytracingApi.cpp">
       <Filter>Util\src</Filter>
     </ClCompile>
     <ClCompile Include="RaytracingManager.cpp" />
     <ClCompile Include="RaytracingDeviceHolder.cpp" />
+    <ClCompile Include="RaytracingPipelineGenerator.cpp">
+      <Filter>External\NvidiaHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="RootSignatureGenerator.cpp">
+      <Filter>External\NvidiaHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="ShaderBindingTableGenerator.cpp">
+      <Filter>External\NvidiaHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="TopLevelASGenerator.cpp">
+      <Filter>External\NvidiaHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="BottomLevelASGenerator.cpp">
+      <Filter>External\NvidiaHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="RaytracingAcclerationStructures.cpp">
+      <Filter>Util\src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Raytracing.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
