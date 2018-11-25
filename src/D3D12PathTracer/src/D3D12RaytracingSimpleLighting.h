@@ -84,6 +84,8 @@ public:
 		return &m_descriptorSize;
 	}
 
+      WRAPPED_GPU_POINTER CreateFallbackWrappedPointer(ID3D12Resource* resource, UINT bufferNumElements);
+
 private:
 	static const UINT FrameCount = 3;
 
@@ -193,8 +195,6 @@ private:
     void CopyRaytracingOutputToBackbuffer();
     void CalculateFrameStats();
     
- 
-    WRAPPED_GPU_POINTER CreateFallbackWrappedPointer(ID3D12Resource* resource, UINT bufferNumElements);
 
 	void BuildMesh(std::string path);
 

@@ -53,6 +53,8 @@
 #include "DXSampleHelper.h"
 #include "DeviceResources.h"
 
+#include "D3D12RaytracingSimpleLighting.h"
+
 #include "model_loading/OBJ_Loader.h"
 
 #include "Model.h"

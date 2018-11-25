@@ -1,20 +1,20 @@
-MODEL 1
-path src/objects/wahoo.obj
+MODEL 2
+path src/objects/chromie.obj
 
 TEXTURE 1
-path src/textures/wahoo.bmp
+path src/textures/chromie.jpg
 
 TEXTURE 2
 path src/textures/normal.jpg
 
-OBJECT 1
-model 1
+OBJECT 2
+model 2
 albedo_tex 1
 normal_tex 2
 material -1
-trans       0 0 0
-rotat       0 0 0
-scale       2 2 2
+trans       0 -1 0
+rotat       0 160 0
+scale       0.5 0.5 0.5
 
 CAMERA
 resolution         800 800

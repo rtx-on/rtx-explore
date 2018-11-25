@@ -268,8 +268,8 @@ int Scene::loadModel(string modelid) {
 	}
 
 	newModel.id = id;
-	std::pair<int, ModelLoading::Model> modelPair(id, newModel);
-	modelMap.insert(modelPair);
+        std::pair<int, ModelLoading::Model> pair(id, newModel);
+	modelMap.insert(pair);
 
 	wstr << L"Done loading MODEL " << id << L" !\n";
 	wstr << L"------------------------------------------------------------------------------\n";
@@ -377,8 +377,8 @@ int Scene::loadTexture(string texid) {
 	}
 
 	newTexture.id = id;
-	std::pair<int, ModelLoading::Texture> texPair(id, newTexture);
-	textureMap.insert(texPair);
+        std::pair<int, ModelLoading::Texture> pair(id, newTexture);
+	textureMap.insert(pair);
 
 	wstr << L"Done loading TEXTURE " << id << L" !\n";
 	wstr << L"------------------------------------------------------------------------------\n";
@@ -475,8 +475,8 @@ int Scene::loadMaterial(string matid) {
 	}
 
 	newMat.id = id;
-	std::pair<int, ModelLoading::Material> matPair(id, newMat);
-	materialMap.insert(matPair);
+        std::pair<int, ModelLoading::Material> pair(id, newMat);
+	materialMap.insert(pair);
 
 	wstr << L"Done loading MATERIAL " << id << L" !\n";
 	wstr << L"------------------------------------------------------------------------------\n";
@@ -550,4 +550,199 @@ int Scene::loadCamera() {
 	wstr << L"----------------------------------------\n";
 	OuputAndReset(wstr);
 	return 1;
+}
+
+D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC& Scene::GetTopLevelDesc()
+{
+  if (!top_level_build_desc_allocated)
+  {
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS &topLevelInputs =
+        top_level_build_desc.Inputs;
+    topLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+    topLevelInputs.Flags =
+        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+    topLevelInputs.NumDescs = objects.size();
+    topLevelInputs.pGeometryDescs = nullptr;
+    topLevelInputs.Type =
+        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
+
+    top_level_build_desc_allocated = true;
+  }
+
+  return top_level_build_desc;
+}
+
+D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO& Scene::GetTopLevelPrebuildInfo(bool is_fallback, ComPtr<ID3D12RaytracingFallbackDevice> m_fallbackDevice, ComPtr<ID3D12Device5> m_dxrDevice)
+{
+  if (!top_level_prebuild_info_allocated)
+    {
+      D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC& desc = GetTopLevelDesc();
+      top_level_prebuild_info = {};
+      if (is_fallback) {
+        m_fallbackDevice->GetRaytracingAccelerationStructurePrebuildInfo(
+            &desc.Inputs, &top_level_prebuild_info);
+      } else // DirectX Raytracing
+      {
+        m_dxrDevice->GetRaytracingAccelerationStructurePrebuildInfo(
+            &desc.Inputs, &top_level_prebuild_info);
+      }
+      ThrowIfFalse(top_level_prebuild_info.ResultDataMaxSizeInBytes > 0);
+
+      top_level_prebuild_info_allocated = true;
+    }
+    return top_level_prebuild_info;
+}
+
+ComPtr<ID3D12Resource> Scene::GetTopLevelScratchAS(bool is_fallback, ComPtr<ID3D12Device> device, ComPtr<ID3D12RaytracingFallbackDevice> m_fallbackDevice, ComPtr<ID3D12Device5> m_dxrDevice)
+{
+  
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO&
+    topLevelPrebuildInfo =
+        GetTopLevelPrebuildInfo(is_fallback, m_fallbackDevice, m_dxrDevice);
+    AllocateUAVBuffer(device.Get(), topLevelPrebuildInfo.ScratchDataSizeInBytes,
+                      &scratchResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+                      L"TopLevelScratchResourceScene");
+    return scratchResource;
+}
+
+ComPtr<ID3D12Resource> Scene::GetTopAS(bool is_fallback, ComPtr<ID3D12Device> device, ComPtr<ID3D12RaytracingFallbackDevice> m_fallbackDevice, ComPtr<ID3D12Device5> m_dxrDevice)
+{
+  
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO& topLevelPrebuildInfo = GetTopLevelPrebuildInfo(is_fallback, m_fallbackDevice, m_dxrDevice);
+    D3D12_RESOURCE_STATES initialResourceState;
+    if (is_fallback) {
+      initialResourceState =
+          m_fallbackDevice->GetAccelerationStructureResourceState();
+    } else // DirectX Raytracing
+    {
+      initialResourceState =
+          D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
+    }
+
+    AllocateUAVBuffer(device.Get(),
+                      topLevelPrebuildInfo.ResultDataMaxSizeInBytes,
+                      &m_topLevelAccelerationStructure, initialResourceState,
+                      L"TopLevelASScene");
+    return m_topLevelAccelerationStructure;
+}
+
+ComPtr<ID3D12Resource> Scene::GetInstanceDescriptors(
+    bool is_fallback, ComPtr<ID3D12RaytracingFallbackDevice> m_fallbackDevice,
+    ComPtr<ID3D12Device5> m_dxrDevice) {
+  
+    auto device = programState->GetDeviceResources()->GetD3DDevice();
+    if (is_fallback)
+    {
+      std::vector<D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC> instanceDescArray;
+      for (int i = 0; i < objects.size(); i++) {
+        D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDesc = {};
+
+        ModelLoading::SceneObject obj = objects[i];
+        memcpy(instanceDesc.Transform, obj.getTransform3x4(), 12 * sizeof(FLOAT));
+        instanceDesc.InstanceMask = 1;
+        instanceDesc.InstanceID = 2; // TODO
+
+        ModelLoading::Model *model = obj.model;
+
+        UINT numBufferElements =
+            static_cast<UINT>(model->GetPreBuild(is_fallback, m_fallbackDevice, m_dxrDevice).ResultDataMaxSizeInBytes) / sizeof(UINT32);
+     
+        instanceDesc.AccelerationStructure = model->GetFallBackWrappedPoint(programState, is_fallback, m_fallbackDevice, m_dxrDevice, numBufferElements);
+
+      
+        // figure out a way to do textures & materials TODO
+        instanceDescArray.push_back(instanceDesc);
+      }
+
+      AllocateUploadBuffer(device, instanceDescArray.data(),
+                           sizeof(D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC) * instanceDescArray.size(),
+                           &instanceDescs, L"InstanceDescs");
+    }
+    else
+    {
+      std::vector<D3D12_RAYTRACING_INSTANCE_DESC> instanceDescArray;
+      for (int i = 0; i < objects.size(); i++) {
+        D3D12_RAYTRACING_INSTANCE_DESC instanceDesc = {};
+
+        ModelLoading::SceneObject obj = objects[i];
+        memcpy(instanceDesc.Transform, obj.getTransform3x4(), 12 * sizeof(FLOAT));
+        instanceDesc.InstanceMask = 1;
+        instanceDesc.InstanceID = 2; // TODO
+
+        ModelLoading::Model *model = obj.model;
+
+        UINT numBufferElements =
+            static_cast<UINT>(model->GetPreBuild(is_fallback, m_fallbackDevice, m_dxrDevice).ResultDataMaxSizeInBytes) / sizeof(UINT32);
+     
+        instanceDesc.AccelerationStructure =
+            model->GetBottomAS(is_fallback, device, m_fallbackDevice, m_dxrDevice)->GetGPUVirtualAddress();
+
+      
+        // figure out a way to do textures & materials TODO
+        instanceDescArray.push_back(instanceDesc);
+      }
+
+      AllocateUploadBuffer(device, instanceDescArray.data(),
+                           sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * instanceDescArray.size(),
+                           &instanceDescs, L"InstanceDescs");
+    }
+    return instanceDescs;
+}
+
+WRAPPED_GPU_POINTER Scene::GetWrappedGPUPointer(bool is_fallback, ComPtr<ID3D12RaytracingFallbackDevice> m_fallbackDevice, ComPtr<ID3D12Device5> m_dxrDevice)
+{
+  
+    UINT numBufferElements =
+        static_cast<UINT>(GetTopLevelPrebuildInfo(is_fallback, m_fallbackDevice, m_dxrDevice).ResultDataMaxSizeInBytes) / sizeof(UINT32);
+        return programState->CreateFallbackWrappedPointer(m_topLevelAccelerationStructure.Get(), numBufferElements); 
+}
+
+void Scene::FinalizeAS()
+{
+  
+    for (auto& model_pair : modelMap)
+    {
+      ModelLoading::Model &model = model_pair.second;
+      model.FinalizeAS();
+    }
+
+    auto& topLevelBuildDesc = GetTopLevelDesc();
+    topLevelBuildDesc.DestAccelerationStructureData =
+        m_topLevelAccelerationStructure->GetGPUVirtualAddress();
+        topLevelBuildDesc.ScratchAccelerationStructureData = scratchResource->GetGPUVirtualAddress();
+        topLevelBuildDesc.Inputs.InstanceDescs = instanceDescs->GetGPUVirtualAddress();
+  }
+
+  void Scene::BuildAllAS(bool is_fallback, ComPtr<ID3D12RaytracingFallbackDevice> m_fallbackDevice,
+      ComPtr<ID3D12Device5> m_dxrDevice, ComPtr<ID3D12RaytracingFallbackCommandList> fbCmdLst, ComPtr<ID3D12GraphicsCommandList5> rtxCmdList) {
+    auto commandList =
+        programState->GetDeviceResources()->GetCommandList();
+    auto device = programState->GetDeviceResources()->GetD3DDevice();
+    if (is_fallback) {
+      // Set the descriptor heaps to be used during acceleration structure build
+      // for the Fallback Layer.
+        ID3D12DescriptorHeap *pDescriptorHeaps[] = { programState->GetDescriptorHeap().Get() };
+        fbCmdLst->SetDescriptorHeaps(ARRAYSIZE(pDescriptorHeaps), pDescriptorHeaps);
+
+        for (auto& model_pair : modelMap)
+        {
+          ModelLoading::Model &model = model_pair.second;
+          fbCmdLst.Get()->BuildRaytracingAccelerationStructure(&model.GetBottomLevelBuildDesc(), 0, nullptr);
+          commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(model.GetBottomAS(is_fallback, device, m_fallbackDevice, m_dxrDevice).Get()));
+        }
+        fbCmdLst->BuildRaytracingAccelerationStructure(&GetTopLevelDesc(), 0, nullptr);
+    } else {
+        for (auto& model_pair : modelMap)
+        {
+           ModelLoading::Model &model = model_pair.second;
+          rtxCmdList.Get()->BuildRaytracingAccelerationStructure(&model.GetBottomLevelBuildDesc(), 0, nullptr);
+          commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(model.GetBottomAS(is_fallback, device, m_fallbackDevice, m_dxrDevice).Get()));
+        }
+       rtxCmdList->BuildRaytracingAccelerationStructure(&GetTopLevelDesc(), 0, nullptr);
+    }
+    // Kick off acceleration structure construction.
+    programState->GetDeviceResources()->ExecuteCommandList();
+
+    // Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
+    programState->GetDeviceResources()->WaitForGpu();
 }
