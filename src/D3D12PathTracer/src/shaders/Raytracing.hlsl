@@ -322,7 +322,7 @@ void DiffuseBounce(float3 triangleNormal, float3 hitPosition, float hitType, flo
 	payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;
 
 	float3 tex = text.SampleLevel(s1, triangleUV, 0);
-	float3 color = payload.color.rgb * tex.rgb * 3.0f;
+	float3 color = payload.color.rgb * tex.rgb * 2.0f;
 	payload.color = float4(color.xyz, hitType);
 }
 
@@ -363,8 +363,9 @@ void MyRaygenShader()
 	// case 3: hit something else, keep going with new direction
 	// case 4: no more tracing and didnt hit light: stop here
 	for (int i = 0; i < depth; i++) {
-		TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
 		ComputeRngSeed(id, g_sceneCB.iteration, depth);
+		TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
+
 		if (payload.color.w == 1.0f) {
 			// new ray has to be edited here
 			ray.Origin = payload.rayOrigin;
@@ -381,6 +382,8 @@ void MyRaygenShader()
 			break;
 		}
 	}
+
+	// TODO: Stream Compact here ?? thrust::remove_if on the payload
 
 	// Write the raytraced color to the output texture.
 	float3 oldColor = RenderTarget[DispatchRaysIndex().xy].xyz;
@@ -438,7 +441,8 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	float3 triangleNormal = HitAttribute(vertexNormals, attr);
 	float2 triangleUV = HitAttribute2D(vertexUVs, attr);
 
-	if (hitType == 1) // Do both a R E F L E C C and a R E F R A C C with fresnel effects
+	// TODO: Make hitType actually matter and parse this based off that. Also reorder to have an order that makes sense
+	if (hitType == 6) // Do both a R E F L E C C and a R E F R A C C with fresnel effects
 	{
 		float indexOfRefraction = 1.2f; // TODO: Change this to be more general
 
@@ -451,25 +455,23 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 
 		if (Uniform01() < fresnel) {
 			ReflectiveBounce(triangleNormal, hitPosition, hitType, payload);
-			//SpecularReflection_BxDF(pathSegment, intersect, normal, m);
 		}
 		else {
 			RefractiveBounce(triangleNormal, hitPosition, hitType, payload);
-			//SpecularRefraction_BxDF(pathSegment, intersect, normal, m, rng);
 		}
 	}
 	else if (hitType == 3) // Do a R E F R A C C
 	{
 		RefractiveBounce(triangleNormal, hitPosition, hitType, payload);
 	}
-	else if (hitType == 4) // Do a diffuse bounce
+	else if (hitType == 1) // Do a diffuse bounce
 	{
 		DiffuseBounce(triangleNormal, hitPosition, hitType, triangleUV, payload);
 	}
 	else if (hitType == 0) // I think this means its a light
 	{
 		float3 tex = text.SampleLevel(s1, triangleUV, 0);
-		float3 color = payload.color.rgb * tex.rgb * 3.0f;
+		float3 color = payload.color.rgb * tex.rgb * 2.0f;
 		payload.color = float4(color.xyz, hitType);
 	}
 	else // do a R E F L E C C
