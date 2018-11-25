@@ -14,6 +14,7 @@
 #include "DXSample.h"
 #include "StepTimer.h"
 #include "shaders/RaytracingHlslCompat.h"
+#include "Scene.h"
 
 
 namespace GlobalRootSignatureParams {
@@ -64,8 +65,27 @@ public:
     virtual void OnDestroy();
     virtual IDXGISwapChain* GetSwapchain() { return m_deviceResources->GetSwapChain(); }
 
+	// Public variables
+	std::string p_sceneFileName;
+
+	UINT CreateBufferSRV(D3DBuffer* buffer, UINT numElements, UINT elementSize);
+
+	UINT AllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* cpuDescriptor, UINT descriptorIndexToUse = UINT_MAX);
+
+	ID3D12Resource* GetTextureBufferUploadHeap() {
+		return textureBufferUploadHeap;
+	}
+
+	ComPtr<ID3D12DescriptorHeap> GetDescriptorHeap() {
+		return m_descriptorHeap;
+	}
+
+	UINT* GetDescriptorSize() {
+		return &m_descriptorSize;
+	}
+
 private:
-    static const UINT FrameCount = 3;
+	static const UINT FrameCount = 3;
 
     // We'll allocate space for several of these and they will need to be padded for alignment.
     static_assert(sizeof(SceneConstantBuffer) < D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, "Checking the size here.");
@@ -100,16 +120,11 @@ private:
     UINT m_descriptorSize;
     
     // Raytracing scene
+	Scene* m_sceneLoaded;
     SceneConstantBuffer m_sceneCB[FrameCount];
     CubeConstantBuffer m_cubeCB;
 
-    // Geometry
-    struct D3DBuffer
-    {
-        ComPtr<ID3D12Resource> resource;
-        D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle;
-        D3D12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle;
-    };
+
     D3DBuffer m_indexBuffer;
     D3DBuffer m_vertexBuffer;
 
@@ -177,8 +192,8 @@ private:
     void UpdateForSizeChange(UINT clientWidth, UINT clientHeight);
     void CopyRaytracingOutputToBackbuffer();
     void CalculateFrameStats();
-    UINT AllocateDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE* cpuDescriptor, UINT descriptorIndexToUse = UINT_MAX);
-    UINT CreateBufferSRV(D3DBuffer* buffer, UINT numElements, UINT elementSize);
+    
+ 
     WRAPPED_GPU_POINTER CreateFallbackWrappedPointer(ID3D12Resource* resource, UINT bufferNumElements);
 
 	void BuildMesh(std::string path);

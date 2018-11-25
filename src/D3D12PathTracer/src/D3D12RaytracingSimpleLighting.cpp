@@ -18,6 +18,7 @@
 #include "Mesh.h"
 #include "MeshLoader.h"
 #include <iostream>
+#include <algorithm>
 
 using namespace std;
 using namespace DX;
@@ -206,8 +207,12 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
     CreateDescriptorHeap();
 
     // Build geometry to be used in the sample.
-   // BuildGeometry();
-	BuildMesh("src/objects/wahoo.obj");
+
+	m_sceneLoaded = new Scene(p_sceneFileName, this); // this will load everything in the argument text file
+
+
+
+	//BuildMesh("src/objects/wahoo.obj");
 
     // Build raytracing acceleration structures from the generated geometry.
     BuildAccelerationStructures();
@@ -216,8 +221,8 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
     CreateConstantBuffers();
 
 	// LOOKAT
-	CreateTexture();
-	CreateNormalTexture();
+	//CreateTexture();
+	//CreateNormalTexture();
 
     // Build shader tables, which define shaders and their local root arguments.
     BuildShaderTables();
@@ -623,73 +628,6 @@ void D3D12RaytracingSimpleLighting::CreateDescriptorHeap()
     m_descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
-/*
-void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
-	// load mesh here
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
-	
-	tinyobj::attrib_t attrib;
-	std::string err;
-	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path.c_str());
-	
-	std::vector<Index> indices;
-	std::vector<Vertex> vertices;
-	
-	if (!ret)
-	{
-		throw std::runtime_error("failed to load Object!");
-	}
-	else
-	{
-		int min_idx = 0;
-		//Read the information from the vector of shape_ts
-		for (unsigned int i = 0; i < shapes.size(); i++)
-		{
-			std::vector<tinyobj::index_t> &index = shapes[i].mesh.indices;
-			std::vector<float> &positions = attrib.vertices;
-			std::vector<float> &normals = attrib.normals;
-			std::vector<float> &texcoords = attrib.texcoords;
-
-			for (unsigned int j = 0; j < index.size(); j++)
-			{
-				int vIndex = index[j].vertex_index;
-				int nIndex = index[j].normal_index;
-				int tIndex = index[j].texcoord_index;
-				Vertex v{};
-				v.position = XMFLOAT3(positions[vIndex * 3], positions[vIndex * 3 + 1], positions[vIndex * 3 + 2]);
-				if (nIndex != -1)
-				{
-					v.normal = XMFLOAT3(normals[nIndex * 3], normals[nIndex * 3 + 1], normals[nIndex * 3 + 2]);
-				}
-
-				if (tIndex != -1)
-				{
-					v.texCoord = XMFLOAT2(texcoords[tIndex * 2], 1 - texcoords[tIndex * 2 + 1]);
-				}
-				vertices.push_back(v);
-				indices.push_back(j); // TODO check this
-			}
-			//break; // todo get rid of this garbage to load mul
-		}
-	
-		auto device = m_deviceResources->GetD3DDevice();
-		Vertex* vPtr = vertices.data();
-		Index* iPtr = indices.data();
-		AllocateUploadBuffer(device, iPtr, indices.size() * sizeof(Index), &m_indexBuffer.resource);
-		AllocateUploadBuffer(device, vPtr, vertices.size() * sizeof(Vertex), &m_vertexBuffer.resource);
-	
-		// Vertex buffer is passed to the shader along with index buffer as a descriptor table.
-		// Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
-		UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, indices.size() * sizeof(Index) / 4, 0);
-		UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, vertices.size(), sizeof(Vertex));
-		ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
-	}
-} */
-
-// alternative function that adds shapes
-
-
 void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
 	// load mesh here
 	std::vector<tinyobj::shape_t> shapes;
@@ -844,16 +782,18 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
 
 	D3D12_RAYTRACING_GEOMETRY_DESC geometryDescs[1];
 
+	ModelLoading::SceneObject objectInScene = m_sceneLoaded->objects[0];
+
 	// Mesh Geom Desc
     D3D12_RAYTRACING_GEOMETRY_DESC geometryDesc = {};
     geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-	geometryDesc.Triangles.IndexBuffer = m_indexBuffer.resource->GetGPUVirtualAddress();
-    geometryDesc.Triangles.IndexCount = static_cast<UINT>(m_indexBuffer.resource->GetDesc().Width) / sizeof(Index);
+	geometryDesc.Triangles.IndexBuffer = objectInScene.model->indices.resource->GetGPUVirtualAddress();
+    geometryDesc.Triangles.IndexCount = static_cast<UINT>(objectInScene.model->indices.resource->GetDesc().Width) / sizeof(Index);
     geometryDesc.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
     geometryDesc.Triangles.Transform3x4 = 0;
     geometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-    geometryDesc.Triangles.VertexCount = static_cast<UINT>(m_vertexBuffer.resource->GetDesc().Width) / sizeof(Vertex);
-    geometryDesc.Triangles.VertexBuffer.StartAddress = m_vertexBuffer.resource->GetGPUVirtualAddress();
+    geometryDesc.Triangles.VertexCount = static_cast<UINT>(objectInScene.model->vertices.resource->GetDesc().Width) / sizeof(Vertex);
+    geometryDesc.Triangles.VertexBuffer.StartAddress = objectInScene.model->vertices.resource->GetGPUVirtualAddress();
     geometryDesc.Triangles.VertexBuffer.StrideInBytes = sizeof(Vertex);
 
     // Mark the geometry as opaque. 
@@ -905,7 +845,7 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
     ThrowIfFalse(bottomLevelPrebuildInfo.ResultDataMaxSizeInBytes > 0);
 
     ComPtr<ID3D12Resource> scratchResource;
-    AllocateUAVBuffer(device, max(topLevelPrebuildInfo.ScratchDataSizeInBytes, bottomLevelPrebuildInfo.ScratchDataSizeInBytes), &scratchResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, L"ScratchResource");
+    AllocateUAVBuffer(device, std::max(topLevelPrebuildInfo.ScratchDataSizeInBytes, bottomLevelPrebuildInfo.ScratchDataSizeInBytes), &scratchResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, L"ScratchResource");
 
     // Allocate resources for acceleration structures.
     // Acceleration structures can only be placed in resources that are created in the default heap (or custom heap equivalent). 
@@ -946,7 +886,8 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
     {
 		D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDescArray[3];
         D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDesc = {};
-        instanceDesc.Transform[0][0] = instanceDesc.Transform[1][1] = instanceDesc.Transform[2][2] = 1;
+		memcpy(instanceDesc.Transform, objectInScene.getTransform3x4(), sizeof(FLOAT) * 12);
+        //instanceDesc.Transform[0][0] = instanceDesc.Transform[1][1] = instanceDesc.Transform[2][2] = 1;
         instanceDesc.InstanceMask = 1;
 		instanceDesc.InstanceID = 1;
 
@@ -1193,14 +1134,17 @@ void D3D12RaytracingSimpleLighting::DoRaytracing()
         commandList->DispatchRays(dispatchDesc);
     };
 
+	
     auto SetCommonPipelineState = [&](auto* descriptorSetCommandList)
     {
+		ModelLoading::SceneObject objectInScene = m_sceneLoaded->objects[0];
+		ModelLoading::TextureBundle textures = objectInScene.textures;
         descriptorSetCommandList->SetDescriptorHeaps(1, m_descriptorHeap.GetAddressOf());
         // Set index and successive vertex buffer decriptor tables
-        commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::VertexBuffersSlot, m_indexBuffer.gpuDescriptorHandle);
+        commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::VertexBuffersSlot, objectInScene.model->indices.gpuDescriptorHandle);
         commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::OutputViewSlot, m_raytracingOutputResourceUAVGpuDescriptor);
-		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, m_textureBuffer.gpuDescriptorHandle); // LOOKAT
-		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::NormalTextureSlot, m_normalTextureBuffer.gpuDescriptorHandle); // LOOKAT
+		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, textures.albedoTex->texBuffer.gpuDescriptorHandle); // LOOKAT
+		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::NormalTextureSlot, textures.normalTex->texBuffer.gpuDescriptorHandle); // LOOKAT
 	};
 
     commandList->SetComputeRootSignature(m_raytracingGlobalRootSignature.Get());

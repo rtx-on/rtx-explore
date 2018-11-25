@@ -1,0 +1,28 @@
+MODEL 1
+path src/objects/wahoo.obj
+
+TEXTURE 1
+path src/textures/wahoo.bmp
+
+TEXTURE 2
+path src/textures/normal.jpg
+
+OBJECT 1
+model 1
+albedo_tex 1
+normal_tex 2
+material -1
+trans       0 0 0
+rotat       0 0 0
+scale       2 2 2
+
+CAMERA
+resolution         800 800
+fovy        45
+iterations  5000
+depth       30
+eye         0.0 2 -20
+lookat      0 0 1
+up          0 1 0
+focal		10
+lensr		0.5

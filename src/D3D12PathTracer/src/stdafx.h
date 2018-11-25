@@ -35,6 +35,7 @@
 #include <vector>
 #include <atlbase.h>
 #include <assert.h>
+#include <algorithm>
 
 #include <dxgi1_6.h>
 #include "d3d12_1.h"
@@ -53,3 +54,7 @@
 #include "DeviceResources.h"
 
 #include "model_loading/OBJ_Loader.h"
+
+#include "Model.h"
+
+#include "Scene.h"

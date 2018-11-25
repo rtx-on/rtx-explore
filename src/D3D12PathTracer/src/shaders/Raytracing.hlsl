@@ -278,6 +278,8 @@ void MyRaygenShader()
 	// case 4: no more tracing and didnt hit light: stop here
 	for (int i = 0; i < depth; i++) {
 		TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
+		ComputeRngSeed(id, g_sceneCB.iteration, depth);
+
 
 		if (payload.color.w == 1.0f) {
 			// new ray has to be edited here
