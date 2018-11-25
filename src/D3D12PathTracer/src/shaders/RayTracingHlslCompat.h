@@ -28,16 +28,13 @@ struct SceneConstantBuffer
     XMVECTOR lightPosition;
     XMVECTOR lightAmbientColor;
     XMVECTOR lightDiffuseColor;
+	UINT iteration;
+	UINT depth;
 };
 
 struct CubeConstantBuffer
 {
     XMFLOAT4 albedo;
-};
-
-struct MeshConstantBuffer
-{
-	XMFLOAT4 albedo;
 };
 
 struct Vertex {
