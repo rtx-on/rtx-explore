@@ -198,6 +198,8 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
     // Create raytracing interfaces: raytracing device and commandlist.
     CreateRaytracingInterfaces();
 
+    m_sceneLoaded = new Scene(p_sceneFileName, this); // this will load everything in the argument text file
+
     // Create root signatures for the shaders.
     CreateRootSignatures();
 
@@ -208,9 +210,7 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
     CreateDescriptorHeap();
 
     // Build geometry to be used in the sample.
-
-	m_sceneLoaded = new Scene(p_sceneFileName, this); // this will load everything in the argument text file
-
+    m_sceneLoaded->AllocateVerticesAndIndices();
 
 
 	//BuildMesh("src/objects/wahoo.obj");
@@ -419,39 +419,45 @@ void D3D12RaytracingSimpleLighting::CreateRootSignatures()
     // Global Root Signature
     // This is a root signature that is shared across all raytracing shaders invoked during a DispatchRays() call.
     {
-        CD3DX12_DESCRIPTOR_RANGE ranges[4]; // Perfomance TIP: Order from most frequent to least frequent.
+      auto num_models = m_sceneLoaded->modelMap.size();
+      auto num_textures = m_sceneLoaded->textureMap.size();
+
+        CD3DX12_DESCRIPTOR_RANGE ranges[5]; // Perfomance TIP: Order from most frequent to least frequent.
         ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);  // 1 output texture at u0
-        ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 1);  // 2 static index and vertex buffers and texture at t1 and t2
-		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3);  // 1 static texture buffer at t3 // LOOKAT
-		ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 4);  // 1 static normal texture buffer at t4 
+        ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_models, 0, 1);  // 2 static index and vertex buffers and texture at t1 and t2
+        ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_models, 0, 2);  // 2 static index and vertex buffers and texture at t1 and t2
+	ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_textures, 0, 3);  // 1 static texture buffer at t3 // LOOKAT
+	ranges[4].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_textures, 0, 4);  // 1 static normal texture buffer at t4 
 
         CD3DX12_ROOT_PARAMETER rootParameters[GlobalRootSignatureParams::Count];
-        rootParameters[GlobalRootSignatureParams::OutputViewSlot].InitAsDescriptorTable(1, &ranges[0]);
         rootParameters[GlobalRootSignatureParams::AccelerationStructureSlot].InitAsShaderResourceView(0);
-		rootParameters[GlobalRootSignatureParams::TextureSlot].InitAsDescriptorTable(1, &ranges[2]); //LOOKAT
-		rootParameters[GlobalRootSignatureParams::NormalTextureSlot].InitAsDescriptorTable(1, &ranges[3]);
         rootParameters[GlobalRootSignatureParams::SceneConstantSlot].InitAsConstantBufferView(0);
+        rootParameters[GlobalRootSignatureParams::OutputViewSlot].InitAsDescriptorTable(1, &ranges[0]);
         rootParameters[GlobalRootSignatureParams::VertexBuffersSlot].InitAsDescriptorTable(1, &ranges[1]);
+        rootParameters[GlobalRootSignatureParams::IndexBuffersSlot].InitAsDescriptorTable(1, &ranges[2]);
+        rootParameters[GlobalRootSignatureParams::TextureSlot].InitAsDescriptorTable(1, &ranges[3]); //LOOKAT
+	rootParameters[GlobalRootSignatureParams::NormalTextureSlot].InitAsDescriptorTable(1, &ranges[4]);
 
-		// LOOKAT
-		// create a static sampler
-		D3D12_STATIC_SAMPLER_DESC sampler[2] = {};
-		sampler[0].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-		sampler[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		sampler[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		sampler[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		sampler[0].MipLODBias = 0;
-		sampler[0].MaxAnisotropy = 0;
-		sampler[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-		sampler[0].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
-		sampler[0].MinLOD = 0.0f;
-		sampler[0].MaxLOD = 1.0f;
-		sampler[0].ShaderRegister = 0;
-		sampler[0].RegisterSpace = 0;
-		sampler[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	// LOOKAT
+	// create a static sampler
+	D3D12_STATIC_SAMPLER_DESC sampler[2] = {};
+	sampler[0].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+	sampler[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler[0].MipLODBias = 0;
+	sampler[0].MaxAnisotropy = 0;
+	sampler[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler[0].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+	sampler[0].MinLOD = 0.0f;
+	sampler[0].MaxLOD = 1.0f;
+	sampler[0].ShaderRegister = 0;
+	sampler[0].RegisterSpace = 0;
+	sampler[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-		memcpy(&sampler[1], &sampler[0], sizeof(D3D12_STATIC_SAMPLER_DESC));
-		sampler[1].ShaderRegister = 1;
+	memcpy(&sampler[1], &sampler[0], sizeof(D3D12_STATIC_SAMPLER_DESC));
+	sampler[1].ShaderRegister = 1;
+
         CD3DX12_ROOT_SIGNATURE_DESC globalRootSignatureDesc(ARRAYSIZE(rootParameters), rootParameters, 2, &sampler[0]);
         SerializeAndCreateRaytracingRootSignature(globalRootSignatureDesc, &m_raytracingGlobalRootSignature);
     }
@@ -619,7 +625,7 @@ void D3D12RaytracingSimpleLighting::CreateDescriptorHeap()
 	// 1 - norm tex
     // 1 - raytracing output texture SRV
     // 2 - bottom and top level acceleration structure fallback wrapped pointer UAVs
-    descriptorHeapDesc.NumDescriptors = 7; 
+    descriptorHeapDesc.NumDescriptors = 10000; 
     descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     descriptorHeapDesc.NodeMask = 0;
@@ -973,18 +979,19 @@ void D3D12RaytracingSimpleLighting::DoRaytracing()
         commandList->DispatchRays(dispatchDesc);
     };
 
-	
+
     auto SetCommonPipelineState = [&](auto* descriptorSetCommandList)
     {
-		ModelLoading::SceneObject objectInScene = m_sceneLoaded->objects[0];
-		ModelLoading::TextureBundle textures = objectInScene.textures;
-        descriptorSetCommandList->SetDescriptorHeaps(1, m_descriptorHeap.GetAddressOf());
-        // Set index and successive vertex buffer decriptor tables
-        commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::VertexBuffersSlot, objectInScene.model->indices.gpuDescriptorHandle);
-        commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::OutputViewSlot, m_raytracingOutputResourceUAVGpuDescriptor);
-		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, textures.albedoTex->texBuffer.gpuDescriptorHandle); // LOOKAT
-		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::NormalTextureSlot, textures.normalTex->texBuffer.gpuDescriptorHandle); // LOOKAT
-	};
+      ModelLoading::SceneObject objectInScene = m_sceneLoaded->objects[0];
+      ModelLoading::TextureBundle textures = objectInScene.textures;
+      descriptorSetCommandList->SetDescriptorHeaps(1, m_descriptorHeap.GetAddressOf());
+      // Set index and successive vertex buffer decriptor tables
+      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::VertexBuffersSlot, objectInScene.model->vertices.gpuDescriptorHandle);
+      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::IndexBuffersSlot, objectInScene.model->indices.gpuDescriptorHandle);
+      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::OutputViewSlot, m_raytracingOutputResourceUAVGpuDescriptor);
+      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, textures.albedoTex->texBuffer.gpuDescriptorHandle); // LOOKAT
+      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::NormalTextureSlot, textures.normalTex->texBuffer.gpuDescriptorHandle); // LOOKAT
+    };
 
     commandList->SetComputeRootSignature(m_raytracingGlobalRootSignature.Get());
 
@@ -1066,8 +1073,8 @@ void D3D12RaytracingSimpleLighting::ReleaseDeviceDependentResources()
     m_raytracingOutputResourceUAVDescriptorHeapIndex = UINT_MAX;
     m_indexBuffer.resource.Reset();
     m_vertexBuffer.resource.Reset();
-	m_textureBuffer.resource.Reset();
-	m_normalTextureBuffer.resource.Reset();
+    m_textureBuffer.resource.Reset();
+    m_normalTextureBuffer.resource.Reset();
     m_perFrameConstants.Reset();
     m_rayGenShaderTable.Reset();
     m_missShaderTable.Reset();

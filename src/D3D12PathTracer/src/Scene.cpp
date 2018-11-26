@@ -261,9 +261,11 @@ int Scene::loadModel(string modelid) {
 
 			// Vertex buffer is passed to the shader along with index buffer as a descriptor table.
 			// Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
-			UINT descriptorIndexIB = programState->CreateBufferSRV(&newModel.indices, indices.size() * sizeof(Index) / 4, 0);
-			UINT descriptorIndexVB = programState->CreateBufferSRV(&newModel.vertices, vertices.size(), sizeof(Vertex));
-			ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
+			//UINT descriptorIndexIB = programState->CreateBufferSRV(&newModel.indices, indices.size() * sizeof(Index) / 4, 0);
+			//UINT descriptorIndexVB = programState->CreateBufferSRV(&newModel.vertices, vertices.size(), sizeof(Vertex));
+                        newModel.verticesCount = vertices.size();
+                        newModel.indicesCount = indices.size();
+			//ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
 		}
 	}
 
@@ -296,7 +298,7 @@ int Scene::loadTexture(string texid) {
 		vector<string> tokens = utilityCore::tokenizeString(line);
 
 		// Load the image from file
-		D3D12_RESOURCE_DESC textureDesc;
+		D3D12_RESOURCE_DESC& textureDesc = newTexture.textureDesc;
 		int imageBytesPerRow;
 		BYTE* imageData;
 
@@ -355,19 +357,6 @@ int Scene::loadTexture(string texid) {
 
 		// transition the texture default heap to a pixel shader resource (we will be sampling from this heap in the pixel shader to get the color of pixels)
 		commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(newTexture.texBuffer.resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-
-		UINT descriptorIndex = programState->AllocateDescriptor(&newTexture.texBuffer.cpuDescriptorHandle);
-
-		// create SRV descriptor
-		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.Format = textureDesc.Format;
-		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-		srvDesc.Texture2D.MipLevels = 1;
-		device->CreateShaderResourceView(newTexture.texBuffer.resource.Get(), &srvDesc, newTexture.texBuffer.cpuDescriptorHandle);
-
-		// used to bind to the root signature
-		newTexture.texBuffer.gpuDescriptorHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(programState->GetDescriptorHeap()->GetGPUDescriptorHandleForHeapStart(), descriptorIndex, *programState->GetDescriptorSize());
 
 		// Kick off texture uploading
 		programState->GetDeviceResources()->ExecuteCommandList();
@@ -638,11 +627,12 @@ ComPtr<ID3D12Resource> Scene::GetInstanceDescriptors(
         D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDesc = {};
 
         ModelLoading::SceneObject obj = objects[i];
+        ModelLoading::Model* model = obj.model;
+
         memcpy(instanceDesc.Transform, obj.getTransform3x4(), 12 * sizeof(FLOAT));
         instanceDesc.InstanceMask = 1;
-        instanceDesc.InstanceID = 2; // TODO
+        instanceDesc.InstanceID = model->id; // TODO
 
-        ModelLoading::Model *model = obj.model;
 
         UINT numBufferElements =
             static_cast<UINT>(model->GetPreBuild(is_fallback, m_fallbackDevice, m_dxrDevice).ResultDataMaxSizeInBytes) / sizeof(UINT32);
@@ -745,4 +735,37 @@ void Scene::FinalizeAS()
 
     // Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
     programState->GetDeviceResources()->WaitForGpu();
+}
+
+void Scene::AllocateVerticesAndIndices()
+{
+  for (auto& model_pair : modelMap)
+  {
+    auto& newModel = model_pair.second;
+    programState->CreateBufferSRV(&newModel.vertices, newModel.verticesCount, sizeof(Vertex));
+  }
+
+  for (auto& model_pair : modelMap)
+  {
+    auto& newModel = model_pair.second;
+    programState->CreateBufferSRV(&newModel.indices, newModel.indicesCount * sizeof(Index) / 4, 0);
+  }
+
+  auto device = programState->GetDeviceResources()->GetD3DDevice();
+  for (auto& texture_pair : textureMap)
+  {
+    auto &newTexture = texture_pair.second;
+    UINT descriptorIndex = programState->AllocateDescriptor(&newTexture.texBuffer.cpuDescriptorHandle);
+
+    // create SRV descriptor
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Format = newTexture.textureDesc.Format;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = 1;
+    device->CreateShaderResourceView(newTexture.texBuffer.resource.Get(), &srvDesc, newTexture.texBuffer.cpuDescriptorHandle);
+
+    // used to bind to the root signature
+    newTexture.texBuffer.gpuDescriptorHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(programState->GetDescriptorHeap()->GetGPUDescriptorHandleForHeapStart(), descriptorIndex, *programState->GetDescriptorSize());
+  }
 }

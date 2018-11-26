@@ -58,6 +58,8 @@ public:
                   ComPtr<ID3D12RaytracingFallbackCommandList> fbCmdLst,
                   ComPtr<ID3D12GraphicsCommandList5> rtxCmdList);
 
+  void AllocateVerticesAndIndices();
+
   ComPtr<ID3D12Resource> m_topLevelAccelerationStructure;
   ComPtr<ID3D12Resource> scratchResource;
   ComPtr<ID3D12Resource> instanceDescs;

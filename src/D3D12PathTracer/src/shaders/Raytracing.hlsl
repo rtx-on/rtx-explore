@@ -20,10 +20,10 @@
 
 RaytracingAccelerationStructure Scene : register(t0, space0);
 RWTexture2D<float4> RenderTarget : register(u0);
-ByteAddressBuffer Indices : register(t1, space0);
-StructuredBuffer<Vertex> Vertices : register(t2, space0);
-Texture2D text : register(t3, space0);
-Texture2D norm_text : register(t4, space0);
+ByteAddressBuffer Indices[] : register(t0, space2);
+StructuredBuffer<Vertex> Vertices[] : register(t0, space1);
+Texture2D text[] : register(t0, space3);
+Texture2D norm_text[] : register(t0, space4);
 SamplerState s1 : register(s0);
 SamplerState s2 : register(s1);
 
@@ -68,38 +68,6 @@ void ComputeRngSeed(uint index, uint iteration, uint depth) {
 // Returns a pseudo-rng float between 0 and 1. Must call ComputeRngSeed at least once.
 float Uniform01() {
 	return float(rand_xorshift() * png_01_convert);
-}
-
-// Load three 16 bit indices from a byte addressed buffer.
-uint3 Load3x16BitIndices(uint offsetBytes)
-{
-    uint3 indices;
-
-    // ByteAdressBuffer loads must be aligned at a 4 byte boundary.
-    // Since we need to read three 16 bit indices: { 0, 1, 2 } 
-    // aligned at a 4 byte boundary as: { 0 1 } { 2 0 } { 1 2 } { 0 1 } ...
-    // we will load 8 bytes (~ 4 indices { a b | c d }) to handle two possible index triplet layouts,
-    // based on first index's offsetBytes being aligned at the 4 byte boundary or not:
-    //  Aligned:     { 0 1 | 2 - }
-    //  Not aligned: { - 0 | 1 2 }
-    const uint dwordAlignedOffset = offsetBytes & ~7;    
-    const uint2 four16BitIndices = Indices.Load2(dwordAlignedOffset);
- 
-    // Aligned: { 0 1 | 2 - } => retrieve first three 16bit indices
-    if (dwordAlignedOffset == offsetBytes)
-    {
-        indices.x = four16BitIndices.x;
-		indices.y = four16BitIndices.y;
-//        indices.z = four16BitIndices.z;
-    }
-    else // Not aligned: { - 0 | 1 2 } => retrieve last three 16bit indices
-    {
-        indices.x = four16BitIndices.y;
-        indices.y = four16BitIndices.y;
-//        indices.z = (four16BitIndices.y >> 32) & 0xffffffff;
-    }
-
-    return indices;
 }
 
 typedef BuiltInTriangleIntersectionAttributes MyAttributes;
@@ -315,15 +283,17 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 {
 	float3 hitPosition = HitWorldPosition();
 	uint instanceId = InstanceID();
-	float hitType;
+	float hitType = 0.0f;
 
-	// TODO: needs to be edited with type of hit object later
+	// TODO: needs to be edited with type of hit object later WHY IS THIS AN IF STATMENT...
+        /*
 	if (instanceId == 1) {
 		hitType = 1; // object
 	}
 	else {
 		hitType = 0; // light
 	}
+        */
 
 	// Get the base index of the triangle's first 16 bit index.
 	uint indexSizeInBytes = 4;
@@ -332,19 +302,19 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	uint baseIndex = PrimitiveIndex() * triangleIndexStride;
 
 	// Load up 3 16 bit indices for the triangle.
-	const uint3 indices = Indices.Load3(baseIndex);
+	const uint3 indices = Indices[instanceId].Load3(baseIndex);
 
 	// Retrieve corresponding vertex normals for the triangle vertices.
 	float3 vertexNormals[3] = {
-		Vertices[indices[0]].normal,
-		Vertices[indices[1]].normal,
-		Vertices[indices[2]].normal
+		Vertices[instanceId][indices[0]].normal,
+		Vertices[instanceId][indices[1]].normal,
+		Vertices[instanceId][indices[2]].normal
 	};
 
 	float2 vertexUVs[3] = {
-		Vertices[indices[0]].texCoord,
-		Vertices[indices[1]].texCoord,
-		Vertices[indices[2]].texCoord
+		Vertices[instanceId][indices[0]].texCoord,
+		Vertices[instanceId][indices[1]].texCoord,
+		Vertices[instanceId][indices[2]].texCoord
 	};
 
 	// Compute the triangle's normal.
@@ -359,7 +329,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;;
 
 	// get the color
-	float3 tex = text.SampleLevel(s1, triangleUV, 0);
+	float3 tex = text[instanceId].SampleLevel(s1, triangleUV, 0);
 	float3 color = payload.color.rgb * tex.rgb;
 	payload.color = float4(color.xyz, hitType);
 }

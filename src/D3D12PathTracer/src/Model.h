@@ -15,6 +15,7 @@ struct Texture {
 
   D3DBuffer texBuffer;
   ID3D12Resource *textureBufferUploadHeap;
+  D3D12_RESOURCE_DESC textureDesc;
 };
 
 // Holds a pointer to each type of texture
@@ -81,6 +82,9 @@ struct Model {
   D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC bottom_level_build_desc{};
   bool bottom_level_prebuild_info_allocated = false;
   D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO bottom_level_prebuild_info;
+
+  int verticesCount = 0;
+  int indicesCount = 0;
 };
 
 // Holds pointers to a model, textures, and a material

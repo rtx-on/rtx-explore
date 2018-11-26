@@ -1,18 +1,57 @@
-MODEL 2
+MODEL 0
 path src/objects/chromie.obj
 
-TEXTURE 1
+MODEL 1
+path src/objects/wahoo.obj
+
+MODEL 2
+path src/objects/aline.obj
+
+TEXTURE 0
 path src/textures/chromie.jpg
 
+TEXTURE 1
+path src/textures/wahoo.bmp
+
 TEXTURE 2
+path src/textures/aline.png
+
+TEXTURE 3
 path src/textures/normal.jpg
 
-OBJECT 2
-model 2
-albedo_tex 1
-normal_tex 2
+OBJECT 1
+model 0
+albedo_tex 0
+normal_tex 3
 material -1
 trans       0 -1 0
+rotat       0 160 0
+scale       0.5 0.5 0.5
+
+OBJECT 2
+model 1
+albedo_tex 1
+normal_tex 3
+material -1
+trans       0 -5 0
+rotat       0 160 0
+scale       0.5 0.5 0.5
+
+OBJECT 3
+model 2
+albedo_tex 2
+normal_tex 3
+material -1
+trans       5 1 0
+rotat       0 160 0
+scale       0.5 0.5 0.5
+
+OBJECT 4
+model 2
+albedo_tex 2
+normal_tex 3
+material -1
+trans       -5 1 0
 rotat       0 160 0
 scale       0.5 0.5 0.5
 
