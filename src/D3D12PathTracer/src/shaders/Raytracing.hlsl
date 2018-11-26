@@ -20,10 +20,11 @@
 
 RaytracingAccelerationStructure Scene : register(t0, space0);
 RWTexture2D<float4> RenderTarget : register(u0);
-ByteAddressBuffer Indices[] : register(t0, space2);
 StructuredBuffer<Vertex> Vertices[] : register(t0, space1);
-Texture2D text[] : register(t0, space3);
-Texture2D norm_text[] : register(t0, space4);
+ByteAddressBuffer Indices[] : register(t0, space2);
+ConstantBuffer<Material> materials[] : register(b0, space3);
+Texture2D text[] : register(t0, space4);
+Texture2D norm_text[] : register(t0, space5);
 SamplerState s1 : register(s0);
 SamplerState s2 : register(s1);
 
@@ -331,7 +332,14 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	// get the color
 	float3 tex = text[instanceId].SampleLevel(s1, triangleUV, 0);
 	float3 color = payload.color.rgb * tex.rgb;
-	payload.color = float4(color.xyz, hitType);
+        if (materials[instanceId].diffuse.x == 1.0f)
+        {
+          payload.color = float4(color.xyz, hitType);
+        }
+	else 
+        {
+          payload.color = float4(materials[instanceId].diffuse, hitType);
+        }
 }
 
 [shader("miss")]

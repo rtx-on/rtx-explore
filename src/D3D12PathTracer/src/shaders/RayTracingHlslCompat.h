@@ -43,4 +43,16 @@ struct Vertex {
 	XMFLOAT2 texCoord;
 };
 
+// Holds data for a specific material
+struct Material 
+{
+  XMFLOAT3 diffuse;
+  XMFLOAT3 specular;
+  float specularExp;
+  float eta;
+  float reflectiveness;
+  float refractiveness;
+  float emittance;
+};
+
 #endif // RAYTRACINGHLSLCOMPAT_H

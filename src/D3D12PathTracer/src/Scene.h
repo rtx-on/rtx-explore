@@ -58,7 +58,7 @@ public:
                   ComPtr<ID3D12RaytracingFallbackCommandList> fbCmdLst,
                   ComPtr<ID3D12GraphicsCommandList5> rtxCmdList);
 
-  void AllocateVerticesAndIndices();
+  void AllocateResourcesInDescriptorHeap();
 
   ComPtr<ID3D12Resource> m_topLevelAccelerationStructure;
   ComPtr<ID3D12Resource> scratchResource;
@@ -75,7 +75,7 @@ public:
 
   std::unordered_map<int, ModelLoading::Model> modelMap;
   std::unordered_map<int, ModelLoading::Texture> textureMap;
-  std::unordered_map<int, ModelLoading::Material> materialMap;
+  std::unordered_map<int, ModelLoading::MaterialResource> materialMap;
 
   ModelLoading::Camera camera;
 

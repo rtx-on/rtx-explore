@@ -24,17 +24,11 @@ struct TextureBundle {
   Texture *normalTex;
 };
 
-// Holds data for a specific material
-struct Material {
+struct MaterialResource
+{
+  Material material;
   int id;
-
-  glm::vec3 diffuse;
-  glm::vec3 specular;
-  float specularExp;
-  float eta;
-  float reflectiveness;
-  float refractiveness;
-  float emittance;
+  D3DBuffer d3d12_material_resource;
 };
 
 // Holds the vertex and index buffer (triangulated) for a loaded model

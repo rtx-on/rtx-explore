@@ -140,7 +140,7 @@ int Scene::loadObject(string objectid) {
 				wstr << L"----------------------------------------\n";
 				wstr << L"Linking material...\n";
 				OuputAndReset(wstr);
-				newObject.material = &(materialMap.find(matId)->second);
+				newObject.material = &(materialMap.find(matId)->second.material);
 			}
 		}
 	}
@@ -383,7 +383,7 @@ int Scene::loadMaterial(string matid) {
 	wstr << L"----------------------------------------\n";
 	OuputAndReset(wstr);
 
-	ModelLoading::Material newMat;
+	ModelLoading::MaterialResource newMat;
 	string line;
 
 	// LOAD RGB
@@ -392,8 +392,7 @@ int Scene::loadMaterial(string matid) {
 		if (!line.empty() && fp_in.good()) {
 			vector<string> tokens = utilityCore::tokenizeString(line);
 
-			glm::vec3 diffuse(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()));
-			newMat.diffuse = diffuse;
+			newMat.material.diffuse = XMFLOAT3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()));
 		}
 	}
 
@@ -403,8 +402,7 @@ int Scene::loadMaterial(string matid) {
 		if (!line.empty() && fp_in.good()) {
 			vector<string> tokens = utilityCore::tokenizeString(line);
 
-			glm::vec3 spec(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()));
-			newMat.specular = spec;
+			newMat.material.specular = XMFLOAT3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()));
 		}
 	}
 
@@ -415,7 +413,7 @@ int Scene::loadMaterial(string matid) {
 			vector<string> tokens = utilityCore::tokenizeString(line);
 
 			float exp(atof(tokens[1].c_str()));
-			newMat.specularExp = exp;
+			newMat.material.specularExp = exp;
 		}
 	}
 
@@ -426,7 +424,7 @@ int Scene::loadMaterial(string matid) {
 			vector<string> tokens = utilityCore::tokenizeString(line);
 
 			float eta(atof(tokens[1].c_str()));
-			newMat.eta = eta;
+			newMat.material.eta = eta;
 		}
 	}
 
@@ -437,7 +435,7 @@ int Scene::loadMaterial(string matid) {
 			vector<string> tokens = utilityCore::tokenizeString(line);
 
 			float refl(atof(tokens[1].c_str()));
-			newMat.reflectiveness = refl;
+			newMat.material.reflectiveness = refl;
 		}
 	}
 
@@ -448,7 +446,7 @@ int Scene::loadMaterial(string matid) {
 			vector<string> tokens = utilityCore::tokenizeString(line);
 
 			float refr(atof(tokens[1].c_str()));
-			newMat.refractiveness = refr;
+			newMat.material.refractiveness = refr;
 		}
 	}
 
@@ -459,12 +457,12 @@ int Scene::loadMaterial(string matid) {
 			vector<string> tokens = utilityCore::tokenizeString(line);
 
 			float emit(atof(tokens[1].c_str()));
-			newMat.emittance = emit;
+			newMat.material.emittance = emit;
 		}
 	}
 
 	newMat.id = id;
-        std::pair<int, ModelLoading::Material> pair(id, newMat);
+        std::pair<int, ModelLoading::MaterialResource> pair(id, newMat);
 	materialMap.insert(pair);
 
 	wstr << L"Done loading MATERIAL " << id << L" !\n";
@@ -737,8 +735,10 @@ void Scene::FinalizeAS()
     programState->GetDeviceResources()->WaitForGpu();
 }
 
-void Scene::AllocateVerticesAndIndices()
+void Scene::AllocateResourcesInDescriptorHeap()
 {
+  auto device = programState->GetDeviceResources()->GetD3DDevice();
+
   for (auto& model_pair : modelMap)
   {
     auto& newModel = model_pair.second;
@@ -751,7 +751,48 @@ void Scene::AllocateVerticesAndIndices()
     programState->CreateBufferSRV(&newModel.indices, newModel.indicesCount * sizeof(Index) / 4, 0);
   }
 
-  auto device = programState->GetDeviceResources()->GetD3DDevice();
+  for (auto& material_pair : materialMap)
+  {
+    int material_id = material_pair.first;
+    ModelLoading::MaterialResource& material = material_pair.second;
+
+    // Create the constant buffer memory and map the CPU and GPU addresses
+    const D3D12_HEAP_PROPERTIES uploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+
+    // Allocate one constant buffer per frame, since it gets updated every frame.
+    size_t cbSize = (sizeof(Material) + 255 ) & ~255; //align to 256 for CBV
+    const D3D12_RESOURCE_DESC constantBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(cbSize);
+
+    ThrowIfFailed(device->CreateCommittedResource(
+        &uploadHeapProperties,
+        D3D12_HEAP_FLAG_NONE,
+        &constantBufferDesc,
+        D3D12_RESOURCE_STATE_GENERIC_READ,
+        nullptr,
+        IID_PPV_ARGS(&material.d3d12_material_resource.resource)));
+    material.d3d12_material_resource.resource->SetName(
+        utilityCore::stringAndId(L"Material ", material_id).c_str());
+
+    UINT descriptorIndex = programState->AllocateDescriptor(&material.d3d12_material_resource.cpuDescriptorHandle);
+    material.d3d12_material_resource.gpuDescriptorHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(programState->GetDescriptorHeap()->GetGPUDescriptorHandleForHeapStart(), descriptorIndex, *programState->GetDescriptorSize());
+
+    // create SRV descriptor
+    D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+    cbvDesc.BufferLocation = material.d3d12_material_resource.resource->GetGPUVirtualAddress();
+    cbvDesc.SizeInBytes = cbSize;
+
+    device->CreateConstantBufferView(&cbvDesc, material.d3d12_material_resource.cpuDescriptorHandle);
+
+    // Map the constant buffer and cache its heap pointers.
+    // We don't unmap this until the app closes. Keeping buffer mapped for the lifetime of the resource is okay.
+    CD3DX12_RANGE readRange(0, 0);        // We do not intend to read from this resource on the CPU.
+    Material *material_mapped_data;
+    ThrowIfFailed(material.d3d12_material_resource.resource->Map(0, &readRange, reinterpret_cast<void**>(&material_mapped_data)));
+    memcpy(material_mapped_data, &material.material, sizeof(Material));
+    material.d3d12_material_resource.resource->Unmap(0, &readRange);
+
+  }
+
   for (auto& texture_pair : textureMap)
   {
     auto &newTexture = texture_pair.second;
