@@ -55,4 +55,12 @@ struct Material
   float emittance;
 };
 
+struct Info
+{
+  UINT model_offset;
+  UINT texture_offset;
+  UINT texture_normal_offset;
+  UINT material_offset;
+};
+
 #endif // RAYTRACINGHLSLCOMPAT_H

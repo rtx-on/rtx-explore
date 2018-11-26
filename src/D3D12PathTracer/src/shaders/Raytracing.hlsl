@@ -15,6 +15,9 @@
 #define HLSL
 #include "RayTracingHlslCompat.h"
 
+//NULL OFFSET IF INDEX OFFSET IS -1
+#define NULL_OFFSET (-1)
+
 #define AA 1
 #define DOF 0
 
@@ -22,9 +25,10 @@ RaytracingAccelerationStructure Scene : register(t0, space0);
 RWTexture2D<float4> RenderTarget : register(u0);
 StructuredBuffer<Vertex> Vertices[] : register(t0, space1);
 ByteAddressBuffer Indices[] : register(t0, space2);
-ConstantBuffer<Material> materials[] : register(b0, space3);
-Texture2D text[] : register(t0, space4);
-Texture2D norm_text[] : register(t0, space5);
+ConstantBuffer<Info> infos[] : register(b0, space3);
+ConstantBuffer<Material> materials[] : register(b0, space4);
+Texture2D text[] : register(t0, space5);
+Texture2D norm_text[] : register(t0, space6);
 SamplerState s1 : register(s0);
 SamplerState s2 : register(s1);
 
@@ -74,7 +78,7 @@ float Uniform01() {
 typedef BuiltInTriangleIntersectionAttributes MyAttributes;
 struct RayPayload
 {
-    float4 color; // w component stores info if hit or not: 1 == hit, 0 == light hit, -1 == miss
+        float4 color;
 	float3 rayOrigin;
 	float3 rayDir;
 };
@@ -250,7 +254,7 @@ void MyRaygenShader()
 		ComputeRngSeed(id, g_sceneCB.iteration, depth);
 
 
-		if (payload.color.w == 1.0f) {
+		if (payload.color.w == 0) {
 			// new ray has to be edited here
 			ray.Origin = payload.rayOrigin;
 			ray.Direction = payload.rayDir;
@@ -269,7 +273,8 @@ void MyRaygenShader()
 
 	// Write the raytraced color to the output texture.
 	float3 oldColor = RenderTarget[DispatchRaysIndex().xy].xyz;
-	float3 newColor = oldColor.rgb * (g_sceneCB.iteration - 1) + payload.color.xyz;
+        int prevIt = g_sceneCB.iteration == 1 ? 1 : g_sceneCB.iteration - 1;
+	float3 newColor = oldColor.rgb * prevIt + payload.color.xyz;
 
 	float r = clamp(newColor.r / g_sceneCB.iteration, 0, 1);
 	float g = clamp(newColor.g / g_sceneCB.iteration, 0, 1);
@@ -283,18 +288,13 @@ void MyRaygenShader()
 void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 {
 	float3 hitPosition = HitWorldPosition();
-	uint instanceId = InstanceID();
-	float hitType = 0.0f;
+	uint instanceId = InstanceID(); //Object id
 
-	// TODO: needs to be edited with type of hit object later WHY IS THIS AN IF STATMENT...
-        /*
-	if (instanceId == 1) {
-		hitType = 1; // object
-	}
-	else {
-		hitType = 0; // light
-	}
-        */
+        //use object id to index into info structure
+        uint model_offset = infos[instanceId].model_offset;
+        uint texture_offset = infos[instanceId].texture_offset;
+        uint texture_normal_offset = infos[instanceId].texture_normal_offset;
+        uint material_offset = infos[instanceId].material_offset;
 
 	// Get the base index of the triangle's first 16 bit index.
 	uint indexSizeInBytes = 4;
@@ -302,20 +302,22 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	uint triangleIndexStride = indicesPerTriangle * indexSizeInBytes;
 	uint baseIndex = PrimitiveIndex() * triangleIndexStride;
 
+        float hitType = materials[material_offset].diffuse.b == 1 ? 1 : 0; // 1 is light, 0 is not
+
 	// Load up 3 16 bit indices for the triangle.
-	const uint3 indices = Indices[instanceId].Load3(baseIndex);
+	const uint3 indices = Indices[model_offset].Load3(baseIndex);
 
 	// Retrieve corresponding vertex normals for the triangle vertices.
 	float3 vertexNormals[3] = {
-		Vertices[instanceId][indices[0]].normal,
-		Vertices[instanceId][indices[1]].normal,
-		Vertices[instanceId][indices[2]].normal
+		Vertices[model_offset][indices[0]].normal,
+		Vertices[model_offset][indices[1]].normal,
+		Vertices[model_offset][indices[2]].normal
 	};
 
 	float2 vertexUVs[3] = {
-		Vertices[instanceId][indices[0]].texCoord,
-		Vertices[instanceId][indices[1]].texCoord,
-		Vertices[instanceId][indices[2]].texCoord
+		Vertices[model_offset][indices[0]].texCoord,
+		Vertices[model_offset][indices[1]].texCoord,
+		Vertices[model_offset][indices[2]].texCoord
 	};
 
 	// Compute the triangle's normal.
@@ -330,16 +332,23 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;;
 
 	// get the color
-	float3 tex = text[instanceId].SampleLevel(s1, triangleUV, 0);
-	float3 color = payload.color.rgb * tex.rgb;
-        if (materials[instanceId].diffuse.x == 1.0f)
+        float3 color;
+        float3 tex;
+        float3 originalColor = payload.color.rgb;
+        //prefer texture over anything else
+        if (texture_offset != NULL_OFFSET)
         {
-          payload.color = float4(color.xyz, hitType);
+          float3 tex = text[texture_offset].SampleLevel(s1, triangleUV, 0);
+          color = payload.color.rgb * tex.rgb;
         }
-	else 
+        else if (material_offset != NULL_OFFSET)
         {
-          payload.color = float4(materials[instanceId].diffuse, hitType);
+          color = payload.color.rgb * materials[material_offset].diffuse;
         }
+        if (hitType == 1) {
+          color *= 2;
+        }
+        payload.color = /*hitType == 1 ? float4(originalColor.rgb, 1) :*/ float4(color.xyz, hitType);
 }
 
 [shader("miss")]

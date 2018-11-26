@@ -153,7 +153,7 @@ void D3D12RaytracingSimpleLighting::InitializeScene()
 	// Setup path tracing state
 	{
 		m_sceneCB[frameIndex].iteration = 1;
-		m_sceneCB[frameIndex].depth = 16;
+		m_sceneCB[frameIndex].depth = 5;
 	}
 
     // Apply the initial values to all frames' buffer instances.
@@ -420,21 +420,24 @@ void D3D12RaytracingSimpleLighting::CreateRootSignatures()
     // This is a root signature that is shared across all raytracing shaders invoked during a DispatchRays() call.
     {
         auto num_models = m_sceneLoaded->modelMap.size();
+        auto num_objects = m_sceneLoaded->objects.size();
         auto num_textures = m_sceneLoaded->textureMap.size();
         auto num_materials = m_sceneLoaded->materialMap.size();
 
         //ensure that the models, textures and materials are not zero or else bad things will happen :)
         assert(num_models != 0);
+        assert(num_objects != 0);
         assert(num_textures != 0);
         assert(num_materials != 0);
 
-        CD3DX12_DESCRIPTOR_RANGE ranges[6]; // Perfomance TIP: Order from most frequent to least frequent.
+        CD3DX12_DESCRIPTOR_RANGE ranges[7]; // Perfomance TIP: Order from most frequent to least frequent.
         ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);  // 1 output texture
         ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_models, 0, 1);  // array of vertices
         ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_models, 0, 2);  // array of indices
-	ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, num_materials, 0, 3);  // array of materials
-	ranges[4].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_textures, 0, 4);  // array of textures
-	ranges[5].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_textures, 0, 5);  // array of normal textures
+        ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, num_objects, 0, 3);  // array of infos for each object
+	ranges[4].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, num_materials, 0, 4);  // array of materials
+	ranges[5].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_textures, 0, 5);  // array of textures
+	ranges[6].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_textures, 0, 6);  // array of normal textures
 
         CD3DX12_ROOT_PARAMETER rootParameters[GlobalRootSignatureParams::Count];
         rootParameters[GlobalRootSignatureParams::AccelerationStructureSlot].InitAsShaderResourceView(0);
@@ -442,9 +445,10 @@ void D3D12RaytracingSimpleLighting::CreateRootSignatures()
         rootParameters[GlobalRootSignatureParams::OutputViewSlot].InitAsDescriptorTable(1, &ranges[0]);
         rootParameters[GlobalRootSignatureParams::VertexBuffersSlot].InitAsDescriptorTable(1, &ranges[1]);
         rootParameters[GlobalRootSignatureParams::IndexBuffersSlot].InitAsDescriptorTable(1, &ranges[2]);
-	rootParameters[GlobalRootSignatureParams::MaterialBuffersSlot].InitAsDescriptorTable(1, &ranges[3]);
-        rootParameters[GlobalRootSignatureParams::TextureSlot].InitAsDescriptorTable(1, &ranges[4]); //LOOKAT
-	rootParameters[GlobalRootSignatureParams::NormalTextureSlot].InitAsDescriptorTable(1, &ranges[5]);
+        rootParameters[GlobalRootSignatureParams::InfoBuffersSlot].InitAsDescriptorTable(1, &ranges[3]);
+	rootParameters[GlobalRootSignatureParams::MaterialBuffersSlot].InitAsDescriptorTable(1, &ranges[4]);
+        rootParameters[GlobalRootSignatureParams::TextureSlot].InitAsDescriptorTable(1, &ranges[5]);
+	rootParameters[GlobalRootSignatureParams::NormalTextureSlot].InitAsDescriptorTable(1, &ranges[6]);
 
 	// LOOKAT
 	// create a static sampler
@@ -990,16 +994,17 @@ void D3D12RaytracingSimpleLighting::DoRaytracing()
 
     auto SetCommonPipelineState = [&](auto* descriptorSetCommandList)
     {
-      ModelLoading::SceneObject objectInScene = m_sceneLoaded->objects[0];
-      ModelLoading::TextureBundle textures = objectInScene.textures;
+      ModelLoading::SceneObject& objectInScene = m_sceneLoaded->objects[0];
+      ModelLoading::Texture& textures = m_sceneLoaded->textureMap[0];
       ModelLoading::MaterialResource& material = m_sceneLoaded->materialMap[0];
       descriptorSetCommandList->SetDescriptorHeaps(1, m_descriptorHeap.GetAddressOf());
       // Set index and successive vertex buffer decriptor tables
       commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::VertexBuffersSlot, objectInScene.model->vertices.gpuDescriptorHandle);
       commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::IndexBuffersSlot, objectInScene.model->indices.gpuDescriptorHandle);
+      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::InfoBuffersSlot, objectInScene.info_resource.d3d12_resource.gpuDescriptorHandle);
       commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::OutputViewSlot, m_raytracingOutputResourceUAVGpuDescriptor);
-      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, textures.albedoTex->texBuffer.gpuDescriptorHandle);
-      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::NormalTextureSlot, textures.normalTex->texBuffer.gpuDescriptorHandle);
+      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, textures.texBuffer.gpuDescriptorHandle);
+      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::NormalTextureSlot, textures.texBuffer.gpuDescriptorHandle);
       commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::MaterialBuffersSlot, material.d3d12_material_resource.gpuDescriptorHandle);
     };
 

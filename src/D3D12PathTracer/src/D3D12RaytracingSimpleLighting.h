@@ -27,6 +27,7 @@ namespace GlobalRootSignatureParams {
         VertexBuffersSlot,
         IndexBuffersSlot,
         MaterialBuffersSlot,
+        InfoBuffersSlot,
         Count 
     };
 }

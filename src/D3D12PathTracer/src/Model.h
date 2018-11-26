@@ -31,6 +31,12 @@ struct MaterialResource
   D3DBuffer d3d12_material_resource;
 };
 
+struct InfoResource
+{
+  Info info;
+  D3DBuffer d3d12_resource;
+};
+
 // Holds the vertex and index buffer (triangulated) for a loaded model
 struct Model {
   int id;
@@ -90,7 +96,8 @@ public:
 
   Model *model;
   TextureBundle textures;
-  Material *material;
+  MaterialResource *material;
+  InfoResource info_resource;
 
   glm::vec3 translation; // parsed transform values
   glm::vec3 rotation;

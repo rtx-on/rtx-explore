@@ -73,9 +73,9 @@ public:
 
   D3D12RaytracingSimpleLighting *programState;
 
-  std::unordered_map<int, ModelLoading::Model> modelMap;
-  std::unordered_map<int, ModelLoading::Texture> textureMap;
-  std::unordered_map<int, ModelLoading::MaterialResource> materialMap;
+  std::map<int, ModelLoading::Model> modelMap;
+  std::map<int, ModelLoading::Texture> textureMap;
+  std::map<int, ModelLoading::MaterialResource> materialMap;
 
   ModelLoading::Camera camera;
 

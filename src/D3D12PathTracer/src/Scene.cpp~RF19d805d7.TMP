@@ -417,6 +417,17 @@ int Scene::loadMaterial(string matid) {
 		}
 	}
 
+	// LOAD ETA
+	{
+		utilityCore::safeGetline(fp_in, line);
+		if (!line.empty() && fp_in.good()) {
+			vector<string> tokens = utilityCore::tokenizeString(line);
+
+			float eta(atof(tokens[1].c_str()));
+			newMat.material.eta = eta;
+		}
+	}
+
 	// LOAD REFL
 	{
 		utilityCore::safeGetline(fp_in, line);
@@ -438,18 +449,6 @@ int Scene::loadMaterial(string matid) {
 			newMat.material.refractiveness = refr;
 		}
 	}
-
-        // LOAD ETA
-	{
-		utilityCore::safeGetline(fp_in, line);
-		if (!line.empty() && fp_in.good()) {
-			vector<string> tokens = utilityCore::tokenizeString(line);
-
-			float eta(atof(tokens[1].c_str()));
-			newMat.material.eta = eta;
-		}
-	}
-
 
 	// LOAD EMITTANCE
 	{

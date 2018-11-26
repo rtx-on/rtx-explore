@@ -36,6 +36,7 @@
 #include <atlbase.h>
 #include <assert.h>
 #include <algorithm>
+#include <map>
 
 #include <dxgi1_6.h>
 #include "d3d12_1.h"
