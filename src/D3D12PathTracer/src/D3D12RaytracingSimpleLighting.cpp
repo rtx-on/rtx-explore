@@ -204,26 +204,20 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
     // Create a raytracing pipeline state object which defines the binding of shaders, state and resources to be used during raytracing.
     CreateRaytracingPipelineStateObject();
 
+    // Build scene object and do a parsing pass to count the number of things to load
+    m_sceneLoaded = new Scene(p_sceneFileName, this); // this will load everything in the argument text file
+
     // Create a heap for descriptors.
     CreateDescriptorHeap();
 
-    // Build geometry to be used in the sample.
-
-	m_sceneLoaded = new Scene(p_sceneFileName, this); // this will load everything in the argument text file
-
-
-
-	//BuildMesh("src/objects/wahoo.obj");
+    // Load everything
+    m_sceneLoaded->BuildScene(); // 0 1
 
     // Build raytracing acceleration structures from the generated geometry.
     BuildAccelerationStructures();
 
     // Create constant buffers for the geometry and the scene.
     CreateConstantBuffers();
-
-	// LOOKAT
-	//CreateTexture();
-	//CreateNormalTexture();
 
     // Build shader tables, which define shaders and their local root arguments.
     BuildShaderTables();
@@ -613,13 +607,14 @@ void D3D12RaytracingSimpleLighting::CreateDescriptorHeap()
     auto device = m_deviceResources->GetD3DDevice();
 
     D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
-    // Allocate a heap for 5 descriptors:
+    // Allocate a heap for:
+    // 1 - top level
+    // x - bottom levels (models)
+    // y - textures
+    // 1 - path tracing output texture SRV
     // 2 - vertex and index buffer SRVs
-	// 1 - tex
-	// 1 - norm tex
-    // 1 - raytracing output texture SRV
-    // 2 - bottom and top level acceleration structure fallback wrapped pointer UAVs
-    descriptorHeapDesc.NumDescriptors = 7; 
+
+    descriptorHeapDesc.NumDescriptors = 4 + m_sceneLoaded->modelCount + m_sceneLoaded->textureCount + m_sceneLoaded->matCount; 
     descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     descriptorHeapDesc.NodeMask = 0;
@@ -787,15 +782,12 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
     // Build bottom levels
     for (auto& model_pair : m_sceneLoaded->modelMap)
     {
-       //int id = model_pair.first;
        ModelLoading::Model& model = model_pair.second;
        model.GetGeomDesc();
        model.GetBottomLevelBuildDesc();
        model.GetPreBuild(is_fallback, m_fallbackDevice, m_dxrDevice);
        model.GetBottomLevelScratchAS(is_fallback, device, m_fallbackDevice,m_dxrDevice);
        model.GetBottomAS(is_fallback, device, m_fallbackDevice,m_dxrDevice);
-
-       //m_sceneLoaded->modelMap[id] = model;
     }
 
     // Build top level
@@ -980,7 +972,7 @@ void D3D12RaytracingSimpleLighting::DoRaytracing()
 		ModelLoading::TextureBundle textures = objectInScene.textures;
         descriptorSetCommandList->SetDescriptorHeaps(1, m_descriptorHeap.GetAddressOf());
         // Set index and successive vertex buffer decriptor tables
-        commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::VertexBuffersSlot, objectInScene.model->indices.gpuDescriptorHandle);
+        commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::VertexBuffersSlot, m_sceneLoaded->indices.gpuDescriptorHandle);
         commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::OutputViewSlot, m_raytracingOutputResourceUAVGpuDescriptor);
 		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, textures.albedoTex->texBuffer.gpuDescriptorHandle); // LOOKAT
 		commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::NormalTextureSlot, textures.normalTex->texBuffer.gpuDescriptorHandle); // LOOKAT

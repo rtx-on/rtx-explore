@@ -27,6 +27,7 @@ void OuputAndReset(std::wstringstream& stream)
 
 
 Scene::Scene(string filename, D3D12RaytracingSimpleLighting* programState) : programState(programState) {
+        fileName = filename;
 	std::wstringstream wstr;
 	wstr << L"\n";
 	wstr << L"------------------------------------------------------------------------------\n";
@@ -48,11 +49,64 @@ Scene::Scene(string filename, D3D12RaytracingSimpleLighting* programState) : pro
 		if (!line.empty()) {
 			vector<string> tokens = utilityCore::tokenizeString(line);
 			if (strcmp(tokens[0].c_str(), "MATERIAL") == 0) {
+                                matCount++;
+				std::cout << " " << endl;
+			}
+			else if (strcmp(tokens[0].c_str(), "MODEL") == 0) {
+				modelCount++;
+				std::cout << " " << endl;
+			}
+			else if (strcmp(tokens[0].c_str(), "TEXTURE") == 0) {
+                                textureCount++;
+				std::cout << " " << endl;
+			}
+			else if (strcmp(tokens[0].c_str(), "OBJECT") == 0) {
+                                objectCount++;
+				std::cout << " " << endl;
+			}
+		}
+	}
+
+	wstr << L"Done loading the scene file!\n";
+	wstr << L"------------------------------------------------------------------------------\n";
+	OuputAndReset(wstr);
+        fp_in.close();
+}
+
+void Scene::BuildScene() {
+	std::wstringstream wstr;
+	wstr << L"\n";
+	wstr << L"------------------------------------------------------------------------------\n";
+	wstr << L"Reading scene from " << fileName.c_str() << L"\n";
+	wstr << L"------------------------------------------------------------------------------\n";
+	OuputAndReset(wstr);
+
+	char* fname = (char*)fileName.c_str();
+	fp_in.open(fname);
+	if (!fp_in.is_open()) {
+		wstr << L"Error reading from file - aborting!\n";
+		wstr << L"------------------------------------------------------------------------------\n";
+		OuputAndReset(wstr);
+		throw;
+	}
+
+        int loadedModels = 0;
+	while (fp_in.good()) {
+		string line;
+		utilityCore::safeGetline(fp_in, line);
+		if (!line.empty()) {
+			vector<string> tokens = utilityCore::tokenizeString(line);
+			if (strcmp(tokens[0].c_str(), "MATERIAL") == 0) {
 				loadMaterial(tokens[1]);
 				std::cout << " " << endl;
 			}
 			else if (strcmp(tokens[0].c_str(), "MODEL") == 0) {
 				loadModel(tokens[1]);
+                                loadedModels++;
+                          
+                                if (loadedModels == modelCount) {
+                                    allocateVIBuffer();
+                                 }
 				std::cout << " " << endl;
 			}
 			else if (strcmp(tokens[0].c_str(), "TEXTURE") == 0) {
@@ -63,12 +117,15 @@ Scene::Scene(string filename, D3D12RaytracingSimpleLighting* programState) : pro
 				loadObject(tokens[1]);
 				std::cout << " " << endl;
 			}
+
 		}
 	}
 
 	wstr << L"Done loading the scene file!\n";
 	wstr << L"------------------------------------------------------------------------------\n";
 	OuputAndReset(wstr);
+
+        fp_in.close();
 }
 
 int Scene::loadObject(string objectid) {
@@ -192,6 +249,11 @@ int Scene::loadModel(string modelid) {
 	OuputAndReset(wstr);
 
 	ModelLoading::Model newModel;
+        newModel.vOffset = verticesVec.size();
+        newModel.iOffset = indicesVec.size();
+        newModel.loadedScene = this;
+
+        int startIdx = newModel.vOffset;
 
 	string line;
 
@@ -207,9 +269,6 @@ int Scene::loadModel(string modelid) {
 		tinyobj::attrib_t attrib;
 		std::string err;
 		bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, tokens[1].c_str());
-
-		std::vector<Index> indices;
-		std::vector<Vertex> vertices;
 
 		if (!ret)
 		{
@@ -244,26 +303,16 @@ int Scene::loadModel(string modelid) {
 						{
 							vert.texCoord = XMFLOAT2(texcoords[index.texcoord_index * 2], 1 - texcoords[index.texcoord_index * 2 + 1]);
 						}
-						vertices.push_back(vert);
-						indices.push_back((Index)(finalIdx + index_offset + v));
+						verticesVec.push_back(vert);
+						indicesVec.push_back((Index)(finalIdx + index_offset + v));
+                                                newModel.vCount++;
+                                                newModel.iCount++;
 					}
 
 					index_offset += fv;
 				}
 				finalIdx += index_offset;
 			}
-
-			Vertex* vPtr = vertices.data();
-			Index* iPtr = indices.data();
-			auto device = programState->GetDeviceResources()->GetD3DDevice();
-			AllocateUploadBuffer(device, iPtr, indices.size() * sizeof(Index), &newModel.indices.resource);
-			AllocateUploadBuffer(device, vPtr, vertices.size() * sizeof(Vertex), &newModel.vertices.resource);
-
-			// Vertex buffer is passed to the shader along with index buffer as a descriptor table.
-			// Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
-			UINT descriptorIndexIB = programState->CreateBufferSRV(&newModel.indices, indices.size() * sizeof(Index) / 4, 0);
-			UINT descriptorIndexVB = programState->CreateBufferSRV(&newModel.vertices, vertices.size(), sizeof(Vertex));
-			ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
 		}
 	}
 
@@ -276,6 +325,24 @@ int Scene::loadModel(string modelid) {
 	OuputAndReset(wstr);
 
 	return 1;
+}
+
+void Scene::allocateVIBuffer()
+{
+    Vertex* vPtr = verticesVec.data();
+    Index* iPtr = indicesVec.data();
+    auto device = programState->GetDeviceResources()->GetD3DDevice();
+    AllocateUploadBuffer(device, iPtr, indicesVec.size() * sizeof(Index), &indices.resource);
+    AllocateUploadBuffer(device, vPtr, verticesVec.size() * sizeof(Vertex), &vertices.resource);
+
+    // Vertex buffer is passed to the shader along with index buffer as a descriptor table.
+    // Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
+    UINT descriptorIndexIB = programState->CreateBufferSRV(&indices, indicesVec.size() * sizeof(Index) / 4, 0);
+    UINT descriptorIndexVB = programState->CreateBufferSRV(&vertices, verticesVec.size(), sizeof(Vertex));
+
+    indicesVec.clear();
+    verticesVec.clear();
+    ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
 }
 
 int Scene::loadTexture(string texid) {
@@ -641,6 +708,7 @@ ComPtr<ID3D12Resource> Scene::GetInstanceDescriptors(
         memcpy(instanceDesc.Transform, obj.getTransform3x4(), 12 * sizeof(FLOAT));
         instanceDesc.InstanceMask = 1;
         instanceDesc.InstanceID = 2; // TODO
+        instanceDesc.InstanceContributionToHitGroupIndex = i;
 
         ModelLoading::Model *model = obj.model;
 

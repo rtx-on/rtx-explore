@@ -6,6 +6,7 @@
 #include <glm/glm/glm.hpp>
 
 class D3D12RaytracingSimpleLighting;
+class Scene;
 
 namespace ModelLoading {
 
@@ -39,11 +40,15 @@ struct Material {
 // Holds the vertex and index buffer (triangulated) for a loaded model
 struct Model {
   int id;
+  int vOffset;
+  int iOffset;
 
-  D3DBuffer indices;
-  D3DBuffer vertices;
+  int iCount = 0;
+  int vCount = 0;
 
-  D3D12_RAYTRACING_GEOMETRY_DESC& GetGeomDesc();
+  Scene *loadedScene;
+
+  D3D12_RAYTRACING_GEOMETRY_DESC &GetGeomDesc();
   D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC &GetBottomLevelBuildDesc();
 
   D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO &
@@ -80,13 +85,17 @@ struct Model {
   bool bottom_level_build_desc_allocated = false;
   D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC bottom_level_build_desc{};
   bool bottom_level_prebuild_info_allocated = false;
-  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO bottom_level_prebuild_info;
+  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO
+      bottom_level_prebuild_info;
 };
 
 // Holds pointers to a model, textures, and a material
 class SceneObject {
 public:
   FLOAT *getTransform3x4();
+
+  std::vector<Vertex> verticesVec;
+  std::vector<Index> indicesVec;
 
   int id;
 

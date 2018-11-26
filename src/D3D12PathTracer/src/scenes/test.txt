@@ -1,4 +1,13 @@
+MODEL 1
+path src/objects/dragon.obj
+
 MODEL 2
+path src/objects/wahoo.obj
+
+MODEL 3
+path src/objects/aline.obj
+
+MODEL 4
 path src/objects/chromie.obj
 
 TEXTURE 1
@@ -6,6 +15,15 @@ path src/textures/chromie.jpg
 
 TEXTURE 2
 path src/textures/normal.jpg
+
+OBJECT 1
+model 1
+albedo_tex 1
+normal_tex 2
+material -1
+trans       10 0 0
+rotat       0 160 0
+scale       2 2 2
 
 OBJECT 2
 model 2
@@ -15,6 +33,24 @@ material -1
 trans       0 -1 0
 rotat       0 160 0
 scale       0.5 0.5 0.5
+
+OBJECT 3
+model 3
+albedo_tex 1
+normal_tex 2
+material -1
+trans       0 4 0
+rotat       0 160 0
+scale       1 1 1
+
+OBJECT 3
+model 4
+albedo_tex 1
+normal_tex 2
+material -1
+trans       0 1 10
+rotat       0 90 0
+scale       0.4 0.4 0.4
 
 CAMERA
 resolution         800 800

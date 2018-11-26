@@ -67,7 +67,21 @@ public:
   D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO top_level_prebuild_info;
 
   Scene(string filename, D3D12RaytracingSimpleLighting *programState);
-  ~Scene();
+  void BuildScene();
+
+  string fileName;
+  int matCount = 0;
+  int modelCount = 0;
+  int textureCount = 0;
+  int objectCount = 0;
+
+  void allocateVIBuffer();
+
+  std::vector<Vertex> verticesVec;
+  std::vector<Index> indicesVec;
+
+  D3DBuffer indices;
+  D3DBuffer vertices;
 
   D3D12RaytracingSimpleLighting *programState;
 

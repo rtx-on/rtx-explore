@@ -10,19 +10,17 @@ using namespace ModelLoading;
 
 D3D12_RAYTRACING_GEOMETRY_DESC& Model::GetGeomDesc()
 {
-  
-    geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-    geometryDesc.Triangles.IndexBuffer =
-        indices.resource->GetGPUVirtualAddress();
-    geometryDesc.Triangles.IndexCount =
-        static_cast<UINT>(indices.resource->GetDesc().Width) / sizeof(Index);
+
+      geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+  geometryDesc.Triangles.IndexBuffer =
+        loadedScene->indices.resource->GetGPUVirtualAddress() + iOffset * sizeof(UINT32);
+      geometryDesc.Triangles.IndexCount = iCount;
     geometryDesc.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
     geometryDesc.Triangles.Transform3x4 = 0;
     geometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-    geometryDesc.Triangles.VertexCount =
-        static_cast<UINT>(vertices.resource->GetDesc().Width) / sizeof(Vertex);
+    geometryDesc.Triangles.VertexCount = vCount;
     geometryDesc.Triangles.VertexBuffer.StartAddress =
-        vertices.resource->GetGPUVirtualAddress();
+        loadedScene->vertices.resource->GetGPUVirtualAddress() + iOffset * sizeof(Vertex);
     geometryDesc.Triangles.VertexBuffer.StrideInBytes = sizeof(Vertex);
     geometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
 
