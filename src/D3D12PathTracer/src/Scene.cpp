@@ -630,7 +630,7 @@ ComPtr<ID3D12Resource> Scene::GetInstanceDescriptors(
 
         memcpy(instanceDesc.Transform, obj.getTransform3x4(), 12 * sizeof(FLOAT));
         instanceDesc.InstanceMask = 0xFF;
-        instanceDesc.InstanceID = i; // TODO
+        instanceDesc.InstanceID = i; // TODO MAKE SURE THIS MATCHES THE ONE BELOW (FOR ACTUAL RAYTRACING)
         //instanceDesc.InstanceContributionToHitGroupIndex = 0;
 
 
@@ -657,11 +657,12 @@ ComPtr<ID3D12Resource> Scene::GetInstanceDescriptors(
         D3D12_RAYTRACING_INSTANCE_DESC instanceDesc = {};
 
         ModelLoading::SceneObject obj = objects[i];
-        memcpy(instanceDesc.Transform, obj.getTransform3x4(), 12 * sizeof(FLOAT));
-        instanceDesc.InstanceMask = 1;
-        instanceDesc.InstanceID = 2; // TODO
+        ModelLoading::Model* model = obj.model;
 
-        ModelLoading::Model *model = obj.model;
+        memcpy(instanceDesc.Transform, obj.getTransform3x4(), 12 * sizeof(FLOAT));
+        instanceDesc.InstanceMask = 0xFF;
+        instanceDesc.InstanceID = i; // TODO MAKE SURE THIS MATCHES THE ONE BELOW (FOR ACTUAL RAYTRACING)
+        //instanceDesc.InstanceContributionToHitGroupIndex = 0;
 
         UINT numBufferElements =
             static_cast<UINT>(model->GetPreBuild(is_fallback, m_fallbackDevice, m_dxrDevice).ResultDataMaxSizeInBytes) / sizeof(UINT32);
