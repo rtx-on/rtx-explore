@@ -1,11 +1,5 @@
 #pragma once
 
-using Sprite = int;
-
-const std::map<std::string, Sprite> texture_name_map = {
-  { "a", 0 },
-};
-
 class MiniBlockManager {
 public:
   explicit MiniBlockManager() = default;

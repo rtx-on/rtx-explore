@@ -7,9 +7,7 @@ public:
   {
   }
 
-  void SetTranformation();
-
-  bool SetTexture(std::string texture_name);
+  bool SetTexture(BlockType block_type);
 
   glm::vec3 get_translation() const
   {
@@ -18,6 +16,7 @@ public:
 
   void set_translation(const glm::vec3& translation)
   {
+    object.transformBuilt = false;
     this->object.translation = translation;
   }
 
@@ -28,6 +27,7 @@ public:
 
   void set_rotation(const glm::vec3& rotation)
   {
+    object.transformBuilt = false;
     this->object.rotation = rotation;
   }
 
@@ -38,6 +38,7 @@ public:
 
   void set_scale(const glm::vec3& scale)
   {
+    object.transformBuilt = false;
     this->object.scale = scale;
   }
 
