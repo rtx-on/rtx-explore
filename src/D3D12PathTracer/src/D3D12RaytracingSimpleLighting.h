@@ -146,6 +146,9 @@ private:
     D3D12_GPU_DESCRIPTOR_HANDLE m_raytracingOutputResourceUAVGpuDescriptor;
     UINT m_raytracingOutputResourceUAVDescriptorHeapIndex;
 
+    //pathtracing accumulator
+    ComPtr<ID3D12Resource> pathtracing_accumulation_resource;
+
     // Shader tables
     static const wchar_t* c_hitGroupName;
     static const wchar_t* c_raygenShaderName;
