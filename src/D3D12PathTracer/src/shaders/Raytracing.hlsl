@@ -216,33 +216,39 @@ float3 CalculateRandomDirectionInHemisphere(float3 normal) {
 [shader("raygeneration")]
 void MyRaygenShader()
 {
-	// Path tracing depth
-	int depth = g_sceneCB.depth;
+    float4 color;
 
-	// Set the seed of the prng factory
-	uint2 samplePt = DispatchRaysIndex().xy;
-	uint2 sampleDim = DispatchRaysDimensions().xy;
-	uint id = samplePt.x + sampleDim.x * samplePt.y;
-	ComputeRngSeed(id, g_sceneCB.iteration, depth);
+    // Path tracing depth
+    int depth = g_sceneCB.depth;
 
-	// Ray state to be filled before the first TraceRay()
-	float3 rayDir;
-	float3 origin;
+    // Set the seed of the prng factory
+    uint2 samplePt = DispatchRaysIndex().xy;
+    uint2 sampleDim = DispatchRaysDimensions().xy;
+    uint id = samplePt.x + sampleDim.x * samplePt.y;
+    ComputeRngSeed(id, g_sceneCB.iteration, depth);
+
+    // Ray state to be filled before the first TraceRay()
+    float3 rayDir;
+    float3 origin;
     
     // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
     GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
 
-	// Ray to be traced
+    // Ray to be traced
     RayDesc ray;
     ray.Origin = origin;
     ray.Direction = rayDir;
     ray.TMin = 0.001;
     ray.TMax = 10000.0;
 
-	// Payload: color with w coord indicating type of hit, origin of the new ray, direction of new ray
+    // Payload: color with w coord indicating type of hit, origin of the new ray, direction of new ray
     RayPayload payload = { float4(INITIAL_COLOR.rgb, -1.0f), float3(0, 0, 0), float3(0, 0, 0)};
 
-
+    if (g_sceneCB.is_raytracing > 0)
+    {
+      TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
+      color = float4(payload.color.rgb, 0.0f);
+    } else {
 	// for loop over path tracing depth
 	// given pay load data (missed, hit something), do something
 	// case 1: hit nothing - stop here
@@ -269,9 +275,9 @@ void MyRaygenShader()
 			payload.color = float4(payload.color.rgb, 0.0f);
 			break;
 		}
-	}
+	}    
 
-	// Write the raytraced color to the output texture.
+        // Write the raytraced color to the output texture.
 	float3 oldColor = RenderTarget[DispatchRaysIndex().xy].xyz;
         int prevIt = g_sceneCB.iteration == 1 ? 1 : g_sceneCB.iteration - 1;
 	float3 newColor = oldColor.rgb * prevIt + payload.color.xyz;
@@ -279,9 +285,10 @@ void MyRaygenShader()
 	float r = clamp(newColor.r / g_sceneCB.iteration, 0, 1);
 	float g = clamp(newColor.g / g_sceneCB.iteration, 0, 1);
 	float b = clamp(newColor.b / g_sceneCB.iteration, 0, 1);
-	float4 color = float4(r, g, b, 0.0f);
+	color = float4(r, g, b, 0.0f);
+    }
 
-	RenderTarget[DispatchRaysIndex().xy] = color;
+    RenderTarget[DispatchRaysIndex().xy] = color;
 }
 
 [shader("closesthit")]

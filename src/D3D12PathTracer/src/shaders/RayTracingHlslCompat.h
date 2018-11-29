@@ -23,28 +23,31 @@ typedef UINT32 Index;
 
 struct SceneConstantBuffer
 {
-    XMMATRIX projectionToWorld;
-    XMVECTOR cameraPosition;
-    XMVECTOR lightPosition;
-    XMVECTOR lightAmbientColor;
-    XMVECTOR lightDiffuseColor;
-	UINT iteration;
-	UINT depth;
+  XMMATRIX projectionToWorld;
+  XMVECTOR cameraPosition;
+  XMVECTOR lightPosition;
+  XMVECTOR lightAmbientColor;
+  XMVECTOR lightDiffuseColor;
+  UINT iteration;
+  UINT depth;
+  UINT is_game;
+  UINT is_raytracing;
 };
 
 struct CubeConstantBuffer
 {
-    XMFLOAT4 albedo;
+  XMFLOAT4 albedo;
 };
 
-struct Vertex {
-	XMFLOAT3 position;
-	XMFLOAT3 normal;
-	XMFLOAT2 texCoord;
+struct Vertex
+{
+  XMFLOAT3 position;
+  XMFLOAT3 normal;
+  XMFLOAT2 texCoord;
 };
 
 // Holds data for a specific material
-struct Material 
+struct Material
 {
   XMFLOAT3 diffuse;
   XMFLOAT3 specular;

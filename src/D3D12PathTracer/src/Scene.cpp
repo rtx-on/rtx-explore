@@ -174,6 +174,12 @@ int Scene::loadObject(string objectid) {
 	newObject.id = id;
 	objects.push_back(newObject);
 
+        //GAME
+        for (int i = 0; i < 1000; i++)
+        {
+          objects.push_back(newObject);
+        }
+
 	wstr << L"----------------------------------------\n";
 	wstr << L"Done loading OBJECT " << id << L" !\n";
 	wstr << L"------------------------------------------------------------------------------\n";
@@ -547,8 +553,14 @@ D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC& Scene::GetTopLevelDesc()
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS &topLevelInputs =
         top_level_build_desc.Inputs;
     topLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-    topLevelInputs.Flags =
-        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+    topLevelInputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+
+    //GAME
+    if (programState->is_game)
+    {
+      topLevelInputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE;
+    }
+
     topLevelInputs.NumDescs = objects.size();
     topLevelInputs.pGeometryDescs = nullptr;
     topLevelInputs.Type =
@@ -738,7 +750,7 @@ void Scene::FinalizeAS()
 
     // Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
     programState->GetDeviceResources()->WaitForGpu();
-}
+  }
 
 void Scene::AllocateResourcesInDescriptorHeap()
 {
@@ -875,4 +887,59 @@ void Scene::AllocateResourcesInDescriptorHeap()
     // used to bind to the root signature
     newTexture.texBuffer.gpuDescriptorHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(programState->GetDescriptorHeap()->GetGPUDescriptorHandleForHeapStart(), descriptorIndex, *programState->GetDescriptorSize());
   }
+}
+
+//GAME
+void Scene::UpdateTopLevelAS(
+      bool is_fallback, ComPtr<ID3D12RaytracingFallbackDevice> m_fallbackDevice,
+      ComPtr<ID3D12Device5> m_dxrDevice,
+      ComPtr<ID3D12RaytracingFallbackCommandList> fbCmdLst,
+      ComPtr<ID3D12GraphicsCommandList5> rtxCmdList)
+{
+  auto device = programState->GetDeviceResources()->GetD3DDevice();
+  auto command_list = programState->GetDeviceResources()->GetCommandList();
+
+  top_level_prebuild_info_allocated = false;
+  GetTopLevelPrebuildInfo(is_fallback, m_fallbackDevice, m_dxrDevice);
+
+  command_list->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(m_topLevelAccelerationStructure.Get()));
+
+  //update matrices
+  //TODO this assumes D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC == D3D12_RAYTRACING_INSTANCE_DESC
+  D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC* instance_mem = nullptr;
+  instanceDescs->Map(0, nullptr, (void**)&instance_mem);
+  for (auto i = 0; i < objects.size(); i++)
+  {
+    ModelLoading::SceneObject& obj = objects[i];
+    memcpy(instance_mem[i].Transform, obj.getTransform3x4(), 12 * sizeof(FLOAT));    
+  }
+  instanceDescs->Unmap(0, nullptr);
+
+  top_level_build_desc.DestAccelerationStructureData = m_topLevelAccelerationStructure->GetGPUVirtualAddress();
+  top_level_build_desc.ScratchAccelerationStructureData = scratchResource->GetGPUVirtualAddress();
+  top_level_build_desc.SourceAccelerationStructureData = m_topLevelAccelerationStructure->GetGPUVirtualAddress();
+  top_level_build_desc.Inputs.InstanceDescs = instanceDescs->GetGPUVirtualAddress();
+
+  top_level_build_desc_allocated = true;
+
+  if (is_fallback)
+  {
+        ID3D12DescriptorHeap *pDescriptorHeaps[] = { programState->GetDescriptorHeap().Get() };
+        fbCmdLst->SetDescriptorHeaps(ARRAYSIZE(pDescriptorHeaps), pDescriptorHeaps);
+    fbCmdLst->BuildRaytracingAccelerationStructure(&top_level_build_desc, 0, nullptr);    
+  } 
+  else
+  {
+    rtxCmdList->BuildRaytracingAccelerationStructure(&top_level_build_desc, 0, nullptr);    
+  }
+
+  //resource barrier
+  command_list->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(m_topLevelAccelerationStructure.Get()));
+
+      // Kick off acceleration structure construction.
+    //programState->GetDeviceResources()->ExecuteCommandList();
+
+    // Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
+    //programState->GetDeviceResources()->WaitForGpu();
+
 }

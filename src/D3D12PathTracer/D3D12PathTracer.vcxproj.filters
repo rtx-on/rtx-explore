@@ -104,6 +104,8 @@
     <ClInclude Include="src\Scene.h" />
     <ClInclude Include="src\Utilities.h" />
     <ClInclude Include="src\Model.h" />
+    <ClInclude Include="src\MiniBlock.h" />
+    <ClInclude Include="src\MiniBlockManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\D3D12RaytracingSimpleLighting.cpp">
@@ -131,6 +133,8 @@
     <ClCompile Include="src\Scene.cpp" />
     <ClCompile Include="src\Utilities.cpp" />
     <ClCompile Include="src\Model.cpp" />
+    <ClCompile Include="src\MiniBlock.cpp" />
+    <ClCompile Include="src\MiniBlockManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

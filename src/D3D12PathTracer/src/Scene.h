@@ -60,6 +60,12 @@ public:
 
   void AllocateResourcesInDescriptorHeap();
 
+  void UpdateTopLevelAS(bool is_fallback,
+                        ComPtr<ID3D12RaytracingFallbackDevice> m_fallbackDevice,
+                        ComPtr<ID3D12Device5> m_dxrDevice,
+                        ComPtr<ID3D12RaytracingFallbackCommandList> fbCmdLst,
+                        ComPtr<ID3D12GraphicsCommandList5> rtxCmdList);
+
   ComPtr<ID3D12Resource> m_topLevelAccelerationStructure;
   ComPtr<ID3D12Resource> scratchResource;
   ComPtr<ID3D12Resource> instanceDescs;

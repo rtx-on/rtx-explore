@@ -1,0 +1,36 @@
+//////////////// SCENE MODEL FOR BOX
+MODEL 0
+path src/objects/crate.obj
+
+TEXTURE 0
+path src/textures/chromie.jpg
+
+MATERIAL 0
+RGB         1 0 1
+SPECRGB     0 0 0
+SPECEX      0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   5
+
+// One box
+OBJECT 0
+model 0
+albedo_tex 0
+normal_tex -1
+material 0
+trans       0 0 0
+rotat       0 160 0
+scale       0.2 0.2 0.2
+
+CAMERA
+resolution         800 800
+fovy        45
+iterations  5000
+depth       30
+eye         0.0 2 -20
+lookat      0 0 1
+up          0 1 0
+focal		10
+lensr		0.5

@@ -164,6 +164,8 @@ PrebuildCheck.bat</Command>
     </PreLinkEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\MiniBlock.h" />
+    <ClInclude Include="src\MiniBlockManager.h" />
     <ClInclude Include="src\AssetManager.h" />
     <ClInclude Include="src\core\Common.h" />
     <ClInclude Include="src\core\Texture.h" />
@@ -194,6 +196,8 @@ PrebuildCheck.bat</Command>
     <ClInclude Include="d3dx12.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\MiniBlock.cpp" />
+    <ClCompile Include="src\MiniBlockManager.cpp" />
     <ClCompile Include="src\AssetManager.cpp" />
     <ClCompile Include="src\D3D12RaytracingSimpleLighting.cpp" />
     <ClCompile Include="src\DeviceResources.cpp" />

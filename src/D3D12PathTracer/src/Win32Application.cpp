@@ -61,16 +61,25 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
             nullptr,        // We aren't using menus.
             hInstance,
             pSample);
-		
-		// Grab scene name
-		string sceneFile = CW2A(argv[1]);
-		LocalFree(argv);
-		D3D12RaytracingSimpleLighting* rayTracingProgram = dynamic_cast<D3D12RaytracingSimpleLighting*>(pSample);
-		rayTracingProgram->p_sceneFileName = sceneFile;
-		
-		// Initialize the sample. OnInit is defined in each child-implementation of DXSample.
-		pSample->OnInit();
-        ShowWindow(m_hwnd, nCmdShow);
+
+      // Grab scene name
+      string sceneFile = CW2A(argv[1]);
+      LocalFree(argv);
+      D3D12RaytracingSimpleLighting* rayTracingProgram = dynamic_cast<D3D12RaytracingSimpleLighting*>(pSample);
+      rayTracingProgram->p_sceneFileName = sceneFile;
+      size_t filename_index = sceneFile.find_last_of("\\");
+      if (filename_index != std::string::npos)
+      {
+        string scene_filename = sceneFile.substr(filename_index);
+        if (scene_filename.find("Minecraft.txt"))
+        {
+          rayTracingProgram->is_game = true;
+        } 
+      }
+
+      // Initialize the sample. OnInit is defined in each child-implementation of DXSample.
+      pSample->OnInit();
+      ShowWindow(m_hwnd, nCmdShow);
 
         // Main sample loop.
         MSG msg = {};
