@@ -23,6 +23,7 @@
 
 RaytracingAccelerationStructure Scene : register(t0, space0);
 RWTexture2D<float4> RenderTarget : register(u0);
+RWTexture2D<float4> RenderTarget2 : register(u1);
 StructuredBuffer<Vertex> Vertices[] : register(t0, space1);
 ByteAddressBuffer Indices[] : register(t0, space2);
 ConstantBuffer<Info> infos[] : register(b0, space3);
@@ -272,16 +273,16 @@ void MyRaygenShader()
 	}
 
 	// Write the raytraced color to the output texture.
-	float3 oldColor = RenderTarget[DispatchRaysIndex().xy].xyz;
-        int prevIt = g_sceneCB.iteration == 1 ? 1 : g_sceneCB.iteration - 1;
-	float3 newColor = oldColor.rgb * prevIt + payload.color.xyz;
+	float3 color = float3(RenderTarget2[DispatchRaysIndex().xy].xyz);
+        color += payload.color.xyz;
+        RenderTarget2[DispatchRaysIndex().xy] = float4(color.xyz, 0.0f);
 
-	float r = clamp(newColor.r / g_sceneCB.iteration, 0, 1);
-	float g = clamp(newColor.g / g_sceneCB.iteration, 0, 1);
-	float b = clamp(newColor.b / g_sceneCB.iteration, 0, 1);
-	float4 color = float4(r, g, b, 0.0f);
-
-	RenderTarget[DispatchRaysIndex().xy] = color;
+        // Average output color
+	float r = clamp(color.r / g_sceneCB.iteration, 0, 1);
+	float g = clamp(color.g / g_sceneCB.iteration, 0, 1);
+	float b = clamp(color.b / g_sceneCB.iteration, 0, 1);
+	float4 avgColor = float4(r, g, b, 0.0f);
+	RenderTarget[DispatchRaysIndex().xy] = avgColor;
 }
 
 [shader("closesthit")]
