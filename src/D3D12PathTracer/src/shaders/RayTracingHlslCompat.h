@@ -46,13 +46,13 @@ struct Vertex {
 // Holds data for a specific material
 struct Material 
 {
-  XMFLOAT3 diffuse;
-  XMFLOAT3 specular;
   float specularExp;
-  float eta;
   float reflectiveness;
   float refractiveness;
+  float eta;
   float emittance;
+  XMFLOAT3 diffuse;
+  XMFLOAT3 specular;
 };
 
 struct Info

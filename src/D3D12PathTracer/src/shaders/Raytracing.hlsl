@@ -296,13 +296,28 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
         uint texture_normal_offset = infos[instanceId].texture_normal_offset;
         uint material_offset = infos[instanceId].material_offset;
 
+        float eta = 0;
+        float reflectivness = 0;
+        float refractiveness = 0;
+        float specular_exp = 0;
+        float emittance = 0;
+
+        if (material_offset != NULL_OFFSET)
+        {
+          eta = materials[material_offset].eta;
+          reflectivness = materials[material_offset].reflectiveness;
+          refractiveness = materials[material_offset].refractiveness;
+          specular_exp = materials[material_offset].specularExp;
+          emittance = materials[material_offset].emittance;
+        }
+
 	// Get the base index of the triangle's first 16 bit index.
 	uint indexSizeInBytes = 4;
 	uint indicesPerTriangle = 3;
 	uint triangleIndexStride = indicesPerTriangle * indexSizeInBytes;
 	uint baseIndex = PrimitiveIndex() * triangleIndexStride;
 
-        float hitType = materials[material_offset].diffuse.b == 1 ? 1 : 0; // 1 is light, 0 is not
+        float hitType = emittance ? 1 : 0; // 1 is light, 0 is not
 
 	// Load up 3 16 bit indices for the triangle.
 	const uint3 indices = Indices[model_offset].Load3(baseIndex);
@@ -345,10 +360,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
         {
           color = payload.color.rgb * materials[material_offset].diffuse;
         }
-        if (hitType == 1) {
-          color *= 2;
-        }
-        payload.color = /*hitType == 1 ? float4(originalColor.rgb, 1) :*/ float4(color.xyz, hitType);
+        payload.color = /*hitType == 1 ? float4(originalColor.rgb, 1) :*/ float4(color.xyz, emittance);
 }
 
 [shader("miss")]
