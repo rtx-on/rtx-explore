@@ -3,7 +3,10 @@ MODEL 0
 path src/objects/crate.obj
 
 TEXTURE 0
-path src/textures/chromie.jpg
+path MinecraftTextures/dirt.png
+
+TEXTURE 1
+path MinecraftTextures/grass_side.png
 
 MATERIAL 0
 RGB         1 0 1
