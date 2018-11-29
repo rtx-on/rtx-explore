@@ -1218,7 +1218,6 @@ void D3D12RaytracingSimpleLighting::OnRender()
       mini_block->set_rotation(block_rotation);
       // mini_block->set_translation(mini_block->get_translation() +
       //                             glm::vec3(0.01f, 0.0, 0.0));
-      mini_block->SetTranformation();
       m_sceneLoaded->UpdateTopLevelAS(m_raytracingAPI == RaytracingAPI::FallbackLayer, m_fallbackDevice, m_dxrDevice, m_fallbackCommandList, m_dxrCommandList);
     }
 

@@ -106,6 +106,8 @@
     <ClInclude Include="src\Model.h" />
     <ClInclude Include="src\MiniBlock.h" />
     <ClInclude Include="src\MiniBlockManager.h" />
+    <ClInclude Include="src\MiniBiomeGenerator.h" />
+    <ClInclude Include="src\MiniEnumTypes.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\D3D12RaytracingSimpleLighting.cpp">
@@ -135,6 +137,7 @@
     <ClCompile Include="src\Model.cpp" />
     <ClCompile Include="src\MiniBlock.cpp" />
     <ClCompile Include="src\MiniBlockManager.cpp" />
+    <ClCompile Include="src\MiniBiomeGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

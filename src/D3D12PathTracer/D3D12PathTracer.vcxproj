@@ -164,6 +164,8 @@ PrebuildCheck.bat</Command>
     </PreLinkEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\MiniEnumTypes.h" />
+    <ClInclude Include="src\MiniBiomeGenerator.h" />
     <ClInclude Include="src\MiniBlock.h" />
     <ClInclude Include="src\MiniBlockManager.h" />
     <ClInclude Include="src\AssetManager.h" />
@@ -196,6 +198,7 @@ PrebuildCheck.bat</Command>
     <ClInclude Include="d3dx12.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\MiniBiomeGenerator.cpp" />
     <ClCompile Include="src\MiniBlock.cpp" />
     <ClCompile Include="src\MiniBlockManager.cpp" />
     <ClCompile Include="src\AssetManager.cpp" />

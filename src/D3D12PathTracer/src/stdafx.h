@@ -36,7 +36,19 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <stack>
+
 #include <wrl.h>
+
+#define GLM_FORCE_RADIANS
+// Primary GLM library
+#include <glm/glm/glm.hpp>
+// For glm::translate, glm::rotate, and glm::scale.
+#include <glm/glm/gtc/matrix_transform.hpp>
+// For glm::to_string.
+#include <glm/glm/gtx/string_cast.hpp>
+// For glm::value_ptr.
+#include <glm/glm/gtc/type_ptr.hpp>
 
 #include "D3D12RaytracingFallback.h"
 #include "D3D12RaytracingHelpers.hpp"
@@ -62,6 +74,15 @@
 
 #include "Scene.h"
 
+#include "MiniEnumTypes.h"
+
 #include "MiniBlock.h"
+
+#include "MiniTurtle.h"
+#include "MiniFBM.h"
+#include "MiniLSystem.h"
+#include "MiniBiomeGenerator.h"
+#include "MiniTerrian.h"
+
 #include "MiniBlockManager.h"
 
