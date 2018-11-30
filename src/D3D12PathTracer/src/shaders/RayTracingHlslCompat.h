@@ -23,8 +23,9 @@ typedef UINT32 Index;
 
 struct SceneConstantBuffer
 {
-    XMMATRIX projectionToWorld;
-    XMVECTOR cameraPosition;
+	XMMATRIX projectionToWorld;
+	XMMATRIX view_matrix;
+	XMVECTOR cameraPosition;
     XMVECTOR lightPosition;
     XMVECTOR lightAmbientColor;
     XMVECTOR lightDiffuseColor;
@@ -41,6 +42,27 @@ struct Vertex {
 	XMFLOAT3 position;
 	XMFLOAT3 normal;
 	XMFLOAT2 texCoord;
+};
+
+// Holds data for a specific material
+struct Material 
+{
+  float specularExp;
+  float reflectiveness;
+  float refractiveness;
+  float eta;
+  float emittance;
+  XMFLOAT3 diffuse;
+  XMFLOAT3 specular;
+};
+
+struct Info
+{
+  UINT model_offset;
+  UINT texture_offset;
+  UINT texture_normal_offset;
+  UINT material_offset;
+  XMMATRIX rotation_matrix;
 };
 
 #endif // RAYTRACINGHLSLCOMPAT_H

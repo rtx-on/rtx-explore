@@ -35,6 +35,8 @@
 #include <vector>
 #include <atlbase.h>
 #include <assert.h>
+#include <algorithm>
+#include <map>
 
 #include <dxgi1_6.h>
 #include "d3d12_1.h"
@@ -52,4 +54,10 @@
 #include "DXSampleHelper.h"
 #include "DeviceResources.h"
 
+#include "D3D12RaytracingSimpleLighting.h"
+
 #include "model_loading/OBJ_Loader.h"
+
+#include "Model.h"
+
+#include "Scene.h"

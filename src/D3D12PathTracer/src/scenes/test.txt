@@ -1,0 +1,86 @@
+MODEL 0
+path src/objects/chromie.obj
+
+MODEL 1
+path src/objects/wahoo.obj
+
+MODEL 2
+path src/objects/aline.obj
+
+TEXTURE 0
+path src/textures/chromie.jpg
+
+TEXTURE 1
+path src/textures/wahoo.bmp
+
+TEXTURE 2
+path src/textures/aline.png
+
+TEXTURE 3
+path src/textures/normal.jpg
+
+#NULL MATERIAL :O IF DIFFUSE.x == 0, then CONSIDERED NULL MATERIAL 
+MATERIAL 0
+diffuse           0 0 0
+specular          0 0 0
+specular_exponent 0
+eta               0
+reflection        0
+refraction        0
+emittance         0
+
+MATERIAL 1
+diffuse           0.5 0.0 0.0
+specular          0.5 0.2 0.4
+specular_exponent 8.0
+eta               0.5
+reflection        0.5
+refraction        0.5
+emittance         2.0
+
+OBJECT 1
+model 0
+albedo_tex 0
+normal_tex 3
+material 1
+trans       0 -1 0
+rotat       0 160 0
+scale       0.5 0.5 0.5
+
+OBJECT 2
+model 1
+albedo_tex 1
+normal_tex 3
+material 0
+trans       0 -5 0
+rotat       0 160 0
+scale       0.5 0.5 0.5
+
+OBJECT 3
+model 2
+albedo_tex 2
+normal_tex 3
+material 0
+trans       5 1 0
+rotat       0 160 0
+scale       0.5 0.5 0.5
+
+OBJECT 4
+model 2
+albedo_tex 2
+normal_tex 3
+material 0
+trans       -5 1 0
+rotat       0 160 0
+scale       0.5 0.5 0.5
+
+CAMERA
+resolution         800 800
+fovy        45
+iterations  5000
+depth       30
+eye         0.0 2 -20
+lookat      0 0 1
+up          0 1 0
+focal		10
+lensr		0.5

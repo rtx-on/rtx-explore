@@ -101,6 +101,9 @@
     <ClInclude Include="src\Mesh.h" />
     <ClInclude Include="src\MeshLoader.h" />
     <ClInclude Include="src\model_loading\OBJ_Loader.h" />
+    <ClInclude Include="src\Scene.h" />
+    <ClInclude Include="src\Utilities.h" />
+    <ClInclude Include="src\Model.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\D3D12RaytracingSimpleLighting.cpp">
@@ -125,6 +128,9 @@
     <ClCompile Include="src\AssetManager.cpp" />
     <ClCompile Include="src\Mesh.cpp" />
     <ClCompile Include="src\MeshLoader.cpp" />
+    <ClCompile Include="src\Scene.cpp" />
+    <ClCompile Include="src\Utilities.cpp" />
+    <ClCompile Include="src\Model.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

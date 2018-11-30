@@ -12,6 +12,8 @@
 #include "stdafx.h"
 #include "Win32Application.h"
 #include "DXSampleHelper.h"
+#include "Scene.h"
+#include "D3D12RaytracingSimpleLighting.h"
 
 HWND Win32Application::m_hwnd = nullptr;
 bool Win32Application::m_fullscreenMode = false;
@@ -25,8 +27,13 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
         // Parse the command line parameters
         int argc;
         LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-        pSample->ParseCommandLineArgs(argv, argc);
-        LocalFree(argv);
+
+		if (argc < 2) {
+			OutputDebugString(L"Application hit a problem: ");
+			OutputDebugString(L"Please provide arguments to the program: program.exe scenefile.txt");
+			OutputDebugString(L"\nTerminating.\n");
+			return 1;
+		}
 
         // Initialize the window class.
         WNDCLASSEX windowClass = { 0 };
@@ -54,10 +61,15 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
             nullptr,        // We aren't using menus.
             hInstance,
             pSample);
-
-        // Initialize the sample. OnInit is defined in each child-implementation of DXSample.
-        pSample->OnInit();
-
+		
+		// Grab scene name
+		string sceneFile = CW2A(argv[1]);
+		LocalFree(argv);
+		D3D12RaytracingSimpleLighting* rayTracingProgram = dynamic_cast<D3D12RaytracingSimpleLighting*>(pSample);
+		rayTracingProgram->p_sceneFileName = sceneFile;
+		
+		// Initialize the sample. OnInit is defined in each child-implementation of DXSample.
+		pSample->OnInit();
         ShowWindow(m_hwnd, nCmdShow);
 
         // Main sample loop.

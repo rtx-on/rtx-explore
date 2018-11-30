@@ -15,24 +15,30 @@
 #define HLSL
 #include "RayTracingHlslCompat.h"
 
+//NULL OFFSET IF INDEX OFFSET IS -1
+#define NULL_OFFSET (-1)
+
 #define AA 1
 #define DOF 0
 
 RaytracingAccelerationStructure Scene : register(t0, space0);
 RWTexture2D<float4> RenderTarget : register(u0);
-ByteAddressBuffer Indices : register(t1, space0);
-StructuredBuffer<Vertex> Vertices : register(t2, space0);
-Texture2D text : register(t3, space0);
-Texture2D norm_text : register(t4, space0);
+RWTexture2D<float4> RenderTarget2 : register(u1);
+StructuredBuffer<Vertex> Vertices[] : register(t0, space1);
+ByteAddressBuffer Indices[] : register(t0, space2);
+ConstantBuffer<Info> infos[] : register(b0, space3);
+ConstantBuffer<Material> materials[] : register(b0, space4);
+Texture2D text[] : register(t0, space5);
+Texture2D norm_text[] : register(t0, space6);
 SamplerState s1 : register(s0);
 SamplerState s2 : register(s1);
 
 ConstantBuffer<SceneConstantBuffer> g_sceneCB : register(b0);
 ConstantBuffer<CubeConstantBuffer> g_cubeCB : register(b1);
 
-static const float PI = 3.14159265f;
-static const float TWO_PI = 6.283185f;
-static const float SQRT_OF_ONE_THIRD = 0.577350f;
+static const float PI = 3.1415926535897932384626422832795028841971f;
+static const float TWO_PI = 6.2831853071795864769252867665590057683943f;
+static const float SQRT_OF_ONE_THIRD = 0.5773502691896257645091487805019574556476f;
 
 static const float4 BACKGROUND_COLOR = float4(0,0,0,0);
 static const float4 INITIAL_COLOR = float4(1, 1, 1, 0);
@@ -72,42 +78,10 @@ float Uniform01() {
 	return float(rand_xorshift() * png_01_convert);
 }
 
-// Load three 16 bit indices from a byte addressed buffer.
-uint3 Load3x16BitIndices(uint offsetBytes)
-{
-    uint3 indices;
-
-    // ByteAdressBuffer loads must be aligned at a 4 byte boundary.
-    // Since we need to read three 16 bit indices: { 0, 1, 2 } 
-    // aligned at a 4 byte boundary as: { 0 1 } { 2 0 } { 1 2 } { 0 1 } ...
-    // we will load 8 bytes (~ 4 indices { a b | c d }) to handle two possible index triplet layouts,
-    // based on first index's offsetBytes being aligned at the 4 byte boundary or not:
-    //  Aligned:     { 0 1 | 2 - }
-    //  Not aligned: { - 0 | 1 2 }
-    const uint dwordAlignedOffset = offsetBytes & ~7;    
-    const uint2 four16BitIndices = Indices.Load2(dwordAlignedOffset);
- 
-    // Aligned: { 0 1 | 2 - } => retrieve first three 16bit indices
-    if (dwordAlignedOffset == offsetBytes)
-    {
-        indices.x = four16BitIndices.x;
-		indices.y = four16BitIndices.y;
-//        indices.z = four16BitIndices.z;
-    }
-    else // Not aligned: { - 0 | 1 2 } => retrieve last three 16bit indices
-    {
-        indices.x = four16BitIndices.y;
-        indices.y = four16BitIndices.y;
-//        indices.z = (four16BitIndices.y >> 32) & 0xffffffff;
-    }
-
-    return indices;
-}
-
 typedef BuiltInTriangleIntersectionAttributes MyAttributes;
 struct RayPayload
 {
-    float4 color; // w component stores info if hit or not: 1 == hit, 0 == light hit, -1 == miss
+        float4 color;
 	float3 rayOrigin;
 	float3 rayDir;
 };
@@ -315,15 +289,24 @@ void RefractiveBounce(float3 triangleNormal, float3 hitPosition, float hitType, 
 	payload.color = float4(color, hitType);
 }
 
-void DiffuseBounce(float3 triangleNormal, float3 hitPosition, float hitType, float2 triangleUV, RayPayload payload)
+void DiffuseBounce(uint texture_offset, uint material_offset, float emittance, float3 triangleNormal, float3 hitPosition, float hitType, float2 triangleUV, RayPayload payload)
 {
 	float3 newDir = CalculateRandomDirectionInHemisphere(triangleNormal);
 	payload.rayDir = newDir;
 	payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;
 
-	float3 tex = text.SampleLevel(s1, triangleUV, 0);
-	float3 color = payload.color.rgb * tex.rgb * 2.0f;
-	payload.color = float4(color.xyz, hitType);
+	float3 color = BACKGROUND_COLOR.xyz;
+	if (texture_offset != NULL_OFFSET)
+	{
+		float3 tex = text[texture_offset].SampleLevel(s1, triangleUV, 0);
+		color = payload.color.rgb * tex.rgb;
+	}
+	else if (material_offset != NULL_OFFSET)
+	{
+		color = payload.color.rgb * materials[material_offset].diffuse;
+	}
+
+	payload.color = float4(color.xyz, emittance);
 }
 
 [shader("raygeneration")]
@@ -363,10 +346,11 @@ void MyRaygenShader()
 	// case 3: hit something else, keep going with new direction
 	// case 4: no more tracing and didnt hit light: stop here
 	for (int i = 0; i < depth; i++) {
-		ComputeRngSeed(id, g_sceneCB.iteration, depth);
 		TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
+		ComputeRngSeed(id, g_sceneCB.iteration, i);
 
-		if (payload.color.w == 1.0f) {
+
+		if (payload.color.w == 0) {
 			// new ray has to be edited here
 			ray.Origin = payload.rayOrigin;
 			ray.Direction = payload.rayDir;
@@ -382,35 +366,52 @@ void MyRaygenShader()
 			break;
 		}
 	}
+	if (g_sceneCB.iteration == 1)
+	{
+		RenderTarget2[DispatchRaysIndex().xy].xyz = float3(0, 0, 0);
+	}
 
 	// TODO: Stream Compact here ?? thrust::remove_if on the payload
 
 	// Write the raytraced color to the output texture.
-	float3 oldColor = RenderTarget[DispatchRaysIndex().xy].xyz;
-	float3 newColor = oldColor.rgb * (g_sceneCB.iteration - 1) + payload.color.xyz;
+	float3 color = float3(RenderTarget2[DispatchRaysIndex().xy].xyz);
+        color += payload.color.xyz;
+        RenderTarget2[DispatchRaysIndex().xy] = float4(color.xyz, 0.0f);
 
-	float r = clamp(newColor.r / g_sceneCB.iteration, 0, 1);
-	float g = clamp(newColor.g / g_sceneCB.iteration, 0, 1);
-	float b = clamp(newColor.b / g_sceneCB.iteration, 0, 1);
-	float4 color = float4(r, g, b, 0.0f);
-
-	RenderTarget[DispatchRaysIndex().xy] = color;
+        // Average output color
+	float r = clamp(color.r / g_sceneCB.iteration, 0, 1);
+	float g = clamp(color.g / g_sceneCB.iteration, 0, 1);
+	float b = clamp(color.b / g_sceneCB.iteration, 0, 1);
+	float4 avgColor = float4(r, g, b, 0.0f);
+	RenderTarget[DispatchRaysIndex().xy] = avgColor;
 }
 
 [shader("closesthit")]
 void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 {
 	float3 hitPosition = HitWorldPosition();
-	uint instanceId = InstanceID();
-	float hitType;
+	uint instanceId = InstanceID(); //Object id
 
-	// TODO: needs to be edited with type of hit object later
-	if (instanceId == 1) {
-		hitType = 1; // object
-	}
-	else
+	//use object id to index into info structure
+	uint model_offset = infos[instanceId].model_offset;
+	uint texture_offset = infos[instanceId].texture_offset;
+	uint texture_normal_offset = infos[instanceId].texture_normal_offset;
+	uint material_offset = infos[instanceId].material_offset;
+	float4x4 rotation_matrix = infos[instanceId].rotation_matrix;
+
+	float eta = 0;
+	float reflectiveness = 0;
+	float refractiveness = 0;
+	float specular_exp = 0;
+	float emittance = 0;
+
+	if (material_offset != NULL_OFFSET)
 	{
-		hitType = 0; // light
+		eta = materials[material_offset].eta;
+		reflectiveness = materials[material_offset].reflectiveness;
+		refractiveness = materials[material_offset].refractiveness;
+		specular_exp = materials[material_offset].specularExp;
+		emittance = materials[material_offset].emittance;
 	}
 
 	// Get the base index of the triangle's first 16 bit index.
@@ -419,30 +420,33 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	uint triangleIndexStride = indicesPerTriangle * indexSizeInBytes;
 	uint baseIndex = PrimitiveIndex() * triangleIndexStride;
 
+    float hitType = emittance ? 1 : 0; // 1 is light, 0 is not
+
 	// Load up 3 16 bit indices for the triangle.
-	const uint3 indices = Indices.Load3(baseIndex);
+	const uint3 indices = Indices[model_offset].Load3(baseIndex);
 
 	// Retrieve corresponding vertex normals for the triangle vertices.
 	float3 vertexNormals[3] = {
-		Vertices[indices[0]].normal,
-		Vertices[indices[1]].normal,
-		Vertices[indices[2]].normal
+		Vertices[model_offset][indices[0]].normal,
+		Vertices[model_offset][indices[1]].normal,
+		Vertices[model_offset][indices[2]].normal
 	};
 
 	float2 vertexUVs[3] = {
-		Vertices[indices[0]].texCoord,
-		Vertices[indices[1]].texCoord,
-		Vertices[indices[2]].texCoord
+		Vertices[model_offset][indices[0]].texCoord,
+		Vertices[model_offset][indices[1]].texCoord,
+		Vertices[model_offset][indices[2]].texCoord
 	};
 
 	// Compute the triangle's normal.
 	// This is redundant and done for illustration purposes 
 	// as all the per-vertex normals are the same and match triangle's normal in this sample. 
 	float3 triangleNormal = HitAttribute(vertexNormals, attr);
+	//triangleNormal = mul(float4(triangleNormal, 1.0f), g_sceneCB.projectionToWorld).xyz;
+	triangleNormal = mul(float4(triangleNormal, 1.0f), rotation_matrix).xyz;
 	float2 triangleUV = HitAttribute2D(vertexUVs, attr);
 
-	// TODO: Make hitType actually matter and parse this based off that. Also reorder to have an order that makes sense
-	if (hitType == 6) // Do both a R E F L E C C and a R E F R A C C with fresnel effects
+	if (reflectiveness > 0.0f && refractiveness > 0.0f) // Do both a R E F L E C C and a R E F R A C C with fresnel effects
 	{
 		float indexOfRefraction = 1.2f; // TODO: Change this to be more general
 
@@ -460,23 +464,33 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 			RefractiveBounce(triangleNormal, hitPosition, hitType, payload);
 		}
 	}
-	else if (hitType == 3) // Do a R E F R A C C
+	else if (reflectiveness > 0.0f) // do a R E F L E C C
+	{
+		ReflectiveBounce(triangleNormal, hitPosition, hitType, payload);
+	}
+	else if (refractiveness > 0.0f) // Do a R E F R A C C
 	{
 		RefractiveBounce(triangleNormal, hitPosition, hitType, payload);
 	}
-	else if (hitType == 1) // Do a diffuse bounce
+	else if (emittance > 0.0f) // I think this means its a light
 	{
-		DiffuseBounce(triangleNormal, hitPosition, hitType, triangleUV, payload);
+
+		float3 color = BACKGROUND_COLOR.xyz;
+		if (texture_offset != NULL_OFFSET)
+		{
+			float3 tex = text[texture_offset].SampleLevel(s1, triangleUV, 0);
+			color = payload.color.rgb * tex.rgb;
+		}
+		else if (material_offset != NULL_OFFSET)
+		{
+			color = payload.color.rgb * materials[material_offset].diffuse;
+		}
+
+		payload.color = float4(color.xyz, emittance);
 	}
-	else if (hitType == 0) // I think this means its a light
+	else // Do a diffuse bounce
 	{
-		float3 tex = text.SampleLevel(s1, triangleUV, 0);
-		float3 color = payload.color.rgb * tex.rgb * 2.0f;
-		payload.color = float4(color.xyz, hitType);
-	}
-	else // do a R E F L E C C
-	{
-		ReflectiveBounce(triangleNormal, hitPosition, hitType, payload);
+		DiffuseBounce(texture_offset, material_offset, emittance, triangleNormal, hitPosition, hitType, triangleUV, payload);
 	}
 }
 
