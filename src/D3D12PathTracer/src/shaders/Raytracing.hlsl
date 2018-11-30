@@ -42,6 +42,8 @@ static const float SQRT_OF_ONE_THIRD = 0.577350269189625764509148780501957455647
 
 static const float4 BACKGROUND_COLOR = float4(0,0,0,0);
 static const float4 INITIAL_COLOR = float4(1, 1, 1, 0);
+static const float4 SPECULAR_COLOR = float4(1, 1, 1, 1);
+static const float INV_PI = 0.3183098861837906715377675267450287240689f;
 
 static uint rng_state; // the current seed
 static const float png_01_convert = (1.0f / 4294967296.0f); // to convert into a 01 distribution
@@ -104,6 +106,36 @@ float2 HitAttribute2D(float2 vertexAttribute[3], BuiltInTriangleIntersectionAttr
 	return vertexAttribute[0] +
 		attr.barycentrics.x * (vertexAttribute[1] - vertexAttribute[0]) +
 		attr.barycentrics.y * (vertexAttribute[2] - vertexAttribute[0]);
+}
+
+// Taken from https://github.com/emily-vo/Project3-CUDA-Path-Tracer
+float EvaluateFresnelDielectric(float cosThetaI, float etaI, float etaT)
+{
+	cosThetaI = clamp(cosThetaI, -1.0f, 1.0f);
+
+	bool entering = cosThetaI > 0.0f;
+	float etaIb = etaI;
+	float etaTb = etaT;
+	if (!entering) {
+		etaIb = etaT;
+		etaTb = etaI;
+		cosThetaI = abs(cosThetaI);
+	}
+
+	float sinThetaI = sqrt(max(0.0f, 1 - cosThetaI * cosThetaI));
+	float sinThetaT = etaIb / etaTb * sinThetaI;
+
+	if (sinThetaT >= 1) {
+		return 1.0f;
+	}
+
+	float cosThetaT = sqrt(max(0.0f, 1 - sinThetaT * sinThetaT));
+
+	float Rparl = ((etaTb * cosThetaI) - (etaIb * cosThetaT)) /
+		((etaTb * cosThetaI) + (etaIb * cosThetaT));
+	float Rperp = ((etaIb * cosThetaI) - (etaTb * cosThetaT)) /
+		((etaIb * cosThetaI) + (etaTb * cosThetaT));
+	return (Rparl * Rparl + Rperp * Rperp) / 2;
 }
 
 /**
@@ -214,6 +246,69 @@ float3 CalculateRandomDirectionInHemisphere(float3 normal) {
 		+ sin(around) * over * perpendicularDirection2;
 }
 
+void ReflectiveBounce(float3 triangleNormal, float3 hitPosition, float hitType, RayPayload payload)
+{
+	float3 newDir = reflect(WorldRayDirection(), triangleNormal);
+	payload.rayDir = newDir;
+	payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;
+
+	float3 color = payload.color.rgb * SPECULAR_COLOR;
+	payload.color = float4(color, hitType);
+}
+
+void RefractiveBounce(float3 triangleNormal, float3 hitPosition, float hitType, RayPayload payload)
+{
+	float indexOfRefraction = 1.2f; // TODO: Change this to be more general
+
+	// adjust eta & normal according to direction of ray (inside or outside mat)
+	bool inside = dot(WorldRayDirection(), triangleNormal) > 0.f;
+	float3 tempNormal = triangleNormal * (inside ? -1.0f : 1.0f);
+	float eta = inside ? indexOfRefraction : (1.0f / indexOfRefraction);
+
+	// normal refraction
+	float3 newDir = refract(WorldRayDirection(), tempNormal, eta);
+
+	// internal total reflection
+	if (length(newDir) < 0.01f) {
+		payload.color *= 0;
+		newDir = reflect(WorldRayDirection(), triangleNormal);
+	}
+
+	// use schlick's approx
+	float schlick_0 = pow((inside ? indexOfRefraction - 1.0f : 1.0f - indexOfRefraction) /
+		(1.0f + indexOfRefraction), 2.0f);
+	float schlick_coef = schlick_0 +
+		(1 - schlick_0) * pow(1 - max(0.0f, dot(WorldRayDirection(), triangleNormal)), 5);
+
+	// based on coef, pick either a refraction or reflection
+	newDir = schlick_coef < Uniform01() ? reflect(WorldRayDirection(), triangleNormal) : newDir;
+	payload.rayDir = newDir;
+	payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;
+
+	float3 color = payload.color.rgb * SPECULAR_COLOR;
+	payload.color = float4(color, hitType);
+}
+
+void DiffuseBounce(uint texture_offset, uint material_offset, float emittance, float3 triangleNormal, float3 hitPosition, float hitType, float2 triangleUV, RayPayload payload)
+{
+	float3 newDir = CalculateRandomDirectionInHemisphere(triangleNormal);
+	payload.rayDir = newDir;
+	payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;
+
+	float3 color = BACKGROUND_COLOR.xyz;
+	if (texture_offset != NULL_OFFSET)
+	{
+		float3 tex = text[texture_offset].SampleLevel(s1, triangleUV, 0);
+		color = payload.color.rgb * tex.rgb;
+	}
+	else if (material_offset != NULL_OFFSET)
+	{
+		color = payload.color.rgb * materials[material_offset].diffuse;
+	}
+
+	payload.color = float4(color.xyz, emittance);
+}
+
 [shader("raygeneration")]
 void MyRaygenShader()
 {
@@ -276,6 +371,8 @@ void MyRaygenShader()
 		RenderTarget2[DispatchRaysIndex().xy].xyz = float3(0, 0, 0);
 	}
 
+	// TODO: Stream Compact here ?? thrust::remove_if on the payload
+
 	// Write the raytraced color to the output texture.
 	float3 color = float3(RenderTarget2[DispatchRaysIndex().xy].xyz);
         color += payload.color.xyz;
@@ -303,7 +400,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	float4x4 rotation_matrix = infos[instanceId].rotation_matrix;
 
 	float eta = 0;
-	float reflectivness = 0;
+	float reflectiveness = 0;
 	float refractiveness = 0;
 	float specular_exp = 0;
 	float emittance = 0;
@@ -311,7 +408,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	if (material_offset != NULL_OFFSET)
 	{
 		eta = materials[material_offset].eta;
-		reflectivness = materials[material_offset].reflectiveness;
+		reflectiveness = materials[material_offset].reflectiveness;
 		refractiveness = materials[material_offset].refractiveness;
 		specular_exp = materials[material_offset].specularExp;
 		emittance = materials[material_offset].emittance;
@@ -349,28 +446,52 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	triangleNormal = mul(float4(triangleNormal, 1.0f), rotation_matrix).xyz;
 	float2 triangleUV = HitAttribute2D(vertexUVs, attr);
 
-	// get diffuse direction
-	float3 newDir = CalculateRandomDirectionInHemisphere(triangleNormal);
-	//newDir.z = -newDir.z;
-	payload.rayDir = newDir;
-	payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;;
+	if (reflectiveness > 0.0f && refractiveness > 0.0f) // Do both a R E F L E C C and a R E F R A C C with fresnel effects
+	{
+		float indexOfRefraction = 1.2f; // TODO: Change this to be more general
 
-	// get the color
-    float3 color;
-    float3 tex;
-    float3 originalColor = payload.color.rgb;
-    //prefer texture over anything else
-    if (texture_offset != NULL_OFFSET)
-    {
-        float3 tex = text[texture_offset].SampleLevel(s1, triangleUV, 0);
-        color = payload.color.rgb * tex.rgb;
-    }
-    else if (material_offset != NULL_OFFSET)
-    {
-        color = payload.color.rgb * materials[material_offset].diffuse;
-    }
-    //payload.color = /*hitType == 1 ? float4(originalColor.rgb, 1) :*/ float4(abs(triangleNormal), 1.0f);
-	payload.color = /*hitType == 1 ? float4(originalColor.rgb, 1) :*/ float4(color.xyz, emittance);
+		float VdotN = dot(-WorldRayDirection(), triangleNormal);
+		bool leaving = VdotN < 0.f;
+		float eI = leaving ? indexOfRefraction : 1.f;
+		float eT = leaving ? 1.f : indexOfRefraction;
+
+		float fresnel = EvaluateFresnelDielectric(VdotN, eI, eT) / abs(VdotN);
+
+		if (Uniform01() < fresnel) {
+			ReflectiveBounce(triangleNormal, hitPosition, hitType, payload);
+		}
+		else {
+			RefractiveBounce(triangleNormal, hitPosition, hitType, payload);
+		}
+	}
+	else if (reflectiveness > 0.0f) // do a R E F L E C C
+	{
+		ReflectiveBounce(triangleNormal, hitPosition, hitType, payload);
+	}
+	else if (refractiveness > 0.0f) // Do a R E F R A C C
+	{
+		RefractiveBounce(triangleNormal, hitPosition, hitType, payload);
+	}
+	else if (emittance > 0.0f) // I think this means its a light
+	{
+
+		float3 color = BACKGROUND_COLOR.xyz;
+		if (texture_offset != NULL_OFFSET)
+		{
+			float3 tex = text[texture_offset].SampleLevel(s1, triangleUV, 0);
+			color = payload.color.rgb * tex.rgb;
+		}
+		else if (material_offset != NULL_OFFSET)
+		{
+			color = payload.color.rgb * materials[material_offset].diffuse;
+		}
+
+		payload.color = float4(color.xyz, emittance);
+	}
+	else // Do a diffuse bounce
+	{
+		DiffuseBounce(texture_offset, material_offset, emittance, triangleNormal, hitPosition, hitType, triangleUV, payload);
+	}
 }
 
 [shader("miss")]
