@@ -23,8 +23,9 @@ typedef UINT32 Index;
 
 struct SceneConstantBuffer
 {
-    XMMATRIX projectionToWorld;
-    XMVECTOR cameraPosition;
+	XMMATRIX projectionToWorld;
+	XMMATRIX view_matrix;
+	XMVECTOR cameraPosition;
     XMVECTOR lightPosition;
     XMVECTOR lightAmbientColor;
     XMVECTOR lightDiffuseColor;
@@ -61,6 +62,7 @@ struct Info
   UINT texture_offset;
   UINT texture_normal_offset;
   UINT material_offset;
+  XMMATRIX rotation_matrix;
 };
 
 #endif // RAYTRACINGHLSLCOMPAT_H

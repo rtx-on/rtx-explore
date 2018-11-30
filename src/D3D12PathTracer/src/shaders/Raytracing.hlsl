@@ -36,9 +36,9 @@ SamplerState s2 : register(s1);
 ConstantBuffer<SceneConstantBuffer> g_sceneCB : register(b0);
 ConstantBuffer<CubeConstantBuffer> g_cubeCB : register(b1);
 
-static const float PI = 3.14159265f;
-static const float TWO_PI = 6.283185f;
-static const float SQRT_OF_ONE_THIRD = 0.577350f;
+static const float PI = 3.1415926535897932384626422832795028841971f;
+static const float TWO_PI = 6.2831853071795864769252867665590057683943f;
+static const float SQRT_OF_ONE_THIRD = 0.5773502691896257645091487805019574556476f;
 
 static const float4 BACKGROUND_COLOR = float4(0,0,0,0);
 static const float4 INITIAL_COLOR = float4(1, 1, 1, 0);
@@ -252,7 +252,7 @@ void MyRaygenShader()
 	// case 4: no more tracing and didnt hit light: stop here
 	for (int i = 0; i < depth; i++) {
 		TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
-		ComputeRngSeed(id, g_sceneCB.iteration, depth);
+		ComputeRngSeed(id, g_sceneCB.iteration, i);
 
 
 		if (payload.color.w == 0) {
@@ -270,6 +270,10 @@ void MyRaygenShader()
 			payload.color = float4(payload.color.rgb, 0.0f);
 			break;
 		}
+	}
+	if (g_sceneCB.iteration == 1)
+	{
+		RenderTarget2[DispatchRaysIndex().xy].xyz = float3(0, 0, 0);
 	}
 
 	// Write the raytraced color to the output texture.
@@ -291,26 +295,27 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	float3 hitPosition = HitWorldPosition();
 	uint instanceId = InstanceID(); //Object id
 
-        //use object id to index into info structure
-        uint model_offset = infos[instanceId].model_offset;
-        uint texture_offset = infos[instanceId].texture_offset;
-        uint texture_normal_offset = infos[instanceId].texture_normal_offset;
-        uint material_offset = infos[instanceId].material_offset;
+	//use object id to index into info structure
+	uint model_offset = infos[instanceId].model_offset;
+	uint texture_offset = infos[instanceId].texture_offset;
+	uint texture_normal_offset = infos[instanceId].texture_normal_offset;
+	uint material_offset = infos[instanceId].material_offset;
+	float4x4 rotation_matrix = infos[instanceId].rotation_matrix;
 
-        float eta = 0;
-        float reflectivness = 0;
-        float refractiveness = 0;
-        float specular_exp = 0;
-        float emittance = 0;
+	float eta = 0;
+	float reflectivness = 0;
+	float refractiveness = 0;
+	float specular_exp = 0;
+	float emittance = 0;
 
-        if (material_offset != NULL_OFFSET)
-        {
-          eta = materials[material_offset].eta;
-          reflectivness = materials[material_offset].reflectiveness;
-          refractiveness = materials[material_offset].refractiveness;
-          specular_exp = materials[material_offset].specularExp;
-          emittance = materials[material_offset].emittance;
-        }
+	if (material_offset != NULL_OFFSET)
+	{
+		eta = materials[material_offset].eta;
+		reflectivness = materials[material_offset].reflectiveness;
+		refractiveness = materials[material_offset].refractiveness;
+		specular_exp = materials[material_offset].specularExp;
+		emittance = materials[material_offset].emittance;
+	}
 
 	// Get the base index of the triangle's first 16 bit index.
 	uint indexSizeInBytes = 4;
@@ -318,7 +323,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	uint triangleIndexStride = indicesPerTriangle * indexSizeInBytes;
 	uint baseIndex = PrimitiveIndex() * triangleIndexStride;
 
-        float hitType = emittance ? 1 : 0; // 1 is light, 0 is not
+    float hitType = emittance ? 1 : 0; // 1 is light, 0 is not
 
 	// Load up 3 16 bit indices for the triangle.
 	const uint3 indices = Indices[model_offset].Load3(baseIndex);
@@ -340,28 +345,32 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	// This is redundant and done for illustration purposes 
 	// as all the per-vertex normals are the same and match triangle's normal in this sample. 
 	float3 triangleNormal = HitAttribute(vertexNormals, attr);
+	//triangleNormal = mul(float4(triangleNormal, 1.0f), g_sceneCB.projectionToWorld).xyz;
+	triangleNormal = mul(float4(triangleNormal, 1.0f), rotation_matrix).xyz;
 	float2 triangleUV = HitAttribute2D(vertexUVs, attr);
 
 	// get diffuse direction
 	float3 newDir = CalculateRandomDirectionInHemisphere(triangleNormal);
+	//newDir.z = -newDir.z;
 	payload.rayDir = newDir;
 	payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;;
 
 	// get the color
-        float3 color;
-        float3 tex;
-        float3 originalColor = payload.color.rgb;
-        //prefer texture over anything else
-        if (texture_offset != NULL_OFFSET)
-        {
-          float3 tex = text[texture_offset].SampleLevel(s1, triangleUV, 0);
-          color = payload.color.rgb * tex.rgb;
-        }
-        else if (material_offset != NULL_OFFSET)
-        {
-          color = payload.color.rgb * materials[material_offset].diffuse;
-        }
-        payload.color = /*hitType == 1 ? float4(originalColor.rgb, 1) :*/ float4(color.xyz, emittance);
+    float3 color;
+    float3 tex;
+    float3 originalColor = payload.color.rgb;
+    //prefer texture over anything else
+    if (texture_offset != NULL_OFFSET)
+    {
+        float3 tex = text[texture_offset].SampleLevel(s1, triangleUV, 0);
+        color = payload.color.rgb * tex.rgb;
+    }
+    else if (material_offset != NULL_OFFSET)
+    {
+        color = payload.color.rgb * materials[material_offset].diffuse;
+    }
+    //payload.color = /*hitType == 1 ? float4(originalColor.rgb, 1) :*/ float4(abs(triangleNormal), 1.0f);
+	payload.color = /*hitType == 1 ? float4(originalColor.rgb, 1) :*/ float4(color.xyz, emittance);
 }
 
 [shader("miss")]

@@ -38,7 +38,7 @@ D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC& Model::GetBottomLevelBuildDe
           bottom_level_build_desc.Inputs;
       bottomLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
       bottomLevelInputs.Flags =
-          D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+		  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
       bottomLevelInputs.NumDescs = 1; // WATCHOUT
       bottomLevelInputs.Type =
           D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;

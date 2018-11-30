@@ -548,7 +548,7 @@ D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC& Scene::GetTopLevelDesc()
         top_level_build_desc.Inputs;
     topLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
     topLevelInputs.Flags =
-        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
     topLevelInputs.NumDescs = objects.size();
     topLevelInputs.pGeometryDescs = nullptr;
     topLevelInputs.Type =
@@ -625,10 +625,11 @@ ComPtr<ID3D12Resource> Scene::GetInstanceDescriptors(
       for (int i = 0; i < objects.size(); i++) {
         D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC instanceDesc = {};
 
-        ModelLoading::SceneObject obj = objects[i];
+        ModelLoading::SceneObject& obj = objects[i];
         ModelLoading::Model* model = obj.model;
 
         memcpy(instanceDesc.Transform, obj.getTransform3x4(), 12 * sizeof(FLOAT));
+		
         instanceDesc.InstanceMask = 0xFF;
         instanceDesc.InstanceID = i; // TODO MAKE SURE THIS MATCHES THE ONE BELOW (FOR ACTUAL RAYTRACING)
         //instanceDesc.InstanceContributionToHitGroupIndex = 0;
@@ -779,6 +780,9 @@ void Scene::AllocateResourcesInDescriptorHeap()
     {
       info_resource.info.material_offset = object.material->id;
     }
+
+	XMVECTOR v = XMLoadFloat3(&XMFLOAT3((object.rotation.z), (object.rotation.y), (object.rotation.x)));
+	info_resource.info.rotation_matrix = XMMatrixRotationRollPitchYawFromVector(v);
 
     // Create the constant buffer memory and map the CPU and GPU addresses
     const D3D12_HEAP_PROPERTIES uploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);

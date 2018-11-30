@@ -4,7 +4,7 @@
     <ShowAllFiles>true</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>$(ProjectDir)\src\scenes\K0rn3ll.txt</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>"$(ProjectDir)src\scenes\cornell.txt"</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

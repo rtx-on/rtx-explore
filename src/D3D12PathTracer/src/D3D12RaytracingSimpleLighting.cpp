@@ -104,6 +104,7 @@ void D3D12RaytracingSimpleLighting::UpdateCameraMatrices()
     XMMATRIX proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(fovAngleY), m_aspectRatio, 1.0f, 125.0f);
     XMMATRIX viewProj = view * proj;
 
+	m_sceneCB[frameIndex].view_matrix = view;
     m_sceneCB[frameIndex].projectionToWorld = XMMatrixInverse(nullptr, viewProj);
 }
 
@@ -628,7 +629,7 @@ void D3D12RaytracingSimpleLighting::CreateRaytracingOutputResource()
 
     {
       // Create the output resource. The dimensions and format should match the swap-chain.
-      auto uavDesc = CD3DX12_RESOURCE_DESC::Tex2D(backbufferFormat, m_width, m_height, 1, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+      auto uavDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R32G32B32A32_FLOAT, m_width, m_height, 1, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 
       auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
       ThrowIfFailed(device->CreateCommittedResource(
@@ -958,7 +959,7 @@ void D3D12RaytracingSimpleLighting::OnUpdate()
 			m_camChanged = false;
 		}
 		else {
-			if (m_sceneCB[frameIndex].iteration < c_maxIteration) {
+			if (m_sceneCB[frameIndex].iteration) {
 				m_sceneCB[frameIndex].iteration += 1;
 			}
 		}
