@@ -3,7 +3,7 @@ MODEL 0
 path src/objects/crate.obj
 
 MODEL 1
-path src/objects/Chromie.obj
+path src/objects/Aline.obj
 
 MODEL 2
 path src/objects/wahoo.obj
@@ -69,8 +69,8 @@ MATERIAL 5
 RGB         .35 .35 .85
 SPECRGB     1 1 1
 SPECEX      0
-REFL        1
-REFR        0
+REFL        0
+REFR        1
 REFRIOR     0
 EMITTANCE   0
 
@@ -134,25 +134,25 @@ trans       0 6.5 0
 rotat       0 0 0
 scale       2 .3 2
 
-// Chromie
+// Dragon
 OBJECT 6
 model 1
-albedo_tex 0
-normal_tex -1
-material -1
-trans       0 2 100
-rotat       0 180 0
-scale       0.2 0.2 0.2
-
-// Wa boi
-OBJECT 7
-model 0
-albedo_tex 1
+albedo_tex -1
 normal_tex -1
 material 5
-trans       0 0 3
-rotat       0 45 20
-scale       1 1 1
+trans       0 0 0
+rotat       0 0 0
+scale      0.5 0.5 0.5
+
+// Dragon
+OBJECT 7
+model 1
+albedo_tex -1
+normal_tex -1
+material 5
+trans       0 0 0
+rotat       0 0 0
+scale      0.5 0.5 0.5
 
 CAMERA
 resolution         800 800

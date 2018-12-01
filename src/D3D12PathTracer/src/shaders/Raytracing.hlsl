@@ -44,6 +44,9 @@ static const float4 BACKGROUND_COLOR = float4(0,0,0,0);
 static const float4 INITIAL_COLOR = float4(1, 1, 1, 0);
 static const float4 SPECULAR_COLOR = float4(1, 1, 1, 1);
 static const float INV_PI = 0.3183098861837906715377675267450287240689f;
+static const float RED_WAVELENGTH_UM = 0.69f;
+static const float BLUE_WAVELENGTH_UM = 0.47f;
+static const float GREEN_WAVELENGTH_UM = 0.53f;
 
 static uint rng_state; // the current seed
 static const float png_01_convert = (1.0f / 4294967296.0f); // to convert into a 01 distribution
@@ -256,6 +259,80 @@ void ReflectiveBounce(float3 triangleNormal, float3 hitPosition, float hitType, 
 	payload.color = float4(color, hitType);
 }
 
+// taken from https://en.wikipedia.org/wiki/Sellmeier_equation
+// note: wavelength should be in micrometers
+float SellmeierEquation(float wavelength)
+{
+	const float B1 = 1.03961212f;
+	const float B2 = 0.231792344f;
+	const float B3 = 1.01046945f;
+	const float C1 = 0.00600069867f;
+	const float C2 = 0.0200179144f;
+	const float C3 = 0.0103560653f;
+
+	float wavlenSquared = wavelength * wavelength;
+
+	float term1 = (B1 * wavlenSquared) / (wavlenSquared - C1);
+	float term2 = (B2 * wavlenSquared) / (wavlenSquared - C2);
+	float term3 = (B3 * wavlenSquared) / (wavlenSquared - C3);
+
+	return sqrt(1.0f + term1 + term2 + term3);
+}
+
+void GlassBounce(float3 triangleNormal, float3 hitPosition, float hitType, RayPayload payload)
+{
+	float wavelength = 0.0f;
+	float rand = Uniform01();
+	if (rand < 0.33333f)
+	{
+		// sample the red color and get red wavelength
+		wavelength = RED_WAVELENGTH_UM;
+		payload.color *= float4(3.0f, 0.0f, 0.0f, 0.0f);
+	}
+	else if (rand < 0.66666f)
+	{
+		// sample the green color
+		wavelength = GREEN_WAVELENGTH_UM;
+		payload.color *= float4(0.0f, 3.0f, 0.0f, 0.0f);
+	}
+	else
+	{
+		// sample the blue color
+		wavelength = BLUE_WAVELENGTH_UM;
+		payload.color *= float4(0.0f, 0.0f, 3.0f, 0.0f);
+	}
+
+	float indexOfRefraction = SellmeierEquation(wavelength);
+
+	// adjust eta & normal according to direction of ray (inside or outside mat)
+	bool inside = dot(WorldRayDirection(), triangleNormal) > 0.f;
+	float3 tempNormal = triangleNormal * (inside ? -1.0f : 1.0f);
+	float eta = inside ? indexOfRefraction : (1.0f / indexOfRefraction);
+
+	// normal refraction
+	float3 newDir = refract(WorldRayDirection(), tempNormal, eta);
+
+	// internal total reflection
+	if (length(newDir) < 0.01f) {
+		payload.color *= 0;
+		newDir = reflect(WorldRayDirection(), triangleNormal);
+	}
+
+	// use schlick's approx
+	float schlick_0 = pow((inside ? indexOfRefraction - 1.0f : 1.0f - indexOfRefraction) /
+		(1.0f + indexOfRefraction), 2.0f);
+	float schlick_coef = schlick_0 +
+		(1 - schlick_0) * pow(1 - max(0.0f, dot(WorldRayDirection(), triangleNormal)), 5);
+
+	// based on coef, pick either a refraction or reflection
+	newDir = schlick_coef < Uniform01() ? reflect(WorldRayDirection(), triangleNormal) : newDir;
+	payload.rayDir = newDir;
+	payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;
+
+	float3 color = payload.color.rgb * SPECULAR_COLOR;
+	payload.color = float4(color, hitType);
+}
+
 void RefractiveBounce(float3 triangleNormal, float3 hitPosition, float hitType, RayPayload payload)
 {
 	float indexOfRefraction = 1.2f; // TODO: Change this to be more general
@@ -437,7 +514,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 		Vertices[model_offset][indices[1]].texCoord,
 		Vertices[model_offset][indices[2]].texCoord
 	};
-
+	
 	// Compute the triangle's normal.
 	// This is redundant and done for illustration purposes 
 	// as all the per-vertex normals are the same and match triangle's normal in this sample. 
@@ -461,7 +538,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 			ReflectiveBounce(triangleNormal, hitPosition, hitType, payload);
 		}
 		else {
-			RefractiveBounce(triangleNormal, hitPosition, hitType, payload);
+			GlassBounce(triangleNormal, hitPosition, hitType, payload);
 		}
 	}
 	else if (reflectiveness > 0.0f) // do a R E F L E C C
@@ -470,7 +547,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	}
 	else if (refractiveness > 0.0f) // Do a R E F R A C C
 	{
-		RefractiveBounce(triangleNormal, hitPosition, hitType, payload);
+		GlassBounce(triangleNormal, hitPosition, hitType, payload);
 	}
 	else if (emittance > 0.0f) // I think this means its a light
 	{
