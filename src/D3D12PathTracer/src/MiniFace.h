@@ -20,7 +20,7 @@ public:
     else if (normal.x == 1.0f)
     {
       new_rotation.y = -90.0f;
-      new_translation.x = 2.0f;
+      new_translation.x = 1.0f;
     }
     else if (normal.y == -1.0f)
     {
@@ -29,16 +29,16 @@ public:
     else if (normal.y == 1.0f)
     {
       new_rotation.x = 90.0f;
-      new_translation.y = 2.0f;
+      new_translation.y = 1.0f;
     }
     else if (normal.z == -1.0f)
     {
-      new_rotation.x = 180.0f;
-      new_translation.z = 2.0f;
+
     }
     else if (normal.z == 1.0f)
     {
-
+      new_rotation.x = 180.0f;
+      new_translation.z = 1.0f;
     }
     else 
     {

@@ -905,7 +905,10 @@ void Scene::UpdateTopLevelAS(
   for (auto i = 0; i < objects.size(); i++)
   {
     ModelLoading::SceneObject& obj = objects[i];
-    memcpy(instance_mem[i].Transform, obj.getTransform3x4(), 12 * sizeof(FLOAT));    
+    if (!obj.transformBuilt)
+    {
+      std::copy(obj.getTransform3x4(), obj.getTransform3x4() + 12, reinterpret_cast<FLOAT*>(instance_mem[i].Transform));
+    }
   }
   instanceDescs->Unmap(0, nullptr);
 

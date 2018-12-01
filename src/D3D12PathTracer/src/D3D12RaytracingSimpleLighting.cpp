@@ -888,13 +888,19 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
     mini_terrian.program_state = this;
     generateMoreChunks();
 
-    m_eye = {0.0f, 128.0f, -20.0f, 1.0f};
-    m_at = {0.0f, 128.0f, 1.0f, 1.0f};    
-
+    // m_eye = {0.0f, 128.0f, -20.0f, 1.0f};
+    // m_at = {0.0f, 128.0f, 1.0f, 1.0f};    
+    m_eye = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_at = {0.0f, 0.0f, -1.0f, 1.0f};  
+    
     chunk_generation_thread = std::thread([this]()
     {
       while (!quit_generation)
       {
+        {
+          std::unique_lock<std::mutex> lock(chunk_mutex);
+          chunk_cv.wait(lock, [this]{ return !start_generation; });
+        }
         std::unique_lock<std::mutex> lock(chunk_mutex);
 
         float elapsedTime = static_cast<float>(m_timer.GetElapsedSeconds());
@@ -917,7 +923,7 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
           //                             glm::vec3(0.01f, 0.0, 0.0));
     
         }
-        recreateChunkVBO();
+        //recreateChunkVBO();
         chunk_cv.wait(lock, [this]{ return start_generation; });
 
         chunk_promise.set_value(false);
@@ -1277,35 +1283,8 @@ void D3D12RaytracingSimpleLighting::OnRender()
 
     auto frame_index = m_deviceResources->GetCurrentFrameIndex();
     m_sceneCB[frame_index].is_raytracing = 1;
-    
-    // auto command_list = m_deviceResources->GetCommandList();
-    // auto frame_index = m_deviceResources->GetCurrentFrameIndex();
-    //
-    // float elapsedTime = static_cast<float>(m_timer.GetElapsedSeconds());
-    // float secondsToRotateAround = 8.0f;
-    // float angleToRotateBy = -360.0f * (elapsedTime / secondsToRotateAround);
-    //
-    // mini_face_manager->Reset();
-    //
-    // MiniFace* mini_face = mini_face_manager->AllocateMiniFace();
-    // if (mini_face != nullptr)
-    // {
-    //   //glm::mat4 mat;
-    //   //mat = glm::rotate(mat, glm::radians(angleToRotateBy), glm::vec3(0, 1, 0));
-    //   //mat = glm::translate(mat, mini_block->GetTranslation());
-    //
-    //   glm::vec3 block_rotation = mini_face->GetRotation();
-    //   block_rotation.y += glm::radians(angleToRotateBy) * 100;
-    //   mini_face->SetRotation(block_rotation);
-    //   // mini_block->SetTranslation(mini_block->GetTranslation() +
-    //   //                             glm::vec3(0.01f, 0.0, 0.0));
-    //
-    // }
-    // recreateChunkVBO();
-    // m_sceneLoaded->UpdateTopLevelAS(m_raytracingAPI == RaytracingAPI::FallbackLayer, m_fallbackDevice, m_dxrDevice, m_fallbackCommandList, m_dxrCommandList);
-    //
-    // const float clearColor[] = {0.6f, 0.8f, 0.4f, 1.0f};
-    // m_sceneCB[frame_index].is_raytracing = 1;
+
+    chunk_cv.notify_all();
   }
 
   DoRaytracing();
