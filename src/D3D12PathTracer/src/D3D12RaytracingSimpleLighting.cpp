@@ -1015,10 +1015,11 @@ void D3D12RaytracingSimpleLighting::DoRaytracing()
       ModelLoading::SceneObject& objectInScene = m_sceneLoaded->objects[0];
       ModelLoading::Texture& textures = m_sceneLoaded->textureMap[0];
       ModelLoading::MaterialResource& material = m_sceneLoaded->materialMap[0];
+      ModelLoading::Model& model = m_sceneLoaded->modelMap[0];
       descriptorSetCommandList->SetDescriptorHeaps(1, m_descriptorHeap.GetAddressOf());
       // Set index and successive vertex buffer decriptor tables
-      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::VertexBuffersSlot, objectInScene.model->vertices.gpuDescriptorHandle);
-      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::IndexBuffersSlot, objectInScene.model->indices.gpuDescriptorHandle);
+      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::VertexBuffersSlot, model.vertices.gpuDescriptorHandle);
+      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::IndexBuffersSlot, model.indices.gpuDescriptorHandle);
       commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::InfoBuffersSlot, objectInScene.info_resource.d3d12_resource.gpuDescriptorHandle);
       commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::OutputViewSlot, m_raytracingOutputResourceUAVGpuDescriptor);
       commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, textures.texBuffer.gpuDescriptorHandle);
