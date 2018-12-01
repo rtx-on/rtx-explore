@@ -4,7 +4,7 @@
  * Size of chunk variables
  */
 #define X_WIDTH 16
-#define Y_WIDTH 16
+#define Y_WIDTH 256
 #define Z_WIDTH 16
 
 #define SIZE_OF_CHUNK X_WIDTH*Z_WIDTH*Y_WIDTH

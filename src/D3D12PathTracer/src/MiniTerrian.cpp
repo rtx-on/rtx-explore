@@ -594,21 +594,42 @@ void Chunk::create(MiniFaceManager* mini_face_manager) {
 
                     glm::vec4 myColor = getBlockColor(myBlockType);
 
+                    glm::vec4 botLeftCorWorldPos(x + chunkCoord.x*X_WIDTH, y, z + chunkCoord.z*Z_WIDTH, 1);
+                    auto allocate_mini_face = [&](const auto& normal)
+                    {
+                      MiniFace* mini_face = mini_face_manager->AllocateMiniFace();
+                      if (mini_face != nullptr)
+                      {
+                        mini_face->SetFacePos(botLeftCorWorldPos, normal);
+                        mini_face->SetTexture(myBlockType);
+                      }
+                    };
 
                     // Now for each block face that faces an empty/water block or if the block is water and is not next to another water block input the coords into the vbo
                     if (forward == EMPTY || (forward == WATER && myBlockType != WATER) || (forward == LAVA && myBlockType != LAVA) || (forward == ICE && myBlockType != ICE)) {
-                        glm::vec4 botLeftCorWorldPos(x + chunkCoord.x*X_WIDTH, y, z + chunkCoord.z*Z_WIDTH, 1);
-                        glm::mat4 basePosition(botLeftCorWorldPos, botLeftCorWorldPos, botLeftCorWorldPos, botLeftCorWorldPos);
-                        glm::mat4 forwardtmat(glm::vec4(1,0,1,0), glm::vec4(1,0,0,0), glm::vec4(1,1,0,0), glm::vec4(1,1,1,0));
-                        glm::mat4 forwardFacePosition = basePosition + forwardtmat;
                         glm::vec4 vecNor = glm::vec4(1, 0, 0, 0); // normal is positive x-direction
-
-
-                        MiniFace* mini_face = mini_face_manager->AllocateMiniFace();
-                        if (mini_face != nullptr)
-                        {
-                          mini_face->SetFacePos(botLeftCorWorldPos, glm::vec4(1,0,1,0), glm::vec4(1,0,0,0), glm::vec4(1,1,0,0), glm::vec4(1,1,1,0));
-                        }
+                        allocate_mini_face(vecNor);
+                    }
+                    if (back == EMPTY || (back == WATER && myBlockType != WATER) || (back == LAVA && myBlockType != LAVA) || (back == ICE && myBlockType != ICE)) 
+                    {
+                        glm::vec4 vecNor = glm::vec4(-1, 0, 0, 0); // normal is neg x-direction
+                        allocate_mini_face(vecNor);
+                    }
+                    if (left == EMPTY || (left == WATER && myBlockType != WATER) || (left == LAVA && myBlockType != LAVA) || (left == ICE && myBlockType != ICE)) {
+                        glm::vec4 vecNor = glm::vec4(0, 0, -1, 0); // normal is neg z-direction
+                        allocate_mini_face(vecNor);
+                    }
+                    if (right == EMPTY || (right == WATER && myBlockType != WATER) || (right == LAVA && myBlockType != LAVA) || (right == ICE && myBlockType != ICE)) {
+                        glm::vec4 vecNor = glm::vec4(0, 0, 1, 0); // normal is positive z-direction
+                        allocate_mini_face(vecNor);
+                    }
+                    if (up == EMPTY || (up == WATER && myBlockType != WATER) || (up == LAVA && myBlockType != LAVA) || (up == ICE && myBlockType != ICE)) {
+                        glm::vec4 vecNor = glm::vec4(0, 1, 0, 0); // normal is positive y-direction
+                        allocate_mini_face(vecNor);
+                    }
+                    if (down == EMPTY || (down == WATER && myBlockType != WATER) || (down == LAVA && myBlockType != LAVA) || (down == ICE && myBlockType != ICE)) {
+                        glm::vec4 vecNor = glm::vec4(0, -1, 0, 0); // normal is neg y-direction
+                        allocate_mini_face(vecNor);
                     }
                 }
             }

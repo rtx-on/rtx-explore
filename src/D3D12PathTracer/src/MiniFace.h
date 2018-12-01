@@ -9,59 +9,52 @@ public:
 
   bool SetTexture(BlockType block_type);
 
-  void SetFacePos(glm::vec4 world, glm::vec4 a, glm::vec4 b, glm::vec4 c, glm::vec4 d)
+  void SetFacePos(glm::vec4 world, glm::vec4 normal)
   {
     glm::vec3 new_rotation{};
     glm::vec3 new_translation{};
-    if (a.x == b.x == c.x == d.x)
+    if (normal.x == -1.0f)
     {
-      //left face
-      if (a.x == 0.0f)
-      {
-        new_rotation.y = -90.0f; 
-      }
-      //right face
-      else
-      {
-        new_rotation.y = 90.0f; 
-        new_translation.x = 1.0f;
-      }
+      new_rotation.y = 90.0f;
     }
-    else if (a.y == b.y == c.y == d.y)
+    else if (normal.x == 1.0f)
     {
-      //bottom face
-      if (a.y == 0.0f)
-      {
-        new_rotation.z = -90.0f; 
-      }
-      //top face
-      else
-      {
-        new_rotation.z = 90.0f; 
-        new_translation.y = 1.0f;
-      }
+      new_rotation.y = -90.0f;
+      new_translation.x = 2.0f;
     }
-    else if (a.z == b.z == c.z == d.z)
+    else if (normal.y == -1.0f)
     {
-      //front face
-      if (a.x == 0.0f)
-      {
-      }
-      //back face
-      else
-      {
-        new_rotation.x = 180.0f; 
-        new_translation.z = 1.0f;
-      }
-    } 
+      new_rotation.x = -90.0f;
+    }
+    else if (normal.y == 1.0f)
+    {
+      new_rotation.x = 90.0f;
+      new_translation.y = 2.0f;
+    }
+    else if (normal.z == -1.0f)
+    {
+      new_rotation.x = 180.0f;
+      new_translation.z = 2.0f;
+    }
+    else if (normal.z == 1.0f)
+    {
+
+    }
     else 
     {
       std::cerr << "MINIFACE ERROR\n";
       exit(-1);
     }
-    world = glm::vec4(1.0f);
+
+    //scale to actual size
+    new_translation *= object.scale.x;
+
+    //update
     object.translation = glm::vec3(world) + new_translation;
     object.rotation = new_rotation;
+
+    //rebuild transformation
+    object.transformBuilt = false;
   }
 
   glm::vec3 GetTranslation() const

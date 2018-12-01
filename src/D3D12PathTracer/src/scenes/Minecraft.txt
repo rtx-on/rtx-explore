@@ -6,7 +6,58 @@ TEXTURE 0
 path MinecraftTextures/dirt.png
 
 TEXTURE 1
+path MinecraftTextures/dirt.png
+
+TEXTURE 2
 path MinecraftTextures/grass_side.png
+
+TEXTURE 3
+path MinecraftTextures/dirt.png
+
+TEXTURE 4
+path MinecraftTextures/stone.png
+
+TEXTURE 5
+path MinecraftTextures/sand.png
+
+TEXTURE 6
+path MinecraftTextures/snow.png
+
+TEXTURE 7
+path MinecraftTextures/bedrock.png
+
+TEXTURE 8
+path MinecraftTextures/lava.png
+
+TEXTURE 9
+path MinecraftTextures/water.png
+
+TEXTURE 10
+path MinecraftTextures/ice.png
+
+TEXTURE 11
+path MinecraftTextures/wood.png
+
+TEXTURE 12
+path MinecraftTextures/leaf.png
+
+TEXTURE 13
+path MinecraftTextures/catcus.png
+
+TEXTURE 14
+path MinecraftTextures/diamond_ore.png
+
+TEXTURE 15
+path MinecraftTextures/coal.png
+
+TEXTURE 16
+path MinecraftTextures/redstone_ore.png
+
+TEXTURE 17
+path MinecraftTextures/iron_ore.png
+
+TEXTURE 18
+path MinecraftTextures/gold_ore.png
 
 MATERIAL 0
 RGB         1 0 1
@@ -24,15 +75,15 @@ albedo_tex 0
 normal_tex -1
 material 0
 trans       0 0 0
-rotat       0 160 0
-scale       0.2 0.2 0.2
+rotat       0 0 0
+scale       1 1 1
 
 CAMERA
 resolution         800 800
 fovy        45
 iterations  5000
 depth       30
-eye         0.0 2 -20
+eye         0 128 -20
 lookat      0 0 1
 up          0 1 0
 focal		10

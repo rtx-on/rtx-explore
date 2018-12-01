@@ -888,6 +888,9 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
     mini_terrian.program_state = this;
     generateMoreChunks();
 
+    m_eye = {0.0f, 128.0f, -20.0f, 1.0f};
+    m_at = {0.0f, 128.0f, 1.0f, 1.0f};    
+
     chunk_generation_thread = std::thread([this]()
     {
       while (!quit_generation)
@@ -1215,6 +1218,15 @@ void D3D12RaytracingSimpleLighting::ReleaseDeviceDependentResources()
   if (is_game)
   {
     quit_generation = true;
+    {
+      std::lock_guard<std::mutex> lock(chunk_mutex);
+      start_generation = true;
+    }
+    chunk_cv.notify_all();
+
+    start_generation = chunk_promise.get_future().get();
+    chunk_promise = std::promise<bool>();
+
     chunk_generation_thread.join();
   }
 }
