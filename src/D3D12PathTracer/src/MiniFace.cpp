@@ -1,8 +1,8 @@
 #include "stdafx.h"
-#include "MiniBlock.h"
+#include "MiniFace.h"
 #include <glm/glm/gtc/type_ptr.hpp>
 
-bool MiniBlock::SetTexture(BlockType block_type)
+bool MiniFace::SetTexture(BlockType block_type)
 {
   //change resource in object
   object.info_resource.info.texture_offset = static_cast<UINT>(block_type);

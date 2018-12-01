@@ -4,7 +4,7 @@
  * Size of chunk variables
  */
 #define X_WIDTH 16
-#define Y_WIDTH 256
+#define Y_WIDTH 16
 #define Z_WIDTH 16
 
 #define SIZE_OF_CHUNK X_WIDTH*Z_WIDTH*Y_WIDTH
@@ -26,6 +26,10 @@
 #define LARGE_CAVERN_SIZE 20
 
 #define FEATURE_CREATE_THRESHOLD 0.2f
+#include "MiniEnumTypes.h"
+
+enum RiverType : unsigned char;
+class MiniFaceManager;
 
 enum CarvingDirection : unsigned char {
     POSX, NEGX, POSZ, NEGZ
@@ -33,7 +37,7 @@ enum CarvingDirection : unsigned char {
 
 class MiniTerrain;
 
-class Chunk : public Drawable
+class Chunk
 {
 public:
     /*
@@ -55,7 +59,8 @@ public:
      * The create function creates the interleaved VBO for the chunk drawable object.
      * The VBO is made up of glm::vec4s in the order pos1nor1col1pos2nor2col2
      */
-    void create(MiniBlock* mini_block);
+    void destroy();
+    void create(MiniFaceManager* mini_face_manager);
 
     /*
      * The getBlockAtLocal and getBlockRefAtLocal functions take in local chunk coordinates and return the BlockType
@@ -75,21 +80,12 @@ public:
     void getFaceUVs(glm::vec2 topLeft, std::vector<glm::vec2> *uvs);
     glm::vec2 getTopLeftUV(BlockType b, glm::vec4 nor, std::vector<float> *pows);
 
-
-    /*
-     * helper function for create, adds the members to the VBO in interleaving fashion
-     *
-     * returns the new currentIndex
-     */
-    static int interleavingAddToVBOVector(glm::vec4 vecNor, glm::mat4 positionMat, glm::vec4 myColor, int currentIndex,
-                                          std::vector<glm::vec4> &interleaved, std::vector<GLuint> &indices);
-
     uint64_t key; /* first 32-bits are x coord, 2nd 32 bits are z coord */
     bool toDraw = false;
 
 private:
     BlockType blocks[SIZE_OF_CHUNK];  /* array is indexed using the formula i = x*Z_WIDTH*Y_WIDTH + z*Y_WIDTH + y */
-    MiniTerrain* terrian;
+    MiniTerrain* terrain;
 };
 
 class MiniTerrain
@@ -184,4 +180,6 @@ public:
     glm::ivec3 dimensions; /* a vector of dimensions of the chunk */
     std::map<uint64_t, Chunk*> chunkMap; /* a map of all chunks that have ever been created, indexed by a 64bit unique key */
     float continuity = 200.0f; /* the degree of continuity for the procedural MiniTerrain generation */
+
+    D3D12RaytracingSimpleLighting *program_state;
 };

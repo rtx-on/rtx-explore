@@ -174,12 +174,6 @@ int Scene::loadObject(string objectid) {
 	newObject.id = id;
 	objects.push_back(newObject);
 
-        //GAME
-        for (int i = 0; i < 1000; i++)
-        {
-          objects.push_back(newObject);
-        }
-
 	wstr << L"----------------------------------------\n";
 	wstr << L"Done loading OBJECT " << id << L" !\n";
 	wstr << L"------------------------------------------------------------------------------\n";

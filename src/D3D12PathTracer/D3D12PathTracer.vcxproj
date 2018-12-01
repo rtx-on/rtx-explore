@@ -166,8 +166,8 @@ PrebuildCheck.bat</Command>
   <ItemGroup>
     <ClInclude Include="src\MiniEnumTypes.h" />
     <ClInclude Include="src\MiniBiomeGenerator.h" />
-    <ClInclude Include="src\MiniBlock.h" />
-    <ClInclude Include="src\MiniBlockManager.h" />
+    <ClInclude Include="src\MiniFace.h" />
+    <ClInclude Include="src\MiniFaceManager.h" />
     <ClInclude Include="src\AssetManager.h" />
     <ClInclude Include="src\core\Common.h" />
     <ClInclude Include="src\core\Texture.h" />
@@ -177,6 +177,10 @@ PrebuildCheck.bat</Command>
     <ClInclude Include="src\DirectXRaytracingHelper.h" />
     <ClInclude Include="src\DXSample.h" />
     <ClInclude Include="src\DXSampleHelper.h" />
+    <ClInclude Include="src\MiniFBM.h" />
+    <ClInclude Include="src\MiniLSystem.h" />
+    <ClInclude Include="src\MiniTerrian.h" />
+    <ClInclude Include="src\MiniTurtle.h" />
     <ClInclude Include="src\Model.h" />
     <ClInclude Include="src\Utilities.h" />
     <ClInclude Include="src\Mesh.h" />
@@ -199,8 +203,8 @@ PrebuildCheck.bat</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\MiniBiomeGenerator.cpp" />
-    <ClCompile Include="src\MiniBlock.cpp" />
-    <ClCompile Include="src\MiniBlockManager.cpp" />
+    <ClCompile Include="src\MiniFace.cpp" />
+    <ClCompile Include="src\MiniFaceManager.cpp" />
     <ClCompile Include="src\AssetManager.cpp" />
     <ClCompile Include="src\D3D12RaytracingSimpleLighting.cpp" />
     <ClCompile Include="src\DeviceResources.cpp" />
@@ -208,6 +212,10 @@ PrebuildCheck.bat</Command>
     <ClCompile Include="src\Main.cpp" />
     <ClCompile Include="src\Mesh.cpp" />
     <ClCompile Include="src\MeshLoader.cpp" />
+    <ClCompile Include="src\MiniFBM.cpp" />
+    <ClCompile Include="src\MiniLSystem.cpp" />
+    <ClCompile Include="src\MiniTerrian.cpp" />
+    <ClCompile Include="src\MiniTurtle.cpp" />
     <ClCompile Include="src\Scene.cpp" />
     <ClCompile Include="src\Model.cpp" />
     <ClCompile Include="src\Utilities.cpp" />

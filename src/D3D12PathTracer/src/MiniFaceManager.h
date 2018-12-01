@@ -1,26 +1,26 @@
 #pragma once
 
-class MiniBlockManager {
+class MiniFaceManager {
 public:
-  explicit MiniBlockManager() = default;
+  explicit MiniFaceManager() = default;
 
-  Scene* get_scene() const
+  Scene* GetScene() const
   {
     return scene;
   }
 
-  void set_scene(Scene* scene)
+  void SetScene(Scene* scene)
   {
     this->scene = scene;
     
     mini_blocks.clear();
     for (ModelLoading::SceneObject& object : scene->objects)
     {
-      mini_blocks.emplace_back(MiniBlock(object));
+      mini_blocks.emplace_back(MiniFace(object));
     }
   }
 
-  MiniBlock *AllocateMiniBlock() {
+  MiniFace *AllocateMiniFace() {
     if (current_mini_block >= mini_blocks.size()) {
       return nullptr;
     }
@@ -28,11 +28,11 @@ public:
     return &mini_blocks[current_mini_block++];
   }
 
-  void ResetMiniBlocks() { current_mini_block = 0; }
+  void Reset() { current_mini_block = 0; }
 
 private:
   Scene *scene = nullptr;
 
   uint64_t current_mini_block = 0;
-  std::vector<MiniBlock> mini_blocks;
+  std::vector<MiniFace> mini_blocks;
 };

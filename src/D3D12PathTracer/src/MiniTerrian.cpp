@@ -3,7 +3,6 @@
 
 
 MiniTerrain::MiniTerrain()
-    : dimensions(64, 256, 64)
 {}
 
 void MiniTerrain::CreateColumn(glm::vec2 colPos) {
@@ -136,11 +135,11 @@ BlockType MiniTerrain::getBlockAt(int x, int y, int z) const
 
     // then figure out which chunk this point is in
     uint64_t key = ConvertChunkToKey(ConvertWorldToChunk(glm::ivec3(x,y,z)));
-
-    if (chunkMap.find(key) != std::end(chunkMap)) {
+    auto found_key = chunkMap.find(key);
+    if (found_key != std::end(chunkMap)) {
         // then get the reference value from the Chunk and edit it
         glm::ivec3 local = ConvertWorldToChunkLocal(glm::ivec3(x,y,z));
-        return chunkMap[key]->getBlockAtLocal(local.x, local.y, local.z);
+        return found_key->second->getBlockAtLocal(local.x, local.y, local.z);
     } else {
         return DNE;
     }
@@ -329,11 +328,14 @@ void MiniTerrain::generateCactus(glm::ivec3 position) {
 void MiniTerrain::designateChunkAsToDraw(int x, int y, int z) {
     uint64_t key = ConvertChunkToKey(ConvertWorldToChunk(glm::ivec3(x,y,z)));
     if (this->chunkExists(key)) {
-        gl->listMutex->lock();
-        if (!gl->chunksToBeDrawn.contains(this->chunkMap[key])) {
-            gl->chunksToBeDrawn.append(this->chunkMap[key]);
-        }
-        gl->listMutex->unlock();
+      auto found_chunk = std::find_if(std::begin(program_state->chunksToBeDrawn), std::end(program_state->chunksToBeDrawn), [&](const auto& chunk)
+      {
+        return chunk == this->chunkMap[key];
+      });
+
+      if (found_chunk == std::end(program_state->chunksToBeDrawn)) {
+          program_state->chunksToBeDrawn.push_back(this->chunkMap[key]);
+      }
     }
 }
 
@@ -535,11 +537,9 @@ void MiniTerrain::setBlockAt(int x, int y, int z, BlockType t)
 }
 
 Chunk::Chunk(uint64_t key, MiniTerrain* terrain)
-    : Drawable(), key(key), blocks(), terrain(terrain)
+    : key(key), blocks(), terrain(terrain)
 {
-    terrain->gl->mapMutex->lock();
-    terrain->chunkMap.insert(key, this);
-    terrain->gl->mapMutex->unlock();
+    terrain->chunkMap.insert({key, this});
 }
 
 void Chunk::populateChunk() {
@@ -567,22 +567,13 @@ void Chunk::populateChunk() {
 
 }
 
-void Chunk::create() {
-    std::vector<glm::vec4> interleaved = std::vector<glm::vec4>(); // interleaved as pos1nor1col1pos2nor2col2
-    std::vector<GLuint> indices = std::vector<GLuint>();
-    std::vector<glm::vec2> uvs;
-    std::vector<float> powers;
-    std::vector<float> animateable;
-    int currentIndex = 0;
+void Chunk::destroy()
+{
+}
 
-    std::vector<glm::vec4> interleavedT = std::vector<glm::vec4>(); // interleaved as pos1nor1col1pos2nor2col2
-    std::vector<GLuint> indicesT = std::vector<GLuint>();
-    std::vector<glm::vec2> uvsT;
-    std::vector<float> powersT;
-    std::vector<float> animateableT;
-    int currentIndexT = 0;
+void Chunk::create(MiniFaceManager* mini_face_manager) {
 
-    // get chunk x and z so we can get world space coords
+      // get chunk x and z so we can get world space coords
     glm::ivec3 chunkCoord = MiniTerrain::ConvertKeyToChunk(key);
 
     // For loop through all blocks
@@ -611,320 +602,18 @@ void Chunk::create() {
                         glm::mat4 forwardtmat(glm::vec4(1,0,1,0), glm::vec4(1,0,0,0), glm::vec4(1,1,0,0), glm::vec4(1,1,1,0));
                         glm::mat4 forwardFacePosition = basePosition + forwardtmat;
                         glm::vec4 vecNor = glm::vec4(1, 0, 0, 0); // normal is positive x-direction
-                        if(myBlockType == WATER || myBlockType == ICE) {
-                            currentIndexT = interleavingAddToVBOVector(vecNor, forwardFacePosition, myColor, currentIndexT, interleavedT, indicesT);
-                            glm::vec2 topLeft = getTopLeftUV(myBlockType, vecNor, &powersT);
-                            getFaceUVs(topLeft, &uvsT);
-                            if(myBlockType == WATER) {
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                            }
-                            else {
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                            }
-                        }
-                        else {
-                            currentIndex = interleavingAddToVBOVector(vecNor, forwardFacePosition, myColor, currentIndex, interleaved, indices);
-                            glm::vec2 topLeft = getTopLeftUV(myBlockType, vecNor, &powers);
-                            getFaceUVs(topLeft, &uvs);
-                            if(myBlockType == LAVA) {
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                            }
-                            else {
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                            }
-                        }
-                    }
-                    if (back == EMPTY || (back == WATER && myBlockType != WATER) || (back == LAVA && myBlockType != LAVA) || (back == ICE && myBlockType != ICE)) {
-                        glm::vec4 botLeftCorWorldPos(x + chunkCoord.x*X_WIDTH, y, z + chunkCoord.z*Z_WIDTH, 1);
-                        glm::mat4 basePosition(botLeftCorWorldPos, botLeftCorWorldPos, botLeftCorWorldPos, botLeftCorWorldPos);
-                        glm::mat4 backtmat(glm::vec4(0,0,0,0), glm::vec4(0,0,1,0), glm::vec4(0,1,1,0), glm::vec4(0,1,0,0));
-                        glm::mat4 backFacePosition = basePosition + backtmat;
-                        glm::vec4 vecNor = glm::vec4(-1, 0, 0, 0); // normal is neg x-direction
-                        if(myBlockType == WATER || myBlockType == ICE) {
-                            currentIndexT = interleavingAddToVBOVector(vecNor, backFacePosition, myColor, currentIndexT, interleavedT, indicesT);
-                            glm::vec2 topLeft = getTopLeftUV(myBlockType, vecNor, &powersT);
-                            getFaceUVs(topLeft, &uvsT);
-                            if(myBlockType == WATER) {
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                            }
-                            else {
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                            }
-                        }
-                        else {
-                            currentIndex = interleavingAddToVBOVector(vecNor, backFacePosition, myColor, currentIndex, interleaved, indices);
-                            glm::vec2 topLeft = getTopLeftUV(myBlockType, vecNor, &powers);
-                            getFaceUVs(topLeft, &uvs);
-                            if(myBlockType == LAVA) {
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                            }
-                            else {
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                            }
-                        }
-                    }
 
-                    if (left == EMPTY || (left == WATER && myBlockType != WATER) || (left == LAVA && myBlockType != LAVA) || (left == ICE && myBlockType != ICE)) {
-                        glm::vec4 botLeftCorWorldPos(x + chunkCoord.x*X_WIDTH, y, z + chunkCoord.z*Z_WIDTH, 1);
-                        glm::mat4 basePosition(botLeftCorWorldPos, botLeftCorWorldPos, botLeftCorWorldPos, botLeftCorWorldPos);
-                        glm::mat4 lefttmat(glm::vec4(1,0,0,0), glm::vec4(0,0,0,0), glm::vec4(0,1,0,0), glm::vec4(1,1,0,0));
-                        glm::mat4 leftFacePosition = basePosition + lefttmat;
-                        glm::vec4 vecNor = glm::vec4(0, 0, -1, 0); // normal is neg z-direction
-                        if(myBlockType == WATER || myBlockType == ICE) {
-                            currentIndexT = interleavingAddToVBOVector(vecNor, leftFacePosition, myColor, currentIndexT, interleavedT, indicesT);
-                            glm::vec2 topLeft = getTopLeftUV(myBlockType, vecNor, &powersT);
-                            getFaceUVs(topLeft, &uvsT);
-                            if(myBlockType == WATER) {
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                            }
-                            else {
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                            }
-                        }
-                        else {
-                            currentIndex = interleavingAddToVBOVector(vecNor, leftFacePosition, myColor, currentIndex, interleaved, indices);
-                            glm::vec2 topLeft = getTopLeftUV(myBlockType, vecNor, &powers);
-                            getFaceUVs(topLeft, &uvs);
-                            if(myBlockType == LAVA) {
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                            }
-                            else {
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                            }
-                        }
-                    }
-                    if (right == EMPTY || (right == WATER && myBlockType != WATER) || (right == LAVA && myBlockType != LAVA) || (right == ICE && myBlockType != ICE)) {
-                        glm::vec4 botLeftCorWorldPos(x + chunkCoord.x*X_WIDTH, y, z + chunkCoord.z*Z_WIDTH, 1);
-                        glm::mat4 basePosition(botLeftCorWorldPos, botLeftCorWorldPos, botLeftCorWorldPos, botLeftCorWorldPos);
-                        glm::mat4 righttmat(glm::vec4(0,0,1,0), glm::vec4(1,0,1,0), glm::vec4(1,1,1,0), glm::vec4(0,1,1,0));
-                        glm::mat4 rightFacePosition = basePosition + righttmat;
-                        glm::vec4 vecNor = glm::vec4(0, 0, 1, 0); // normal is positive z-direction
-                        if(myBlockType == WATER || myBlockType == ICE) {
-                            currentIndexT = interleavingAddToVBOVector(vecNor, rightFacePosition, myColor, currentIndexT, interleavedT, indicesT);
-                            glm::vec2 topLeft = getTopLeftUV(myBlockType, vecNor, &powersT);
-                            getFaceUVs(topLeft, &uvsT);
-                            if(myBlockType == WATER) {
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                            }
-                            else {
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                            }
-                        }
-                        else {
-                            currentIndex = interleavingAddToVBOVector(vecNor, rightFacePosition, myColor, currentIndex, interleaved, indices);
-                            glm::vec2 topLeft = getTopLeftUV(myBlockType, vecNor, &powers);
-                            getFaceUVs(topLeft, &uvs);
-                            if(myBlockType == LAVA) {
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                            }
-                            else {
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                            }
-                        }
-                    }
-                    if (up == EMPTY || (up == WATER && myBlockType != WATER) || (up == LAVA && myBlockType != LAVA) || (up == ICE && myBlockType != ICE)) {
-                        glm::vec4 botLeftCorWorldPos(x + chunkCoord.x*X_WIDTH, y, z + chunkCoord.z*Z_WIDTH, 1);
-                        glm::mat4 basePosition(botLeftCorWorldPos, botLeftCorWorldPos, botLeftCorWorldPos, botLeftCorWorldPos);
-                        glm::mat4 uptmat(glm::vec4(0,1,0,0), glm::vec4(0,1,1,0), glm::vec4(1,1,1,0), glm::vec4(1,1,0,0));
-                        glm::mat4 upFacePosition = basePosition + uptmat;
-                        glm::vec4 vecNor = glm::vec4(0, 1, 0, 0); // normal is positive y-direction
-                        if(myBlockType == WATER || myBlockType == ICE) {
-                            currentIndexT = interleavingAddToVBOVector(vecNor, upFacePosition, myColor, currentIndexT, interleavedT, indicesT);
-                            glm::vec2 topLeft = getTopLeftUV(myBlockType, vecNor, &powersT);
-                            getFaceUVs(topLeft, &uvsT);
-                            if(myBlockType == WATER) {
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                            }
-                            else {
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                            }
-                        }
-                        else {
-                            currentIndex = interleavingAddToVBOVector(vecNor, upFacePosition, myColor, currentIndex, interleaved, indices);
-                            glm::vec2 topLeft = getTopLeftUV(myBlockType, vecNor, &powers);
-                            getFaceUVs(topLeft, &uvs);
-                            if(myBlockType == LAVA) {
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                            }
-                            else {
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                            }
-                        }
-                    }
-                    if (down == EMPTY || (down == WATER && myBlockType != WATER) || (down == LAVA && myBlockType != LAVA) || (down == ICE && myBlockType != ICE)) {
-                        glm::vec4 botLeftCorWorldPos(x + chunkCoord.x*X_WIDTH, y, z + chunkCoord.z*Z_WIDTH, 1);
-                        glm::mat4 basePosition(botLeftCorWorldPos, botLeftCorWorldPos, botLeftCorWorldPos, botLeftCorWorldPos);
-                        glm::mat4 downtmat(glm::vec4(0,0,0,0), glm::vec4(0,0,1,0), glm::vec4(1,0,1,0), glm::vec4(1,0,0,0));
-                        glm::mat4 downFacePosition = basePosition + downtmat;
-                        glm::vec4 vecNor = glm::vec4(0, -1, 0, 0); // normal is neg y-direction
-                        if(myBlockType == WATER || myBlockType == ICE) {
-                            currentIndexT = interleavingAddToVBOVector(vecNor, downFacePosition, myColor, currentIndexT, interleavedT, indicesT);
-                            glm::vec2 topLeft = getTopLeftUV(myBlockType, vecNor, &powersT);
-                            getFaceUVs(topLeft, &uvsT);
-                            if(myBlockType == WATER) {
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                                animateableT.push_back(1.0f);
-                            }
-                            else {
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                                animateableT.push_back(0.0f);
-                            }
-                        }
-                        else {
-                            currentIndex = interleavingAddToVBOVector(vecNor, downFacePosition, myColor, currentIndex, interleaved, indices);
-                            glm::vec2 topLeft = getTopLeftUV(myBlockType, vecNor, &powers);
-                            getFaceUVs(topLeft, &uvs);
-                            if(myBlockType == LAVA) {
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                                animateable.push_back(1.0f);
-                            }
-                            else {
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                                animateable.push_back(0.0f);
-                            }
+
+                        MiniFace* mini_face = mini_face_manager->AllocateMiniFace();
+                        if (mini_face != nullptr)
+                        {
+                          mini_face->SetFacePos(botLeftCorWorldPos, glm::vec4(1,0,1,0), glm::vec4(1,0,0,0), glm::vec4(1,1,0,0), glm::vec4(1,1,1,0));
                         }
                     }
                 }
             }
         }
     }
-
-    count = indices.size();
-
-    generateIdx();
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufIdx);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
-
-    generateInterleaved();
-    glBindBuffer(GL_ARRAY_BUFFER, bufInterleaved);
-    glBufferData(GL_ARRAY_BUFFER, interleaved.size() * sizeof(glm::vec4), interleaved.data(), GL_STATIC_DRAW);
-
-    generateUVs();
-    glBindBuffer(GL_ARRAY_BUFFER, bufUVs);
-    glBufferData(GL_ARRAY_BUFFER, uvs.size() * sizeof(glm::vec2), uvs.data(), GL_STATIC_DRAW);
-
-    generatePow();
-    glBindBuffer(GL_ARRAY_BUFFER, bufPows);
-    glBufferData(GL_ARRAY_BUFFER, powers.size() * sizeof(float), powers.data(), GL_STATIC_DRAW);
-
-    generateAnim();
-    glBindBuffer(GL_ARRAY_BUFFER, bufAnim);
-    glBufferData(GL_ARRAY_BUFFER, animateable.size() * sizeof(float), animateable.data(), GL_STATIC_DRAW);
-
-
-    countT = indicesT.size();
-
-    generateIdxT();
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufIdxT);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicesT.size() * sizeof(GLuint), indicesT.data(), GL_STATIC_DRAW);
-
-    generateInterleavedT();
-    glBindBuffer(GL_ARRAY_BUFFER, bufInterleavedT);
-    glBufferData(GL_ARRAY_BUFFER, interleavedT.size() * sizeof(glm::vec4), interleavedT.data(), GL_STATIC_DRAW);
-
-    generateUVsT();
-    glBindBuffer(GL_ARRAY_BUFFER, bufUVsT);
-    glBufferData(GL_ARRAY_BUFFER, uvsT.size() * sizeof(glm::vec2), uvsT.data(), GL_STATIC_DRAW);
-
-    generatePowT();
-    glBindBuffer(GL_ARRAY_BUFFER, bufPowsT);
-    glBufferData(GL_ARRAY_BUFFER, powersT.size() * sizeof(float), powersT.data(), GL_STATIC_DRAW);
-
-    generateAnimT();
-    glBindBuffer(GL_ARRAY_BUFFER, bufAnimT);
-    glBufferData(GL_ARRAY_BUFFER, animateableT.size() * sizeof(float), animateableT.data(), GL_STATIC_DRAW);
-
-}
-
-int Chunk::interleavingAddToVBOVector(glm::vec4 vecNor, glm::mat4 positionMat, glm::vec4 myColor, int currentIndex,
-                                      std::vector<glm::vec4>& interleaved, std::vector<GLuint>& indices) {
-    interleaved.push_back(positionMat[0]);
-    interleaved.push_back(vecNor);
-    interleaved.push_back(myColor);
-    interleaved.push_back(positionMat[1]);
-    interleaved.push_back(vecNor);
-    interleaved.push_back(myColor);
-    interleaved.push_back(positionMat[2]);
-    interleaved.push_back(vecNor);
-    interleaved.push_back(myColor);
-    interleaved.push_back(positionMat[3]);
-    interleaved.push_back(vecNor);
-    interleaved.push_back(myColor);
-    indices.push_back(currentIndex);
-    indices.push_back(currentIndex + 1);
-    indices.push_back(currentIndex + 2);
-    indices.push_back(currentIndex);
-    indices.push_back(currentIndex + 2);
-    indices.push_back(currentIndex + 3);
-    return (currentIndex + 4);
 }
 
 BlockType Chunk::getBlockAtLocal(int x, int y, int z) const {
@@ -933,9 +622,9 @@ BlockType Chunk::getBlockAtLocal(int x, int y, int z) const {
     if ((z >= Z_WIDTH) || (z < 0) || (x >= X_WIDTH) || (x < 0)) {
         glm::ivec3 world = MiniTerrain::ConvertChunkLocalToWorld(glm::ivec3(x,y,z), this);
         uint64_t adjChunkKey = MiniTerrain::ConvertChunkToKey(MiniTerrain::ConvertWorldToChunk(world));
-        bool exists = terrain->chunkMap.contains(adjChunkKey);
+        bool exists = terrain->chunkMap.find(adjChunkKey) != std::end(terrain->chunkMap);
         if (exists) {
-            Chunk* adjacentChunk = terrain->chunkMap.value(adjChunkKey);
+            Chunk* adjacentChunk = terrain->chunkMap[adjChunkKey];
             glm::ivec3 newLocal = MiniTerrain::ConvertWorldToChunkLocal(world);
             return adjacentChunk->getBlockAtLocal(newLocal.x, newLocal.y, newLocal.z);
         } else {
@@ -958,8 +647,8 @@ BlockType& Chunk::getBlockRefAtLocal(int x, int y, int z) {
     if ((z >= Z_WIDTH) || (z < 0) || (x >= X_WIDTH) || (x < 0)) {
         glm::ivec3 world = MiniTerrain::ConvertChunkLocalToWorld(glm::ivec3(x,y,z), this);
         uint64_t adjChunkKey = MiniTerrain::ConvertChunkToKey(MiniTerrain::ConvertWorldToChunk(world));
-        if (terrain->chunkMap.contains(adjChunkKey)) {
-            Chunk* adjacentChunk = terrain->chunkMap.value(adjChunkKey);
+        if (terrain->chunkMap.find(adjChunkKey) != std::end(terrain->chunkMap)) {
+            Chunk* adjacentChunk = terrain->chunkMap[adjChunkKey];
             glm::ivec3 newLocal = MiniTerrain::ConvertWorldToChunkLocal(world);
             return adjacentChunk->getBlockRefAtLocal(newLocal.x, newLocal.y, newLocal.z);
         } else {

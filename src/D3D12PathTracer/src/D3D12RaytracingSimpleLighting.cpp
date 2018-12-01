@@ -852,6 +852,19 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
     //m_sceneLoaded->modelMap[id] = model;
   }
 
+  //GAME
+  if (is_game)
+  {
+#define NUMBER_OF_PREALLOCATED_FACES (10000)
+    for (int i = 1; i < NUMBER_OF_PREALLOCATED_FACES; i++)
+    {
+      ModelLoading::SceneObject first_object = m_sceneLoaded->objects[0];
+      first_object.id = i;
+      m_sceneLoaded->objects.push_back(first_object);
+    }
+  }
+
+
   // Build top level
   m_sceneLoaded->GetTopLevelDesc();
   m_sceneLoaded->GetTopLevelPrebuildInfo(is_fallback, m_fallbackDevice, m_dxrDevice);
@@ -870,8 +883,43 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
   //GAME
   if (is_game)
   {
-    mini_block_manager = std::make_unique<MiniBlockManager>();
-    mini_block_manager->set_scene(m_sceneLoaded);
+    mini_face_manager = std::make_unique<MiniFaceManager>();
+    mini_face_manager->SetScene(m_sceneLoaded);
+    mini_terrian.program_state = this;
+    generateMoreChunks();
+
+    chunk_generation_thread = std::thread([this]()
+    {
+      while (!quit_generation)
+      {
+        std::unique_lock<std::mutex> lock(chunk_mutex);
+
+        float elapsedTime = static_cast<float>(m_timer.GetElapsedSeconds());
+        float secondsToRotateAround = 8.0f;
+        float angleToRotateBy = -360.0f * (elapsedTime / secondsToRotateAround);
+        
+        mini_face_manager->Reset();
+        
+        MiniFace* mini_face = mini_face_manager->AllocateMiniFace();
+        if (mini_face != nullptr)
+        {
+          //glm::mat4 mat;
+          //mat = glm::rotate(mat, glm::radians(angleToRotateBy), glm::vec3(0, 1, 0));
+          //mat = glm::translate(mat, mini_block->GetTranslation());
+    
+          glm::vec3 block_rotation = mini_face->GetRotation();
+          block_rotation.y += glm::radians(angleToRotateBy) * 100;
+          mini_face->SetRotation(block_rotation);
+          // mini_block->SetTranslation(mini_block->GetTranslation() +
+          //                             glm::vec3(0.01f, 0.0, 0.0));
+    
+        }
+        recreateChunkVBO();
+        chunk_cv.wait(lock, [this]{ return start_generation; });
+
+        chunk_promise.set_value(false);
+      }
+    });
   }
 }
 
@@ -1162,6 +1210,13 @@ void D3D12RaytracingSimpleLighting::ReleaseDeviceDependentResources()
 
   m_bottomLevelAccelerationStructure.Reset();
   m_topLevelAccelerationStructure.Reset();
+
+  //GAME
+  if (is_game)
+  {
+    quit_generation = true;
+    chunk_generation_thread.join();
+  }
 }
 
 void D3D12RaytracingSimpleLighting::RecreateD3D()
@@ -1197,34 +1252,48 @@ void D3D12RaytracingSimpleLighting::OnRender()
   //GAME
   if (is_game)
   {
-    auto command_list = m_deviceResources->GetCommandList();
-    auto frame_index = m_deviceResources->GetCurrentFrameIndex();
-
-    float elapsedTime = static_cast<float>(m_timer.GetElapsedSeconds());
-    float secondsToRotateAround = 8.0f;
-    float angleToRotateBy = -360.0f * (elapsedTime / secondsToRotateAround);
-
-    mini_block_manager->ResetMiniBlocks();
-
-    MiniBlock* mini_block = mini_block_manager->AllocateMiniBlock();
-    if (mini_block != nullptr)
     {
-      //glm::mat4 mat;
-      //mat = glm::rotate(mat, glm::radians(angleToRotateBy), glm::vec3(0, 1, 0));
-      //mat = glm::translate(mat, mini_block->get_translation());
-
-      glm::vec3 block_rotation = mini_block->get_rotation();
-      block_rotation.y += glm::radians(angleToRotateBy) * 100;
-      mini_block->set_rotation(block_rotation);
-      // mini_block->set_translation(mini_block->get_translation() +
-      //                             glm::vec3(0.01f, 0.0, 0.0));
-      m_sceneLoaded->UpdateTopLevelAS(m_raytracingAPI == RaytracingAPI::FallbackLayer, m_fallbackDevice, m_dxrDevice, m_fallbackCommandList, m_dxrCommandList);
+      std::lock_guard<std::mutex> lock(chunk_mutex);
+      start_generation = true;
     }
+    chunk_cv.notify_all();
 
-    const float clearColor[] = {0.6f, 0.8f, 0.4f, 1.0f};
-    //command_list->ClearRenderTargetView(, clearColor, 0, nullptr);
+    start_generation = chunk_promise.get_future().get();
+    chunk_promise = std::promise<bool>();
+
+    m_sceneLoaded->UpdateTopLevelAS(m_raytracingAPI == RaytracingAPI::FallbackLayer, m_fallbackDevice, m_dxrDevice, m_fallbackCommandList, m_dxrCommandList);    
+
+    auto frame_index = m_deviceResources->GetCurrentFrameIndex();
     m_sceneCB[frame_index].is_raytracing = 1;
-
+    
+    // auto command_list = m_deviceResources->GetCommandList();
+    // auto frame_index = m_deviceResources->GetCurrentFrameIndex();
+    //
+    // float elapsedTime = static_cast<float>(m_timer.GetElapsedSeconds());
+    // float secondsToRotateAround = 8.0f;
+    // float angleToRotateBy = -360.0f * (elapsedTime / secondsToRotateAround);
+    //
+    // mini_face_manager->Reset();
+    //
+    // MiniFace* mini_face = mini_face_manager->AllocateMiniFace();
+    // if (mini_face != nullptr)
+    // {
+    //   //glm::mat4 mat;
+    //   //mat = glm::rotate(mat, glm::radians(angleToRotateBy), glm::vec3(0, 1, 0));
+    //   //mat = glm::translate(mat, mini_block->GetTranslation());
+    //
+    //   glm::vec3 block_rotation = mini_face->GetRotation();
+    //   block_rotation.y += glm::radians(angleToRotateBy) * 100;
+    //   mini_face->SetRotation(block_rotation);
+    //   // mini_block->SetTranslation(mini_block->GetTranslation() +
+    //   //                             glm::vec3(0.01f, 0.0, 0.0));
+    //
+    // }
+    // recreateChunkVBO();
+    // m_sceneLoaded->UpdateTopLevelAS(m_raytracingAPI == RaytracingAPI::FallbackLayer, m_fallbackDevice, m_dxrDevice, m_fallbackCommandList, m_dxrCommandList);
+    //
+    // const float clearColor[] = {0.6f, 0.8f, 0.4f, 1.0f};
+    // m_sceneCB[frame_index].is_raytracing = 1;
   }
 
   DoRaytracing();
@@ -1535,4 +1604,68 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
     // Raytracing API selection changed, recreate everything.
     RecreateD3D();
   }
+}
+
+void D3D12RaytracingSimpleLighting::generateMoreChunks() {
+    /* Cast the player's position to bottom left corner of current block */
+    auto frameIndex = m_deviceResources->GetCurrentFrameIndex();
+    XMFLOAT3 myPos;
+    XMStoreFloat3(&myPos, m_sceneCB[frameIndex].cameraPosition);
+    int xPos = myPos.x < 0 ? ceil(myPos.x) : floor(myPos.x);
+    int yPos = myPos.y < 0 ? ceil(myPos.y) : floor(myPos.y);
+    int zPos = myPos.z < 0 ? ceil(myPos.z) : floor(myPos.z);
+    glm::ivec3 myIntPos(xPos, yPos, zPos);
+
+    /* Get the chunk that the player is in */
+    glm::ivec3 chunk = MiniTerrain::ConvertWorldToChunk(myIntPos);
+#define RENDER_DISTANCE (1)
+
+    /* For the 2D x-z area of chunks around the player */
+    for (int x = -RENDER_DISTANCE; x <= RENDER_DISTANCE; x++) {
+        for (int z = -RENDER_DISTANCE; z <= RENDER_DISTANCE; z++) {
+            /* If a chunk doesn't exist within RENDER_DISTANCE of player, populate it*/
+            uint64_t chunkKey = MiniTerrain::ConvertChunkToKey(chunk + glm::ivec3(x,0,z));
+            if (!mini_terrian.chunkExists(chunkKey)) {
+                Chunk* newChunk = new Chunk(chunkKey, &mini_terrian);
+                newChunk->populateChunk();
+                chunksToBeDrawn.push_back(newChunk);
+            }
+        }
+    }
+}
+
+void D3D12RaytracingSimpleLighting::recreateChunkVBO() {
+    /* Make a deep copy of the shared chunk list. Copy what has been populated so far. */
+    std::vector<Chunk*> currentListState = chunksToBeDrawn;
+
+    /* Create the VBOs for the new chunk and redraw the old border chunks*/
+    if (!currentListState.empty()) {
+        for (int i = 0; i < currentListState.size(); i++) {
+            Chunk* c = currentListState[i];
+            glm::ivec3 chunkCoords = MiniTerrain::ConvertKeyToChunk(c->key);
+            std::vector<uint64_t> neighborChunkKeys;
+            neighborChunkKeys.push_back(MiniTerrain::ConvertChunkToKey(chunkCoords + glm::ivec3(1,0,0)));
+            neighborChunkKeys.push_back(MiniTerrain::ConvertChunkToKey(chunkCoords + glm::ivec3(0,0,1)));
+            neighborChunkKeys.push_back(MiniTerrain::ConvertChunkToKey(chunkCoords + glm::ivec3(0,0,-1)));
+            neighborChunkKeys.push_back(MiniTerrain::ConvertChunkToKey(chunkCoords + glm::ivec3(-1,0,0)));
+
+            /* Recreate old border chunks' VBOs */
+            for (uint64_t key : neighborChunkKeys) {
+                if (mini_terrian.chunkExists(key)) {
+                    Chunk* neighbor = mini_terrian.chunkMap[key];
+                    auto found_neighbor = std::find_if(
+                        std::begin(currentListState), std::end(currentListState), [&neighbor](const auto& chunk)
+                    {
+                      return neighbor == chunk;
+                    });
+                    if (found_neighbor == std::end(currentListState)) {
+                        neighbor->destroy();
+                        neighbor->create(mini_face_manager.get()); //recreates hull
+                    }
+                }
+            }
+            c->create(mini_face_manager.get());
+            c->toDraw = true;
+        }
+    }
 }

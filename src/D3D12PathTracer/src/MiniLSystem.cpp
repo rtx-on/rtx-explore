@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "MiniLSystem.h"
+#include <glm/glm/gtc/matrix_transform.hpp>
 
 MiniLSystem::MiniLSystem(RiverType type, glm::vec3 position, glm::vec3 orientation)
     : turtleStack(), charToGrammarExpansion(), charToDrawingOperation(),

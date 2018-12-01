@@ -104,10 +104,14 @@
     <ClInclude Include="src\Scene.h" />
     <ClInclude Include="src\Utilities.h" />
     <ClInclude Include="src\Model.h" />
-    <ClInclude Include="src\MiniBlock.h" />
-    <ClInclude Include="src\MiniBlockManager.h" />
     <ClInclude Include="src\MiniBiomeGenerator.h" />
     <ClInclude Include="src\MiniEnumTypes.h" />
+    <ClInclude Include="src\MiniFaceManager.h" />
+    <ClInclude Include="src\MiniFace.h" />
+    <ClInclude Include="src\MiniFBM.h" />
+    <ClInclude Include="src\MiniLSystem.h" />
+    <ClInclude Include="src\MiniTerrian.h" />
+    <ClInclude Include="src\MiniTurtle.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\D3D12RaytracingSimpleLighting.cpp">
@@ -135,9 +139,13 @@
     <ClCompile Include="src\Scene.cpp" />
     <ClCompile Include="src\Utilities.cpp" />
     <ClCompile Include="src\Model.cpp" />
-    <ClCompile Include="src\MiniBlock.cpp" />
-    <ClCompile Include="src\MiniBlockManager.cpp" />
     <ClCompile Include="src\MiniBiomeGenerator.cpp" />
+    <ClCompile Include="src\MiniFaceManager.cpp" />
+    <ClCompile Include="src\MiniFace.cpp" />
+    <ClCompile Include="src\MiniFBM.cpp" />
+    <ClCompile Include="src\MiniLSystem.cpp" />
+    <ClCompile Include="src\MiniTerrian.cpp" />
+    <ClCompile Include="src\MiniTurtle.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

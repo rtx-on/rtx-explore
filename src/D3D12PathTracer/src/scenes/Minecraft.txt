@@ -1,6 +1,6 @@
 //////////////// SCENE MODEL FOR BOX
 MODEL 0
-path src/objects/crate.obj
+path src/objects/quad.obj
 
 TEXTURE 0
 path MinecraftTextures/dirt.png

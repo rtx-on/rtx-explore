@@ -15,8 +15,11 @@
 #include "StepTimer.h"
 #include "shaders/RaytracingHlslCompat.h"
 #include "Scene.h"
+#include "MiniTerrian.h"
 
-class MiniBlockManager;
+class MiniFaceManager;
+class MiniTerrain;
+class Chunk;
 
 namespace GlobalRootSignatureParams
 {
@@ -103,7 +106,7 @@ public:
 
 private:
   //GAME
-  std::unique_ptr<MiniBlockManager> mini_block_manager;
+  std::unique_ptr<MiniFaceManager> mini_face_manager;
 
   static const UINT FrameCount = 3;
 
@@ -215,6 +218,21 @@ private:
   void CopyRaytracingOutputToBackbuffer();
   void CalculateFrameStats();
 
+public:
+  //GAME
+  void generateMoreChunks();
+  void recreateChunkVBO();
+  MiniTerrain mini_terrian;
+  std::vector<Chunk*> chunksToBeDrawn;
+
+  //threading stuff
+  std::thread chunk_generation_thread;
+  std::mutex chunk_mutex;
+  bool start_generation = false;
+  std::condition_variable chunk_cv;
+
+  std::promise<bool> chunk_promise;
+  std::atomic<bool> quit_generation;
 
   void BuildMesh(std::string path);
 
