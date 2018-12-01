@@ -134,18 +134,8 @@ trans       0 6.5 0
 rotat       0 0 0
 scale       2 .3 2
 
-// Dragon
+// Aline
 OBJECT 6
-model 1
-albedo_tex -1
-normal_tex -1
-material 5
-trans       0 0 0
-rotat       0 0 0
-scale      0.5 0.5 0.5
-
-// Dragon
-OBJECT 7
 model 1
 albedo_tex -1
 normal_tex -1
@@ -162,5 +152,5 @@ depth       30
 eye         0.0 2 -20
 lookat      0 0 1
 up          0 1 0
-focal		10
+focal	10
 lensr		0.5
