@@ -160,8 +160,8 @@ albedo_tex 2
 normal_tex 0
 material -1
 trans       0 0 3
-rotat       0 0 0
-scale       5 5 5
+rotat       0 00 0
+scale       1 1 1
 
 CAMERA
 resolution         800 800
