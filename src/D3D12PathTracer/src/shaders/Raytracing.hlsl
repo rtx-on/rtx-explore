@@ -443,10 +443,6 @@ void MyRaygenShader()
 			break;
 		}
 	}
-	if (g_sceneCB.iteration == 1)
-	{
-		RenderTarget2[DispatchRaysIndex().xy].xyz = float3(0, 0, 0);
-	}
 
 	// TODO: Stream Compact here ?? thrust::remove_if on the payload
 

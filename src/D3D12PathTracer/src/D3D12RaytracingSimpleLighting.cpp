@@ -936,35 +936,37 @@ void D3D12RaytracingSimpleLighting::SelectRaytracingAPI(RaytracingAPI type)
 
 // Update frame-based values.
 void D3D12RaytracingSimpleLighting::OnUpdate()
-{
-    m_timer.Tick();
-    CalculateFrameStats();
-    float elapsedTime = static_cast<float>(m_timer.GetElapsedSeconds());
-    auto frameIndex = m_deviceResources->GetCurrentFrameIndex();
-    auto prevFrameIndex = m_deviceResources->GetPreviousFrameIndex();
+{ 
+  m_timer.Tick();
+  CalculateFrameStats();
+  float elapsedTime = static_cast<float>(m_timer.GetElapsedSeconds());
+  auto frameIndex = m_deviceResources->GetCurrentFrameIndex();
+  auto prevFrameIndex = m_deviceResources->GetPreviousFrameIndex();
 
-	UpdateCameraMatrices();
+  UpdateCameraMatrices();
 
-    // Rotate the second light around Y axis.
+  // Rotate the second light around Y axis.
+  {
+    float secondsToRotateAround = 8.0f;
+    float angleToRotateBy = -360.0f * (elapsedTime / secondsToRotateAround);
+    XMMATRIX rotate = XMMatrixRotationY(XMConvertToRadians(angleToRotateBy));
+    const XMVECTOR& prevLightPosition = m_sceneCB[prevFrameIndex].lightPosition;
+    m_sceneCB[frameIndex].lightPosition = XMVector3Transform(prevLightPosition, rotate);
+  }
+
+  {
+    if (m_camChanged)
     {
-        float secondsToRotateAround = 8.0f;
-        float angleToRotateBy = -360.0f * (elapsedTime / secondsToRotateAround);
-        XMMATRIX rotate = XMMatrixRotationY(XMConvertToRadians(angleToRotateBy));
-        const XMVECTOR& prevLightPosition = m_sceneCB[prevFrameIndex].lightPosition;
-        m_sceneCB[frameIndex].lightPosition = XMVector3Transform(prevLightPosition, rotate);
+      m_sceneCB[frameIndex].iteration = 1;
     }
-
-	{
-		if (m_camChanged) {
-			m_sceneCB[frameIndex].iteration = 1;
-			m_camChanged = false;
-		}
-		else {
-			if (m_sceneCB[frameIndex].iteration) {
-				m_sceneCB[frameIndex].iteration += 1;
-			}
-		}
-	}
+    else
+    {
+      if (m_sceneCB[frameIndex].iteration)
+      {
+        m_sceneCB[frameIndex].iteration += 1;
+      }
+    }
+  }
 }
 
 
@@ -1145,6 +1147,41 @@ void D3D12RaytracingSimpleLighting::OnRender()
     m_deviceResources->Prepare();
     DoRaytracing();
     CopyRaytracingOutputToBackbuffer();
+
+    //TODO fix this better
+    if (m_camChanged)
+    {
+      auto device = m_deviceResources->GetD3DDevice();
+      auto commandList = m_deviceResources->GetCommandList();
+
+      static bool give_epilepsy = true;
+      if (give_epilepsy)
+      {
+        // std::vector<float> epilepsy_cure_pill(m_width * m_height);
+        // AllocateUploadBuffer(device, epilepsy_cure_pill.data(), epilepsy_cure_pill.size(), &cure_epilepsy, L"Cure Epilepsy");
+        auto uavDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R32G32B32A32_FLOAT, m_width, m_height, 1, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+        
+        auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+        ThrowIfFailed(device->CreateCommittedResource(
+            &defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &uavDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&cure_epilepsy)));
+        NAME_D3D12_OBJECT(cure_epilepsy);
+        give_epilepsy = false;
+      }
+
+      D3D12_RESOURCE_BARRIER preCopyBarriers[2];
+      preCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(pathtracing_accumulation_resource.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
+      preCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(cure_epilepsy.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+      commandList->ResourceBarrier(ARRAYSIZE(preCopyBarriers), preCopyBarriers);
+
+      commandList->CopyResource(pathtracing_accumulation_resource.Get(), cure_epilepsy.Get());
+
+      D3D12_RESOURCE_BARRIER postCopyBarriers[2];
+      postCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(pathtracing_accumulation_resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+      postCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(cure_epilepsy.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+      commandList->ResourceBarrier(ARRAYSIZE(postCopyBarriers), postCopyBarriers);
+      m_camChanged = false;
+    }
 
     m_deviceResources->Present(D3D12_RESOURCE_STATE_PRESENT);
 }
