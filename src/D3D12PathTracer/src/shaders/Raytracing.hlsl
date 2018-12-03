@@ -448,7 +448,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
         //if texture map, then sample that instead
         if (texture_normal_offset != NULL_OFFSET)
         {
-          triangleNormal = normal_text[texture_offset].SampleLevel(s1, triangleUV, 0);
+          triangleNormal = normal_text[texture_normal_offset].SampleLevel(s1, triangleUV, 0);
         }
 
         //multiply by rotation/scale matrix to correct the normals 
@@ -501,6 +501,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	{
 		DiffuseBounce(texture_offset, material_offset, emittance, triangleNormal, hitPosition, hitType, triangleUV, payload);
 	}
+        //payload.color = float4(abs(triangleNormal), 1.0f);
 }
 
 [shader("miss")]

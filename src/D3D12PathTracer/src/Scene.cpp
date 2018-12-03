@@ -325,7 +325,9 @@ int Scene::loadDiffuseTexture(string texid) {
 			nullptr,
 			IID_PPV_ARGS(&newTexture.texBuffer.resource)));
 
-		UINT64 textureUploadBufferSize;
+		newTexture.texBuffer.resource->SetName(utilityCore::stringAndId(L"Diffuse Texture Default Heap ", id).c_str());
+
+         	UINT64 textureUploadBufferSize;
 		// this function gets the size an upload buffer needs to be to upload a texture to the gpu.
 		// each row must be 256 byte aligned except for the last row, which can just be the size in bytes of the row
 		// eg. textureUploadBufferSize = ((((width * numBytesPerPixel) + 255) & ~255) * (height - 1)) + (width * numBytesPerPixel);
@@ -342,7 +344,7 @@ int Scene::loadDiffuseTexture(string texid) {
 			nullptr,
 			IID_PPV_ARGS(&textureBufferUploadHeap)));
 
-		textureBufferUploadHeap->SetName(L"Texture Buffer Upload Resource Heap");
+		textureBufferUploadHeap->SetName(utilityCore::stringAndId(L"Diffuse Texture Upload Heap ", id).c_str());
 
 		// store vertex buffer in upload heap
 		D3D12_SUBRESOURCE_DATA textureData = {};
@@ -420,7 +422,9 @@ int Scene::loadNormalTexture(string texid) {
 			nullptr,
 			IID_PPV_ARGS(&newTexture.texBuffer.resource)));
 
-		UINT64 textureUploadBufferSize;
+		newTexture.texBuffer.resource->SetName(utilityCore::stringAndId(L"Normal Texture Default Heap ", id).c_str());
+	        
+	        UINT64 textureUploadBufferSize;
 		// this function gets the size an upload buffer needs to be to upload a texture to the gpu.
 		// each row must be 256 byte aligned except for the last row, which can just be the size in bytes of the row
 		// eg. textureUploadBufferSize = ((((width * numBytesPerPixel) + 255) & ~255) * (height - 1)) + (width * numBytesPerPixel);
@@ -437,7 +441,7 @@ int Scene::loadNormalTexture(string texid) {
 			nullptr,
 			IID_PPV_ARGS(&textureBufferUploadHeap)));
 
-		textureBufferUploadHeap->SetName(L"Texture Buffer Upload Resource Heap");
+		textureBufferUploadHeap->SetName(utilityCore::stringAndId(L"Normal Texture Upload Heap ", id).c_str());
 
 		// store vertex buffer in upload heap
 		D3D12_SUBRESOURCE_DATA textureData = {};
