@@ -502,6 +502,13 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	// Load up 3 16 bit indices for the triangle.
 	const uint3 indices = Indices[model_offset].Load3(baseIndex);
 
+        float3 vertexPosition[3] = {
+		Vertices[model_offset][indices[0]].position,
+		Vertices[model_offset][indices[1]].position,
+		Vertices[model_offset][indices[2]].position
+	};
+
+
 	// Retrieve corresponding vertex normals for the triangle vertices.
 	float3 vertexNormals[3] = {
 		Vertices[model_offset][indices[0]].normal,
@@ -526,11 +533,34 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
         if (texture_normal_offset != NULL_OFFSET)
         {
           triangleNormal = normal_text[texture_normal_offset].SampleLevel(s1, triangleUV, 0);
+          triangleNormal = normalize(triangleNormal * 2.0 - 1.0);
+
+          float3 edge1 = vertexPosition[1] - vertexPosition[0];
+          float3 edge2 = vertexPosition[2] - vertexPosition[0];
+          float2 deltaUV1 = vertexUVs[1] - vertexUVs[0];
+          float2 deltaUV2 = vertexUVs[2] - vertexUVs[0];
+
+          float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+
+          float3 tangent = {f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x),
+                            f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y),
+                            f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z)};
+
+          //Make sure tangent is completely orthogonal to normal
+          tangent = normalize(tangent - dot(tangent, triangleNormal) * triangleNormal);
+
+          //Create the biTangent
+          float3 bitangent = cross(triangleNormal, tangent);
+
+          //Create the normal matrix
+          float3x3 TBN = float3x3(tangent, bitangent, triangleNormal);
+
+          //Convert normal from normal map to texture space
+          triangleNormal = normalize(mul(triangleNormal, TBN));
         }
 
         //multiply by rotation/scale matrix to correct the normals 
 	triangleNormal = mul(float4(triangleNormal, 1.0f), rotation_matrix).xyz;
-
 
 	if (reflectiveness > 0.0f && refractiveness > 0.0f) // Do both a R E F L E C C and a R E F R A C C with fresnel effects
 	{
@@ -576,6 +606,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	}
 	else // Do a diffuse bounce
 	{
+                //payload.color = float4(triangleNormal, 1.0f);
 		DiffuseBounce(texture_offset, material_offset, emittance, triangleNormal, hitPosition, hitType, triangleUV, payload);
 	}
 }
