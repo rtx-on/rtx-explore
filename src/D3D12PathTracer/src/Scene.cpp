@@ -918,7 +918,7 @@ void Scene::AllocateResourcesInDescriptorHeap()
     // Map the constant buffer and cache its heap pointers.
     // We don't unmap this until the app closes. Keeping buffer mapped for the lifetime of the resource is okay.
     CD3DX12_RANGE readRange(0, 0);        // We do not intend to read from this resource on the CPU.
-    Material *mapped_data;
+    Info *mapped_data;
     ThrowIfFailed(info_resource.d3d12_resource.resource->Map(0, &readRange, reinterpret_cast<void**>(&mapped_data)));
     memcpy(mapped_data, &info_resource.info, sizeof(Info));
     info_resource.d3d12_resource.resource->Unmap(0, &readRange);
