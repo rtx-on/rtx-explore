@@ -613,8 +613,8 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	}
 	else // Do a diffuse bounce
 	{
-                payload.color = float4(abs(triangleNormal), 1.0f);
-		//DiffuseBounce(texture_offset, material_offset, emittance, triangleNormal, hitPosition, hitType, triangleUV, payload);
+                //payload.color = float4(abs(triangleNormal), 1.0f);
+		DiffuseBounce(texture_offset, material_offset, emittance, triangleNormal, hitPosition, hitType, triangleUV, payload);
 	}
 }
 

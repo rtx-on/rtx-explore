@@ -260,8 +260,70 @@ int Scene::loadModel(string modelid) {
 			Vertex* vPtr = vertices.data();
 			Index* iPtr = indices.data();
 			auto device = programState->GetDeviceResources()->GetD3DDevice();
-			AllocateUploadBuffer(device, iPtr, indices.size() * sizeof(Index), &newModel.indices.resource);
-			AllocateUploadBuffer(device, vPtr, vertices.size() * sizeof(Vertex), &newModel.vertices.resource);
+
+
+                        auto AllocateBufferOnGpu = [&](void *pData, UINT64 datasize, ID3D12Resource **ppResource, std::wstring resource_name)
+                        {
+                              CD3DX12_RESOURCE_DESC resource_desc = CD3DX12_RESOURCE_DESC::Buffer(datasize);
+                              auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+		              auto device = programState->GetDeviceResources()->GetD3DDevice();
+		              ThrowIfFailed(device->CreateCommittedResource(
+			              &defaultHeapProperties,
+			              D3D12_HEAP_FLAG_NONE,
+			              &resource_desc,
+			              D3D12_RESOURCE_STATE_COPY_DEST,
+			              nullptr,
+			              IID_PPV_ARGS(ppResource)));
+
+		              (*ppResource)->SetName(std::wstring(L"Default Heap " + resource_name).c_str());
+
+         	              UINT64 textureUploadBufferSize;
+		              // this function gets the size an upload buffer needs to be to upload a texture to the gpu.
+		              // each row must be 256 byte aligned except for the last row, which can just be the size in bytes of the row
+		              // eg. textureUploadBufferSize = ((((width * numBytesPerPixel) + 255) & ~255) * (height - 1)) + (width * numBytesPerPixel);
+		              //textureUploadBufferSize = (((imageBytesPerRow + 255) & ~255) * (textureDesc.Height - 1)) + imageBytesPerRow;
+		              device->GetCopyableFootprints(&resource_desc, 0, 1, 0, nullptr, nullptr, nullptr, &textureUploadBufferSize);
+
+		              ID3D12Resource* textureBufferUploadHeap = programState->GetTextureBufferUploadHeap();
+		              // now we create an upload heap to upload our texture to the GPU
+		              ThrowIfFailed(device->CreateCommittedResource(
+			              &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // upload heap
+			              D3D12_HEAP_FLAG_NONE, // no flags
+			              &CD3DX12_RESOURCE_DESC::Buffer(textureUploadBufferSize), // resource description for a buffer (storing the image data in this heap just to copy to the default heap)
+			              D3D12_RESOURCE_STATE_GENERIC_READ, // We will copy the contents from this heap to the default heap above
+			              nullptr,
+			              IID_PPV_ARGS(&textureBufferUploadHeap)));
+
+		              textureBufferUploadHeap->SetName(std::wstring(L"Upload Heap " + resource_name).c_str());
+
+		              // store vertex buffer in upload heap
+		              D3D12_SUBRESOURCE_DATA textureData = {};
+		              textureData.pData = pData; // pointer to our image data
+		              textureData.RowPitch = datasize; // size of all our triangle vertex data
+		              textureData.SlicePitch = datasize * resource_desc.Height; // also the size of our triangle vertex data
+
+		              auto commandList = programState->GetDeviceResources()->GetCommandList();
+		              auto commandAllocator = programState->GetDeviceResources()->GetCommandAllocator();
+
+		              commandList->Reset(commandAllocator, nullptr);
+
+		              // Reset the command list for the acceleration structure construction.
+		              UpdateSubresources(commandList, *ppResource, textureBufferUploadHeap, 0, 0, 1, &textureData);
+
+		              // transition the texture default heap to a pixel shader resource (we will be sampling from this heap in the pixel shader to get the color of pixels)
+		              commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(*ppResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+
+		              // Kick off texture uploading
+		              programState->GetDeviceResources()->ExecuteCommandList();
+
+		              // Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
+		              programState->GetDeviceResources()->WaitForGpu();
+                        };
+
+                        AllocateBufferOnGpu(iPtr, indices.size() * sizeof(Index), &newModel.indices.resource, utilityCore::stringAndId(L"Vertices", id));
+                        AllocateBufferOnGpu(vPtr, vertices.size() * sizeof(Vertex), &newModel.vertices.resource, utilityCore::stringAndId(L"Indices", id));
+		        //AllocateUploadBuffer(device, iPtr, indices.size() * sizeof(Index), &newModel.indices.resource);
+			//AllocateUploadBuffer(device, vPtr, vertices.size() * sizeof(Vertex), &newModel.vertices.resource);
 
 			// Vertex buffer is passed to the shader along with index buffer as a descriptor table.
 			// Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.

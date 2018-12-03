@@ -155,13 +155,13 @@ scale       1 1 1
 
 // Wa boi
 OBJECT 7
-model 0
+model 2
 albedo_tex -1
 normal_tex -1
 material 2
-trans       0 0 300
+trans       0 0 3
 rotat       0 30 50
-scale       1 1 1
+scale       3 3 3
 
 CAMERA
 resolution         800 800
