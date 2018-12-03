@@ -884,8 +884,10 @@ void Scene::AllocateResourcesInDescriptorHeap()
       info_resource.info.material_offset = object.material->id;
     }
 
-	XMVECTOR v = XMLoadFloat3(&XMFLOAT3((object.rotation.z), (object.rotation.y), (object.rotation.x)));
-	info_resource.info.rotation_matrix = XMMatrixRotationRollPitchYawFromVector(v);
+    XMVECTOR rotation_vector = XMLoadFloat3(&XMFLOAT3((object.rotation.z), (object.rotation.y), (object.rotation.x)));
+    XMMATRIX rotation = XMMatrixRotationRollPitchYawFromVector(rotation_vector);
+    XMMATRIX scale = XMMatrixScaling(object.scale.x, object.scale.y, object.scale.z);
+    info_resource.info.rotation_scale_matrix = rotation * scale;
 
     // Create the constant buffer memory and map the CPU and GPU addresses
     const D3D12_HEAP_PROPERTIES uploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);

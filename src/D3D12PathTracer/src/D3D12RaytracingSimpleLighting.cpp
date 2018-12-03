@@ -104,7 +104,6 @@ void D3D12RaytracingSimpleLighting::UpdateCameraMatrices()
     XMMATRIX proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(fovAngleY), m_aspectRatio, 1.0f, 125.0f);
     XMMATRIX viewProj = view * proj;
 
-	m_sceneCB[frameIndex].view_matrix = view;
     m_sceneCB[frameIndex].projectionToWorld = XMMatrixInverse(nullptr, viewProj);
 }
 

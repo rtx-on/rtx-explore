@@ -62,7 +62,7 @@ struct Info
   UINT texture_offset;
   UINT texture_normal_offset;
   UINT material_offset;
-  XMMATRIX rotation_matrix;
+  XMMATRIX rotation_scale_matrix;
 };
 
 #endif // RAYTRACINGHLSLCOMPAT_H
