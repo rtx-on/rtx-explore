@@ -422,13 +422,15 @@ void D3D12RaytracingSimpleLighting::CreateRootSignatures()
     {
         auto num_models = m_sceneLoaded->modelMap.size();
         auto num_objects = m_sceneLoaded->objects.size();
-        auto num_textures = m_sceneLoaded->textureMap.size();
+        auto num_diffuse_textures = m_sceneLoaded->diffuseTextureMap.size();
+        auto num_normal_textures = m_sceneLoaded->normalTextureMap.size();
         auto num_materials = m_sceneLoaded->materialMap.size();
 
         //ensure that the models, textures and materials are not zero or else bad things will happen :)
         assert(num_models != 0);
         assert(num_objects != 0);
-        assert(num_textures != 0);
+        assert(num_diffuse_textures != 0);
+        assert(num_normal_textures != 0);
         assert(num_materials != 0);
 
         CD3DX12_DESCRIPTOR_RANGE ranges[7]; // Perfomance TIP: Order from most frequent to least frequent.
@@ -437,8 +439,8 @@ void D3D12RaytracingSimpleLighting::CreateRootSignatures()
         ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_models, 0, 2);  // array of indices
         ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, num_objects, 0, 3);  // array of infos for each object
 	ranges[4].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, num_materials, 0, 4);  // array of materials
-	ranges[5].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_textures, 0, 5);  // array of textures
-	ranges[6].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_textures, 0, 6);  // array of normal textures
+	ranges[5].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_diffuse_textures, 0, 5);  // array of textures
+	ranges[6].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, num_normal_textures, 0, 6);  // array of normal textures
 
         CD3DX12_ROOT_PARAMETER rootParameters[GlobalRootSignatureParams::Count];
         rootParameters[GlobalRootSignatureParams::AccelerationStructureSlot].InitAsShaderResourceView(0);
@@ -1013,7 +1015,8 @@ void D3D12RaytracingSimpleLighting::DoRaytracing()
     auto SetCommonPipelineState = [&](auto* descriptorSetCommandList)
     {
       ModelLoading::SceneObject& objectInScene = m_sceneLoaded->objects[0];
-      ModelLoading::Texture& textures = m_sceneLoaded->textureMap[0];
+      ModelLoading::Texture& diffuse_texture = m_sceneLoaded->diffuseTextureMap[0];
+      ModelLoading::Texture& normal_texture = m_sceneLoaded->normalTextureMap[0];
       ModelLoading::MaterialResource& material = m_sceneLoaded->materialMap[0];
       ModelLoading::Model& model = m_sceneLoaded->modelMap[0];
       descriptorSetCommandList->SetDescriptorHeaps(1, m_descriptorHeap.GetAddressOf());
@@ -1022,8 +1025,8 @@ void D3D12RaytracingSimpleLighting::DoRaytracing()
       commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::IndexBuffersSlot, model.indices.gpuDescriptorHandle);
       commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::InfoBuffersSlot, objectInScene.info_resource.d3d12_resource.gpuDescriptorHandle);
       commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::OutputViewSlot, m_raytracingOutputResourceUAVGpuDescriptor);
-      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, textures.texBuffer.gpuDescriptorHandle);
-      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::NormalTextureSlot, textures.texBuffer.gpuDescriptorHandle);
+      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::TextureSlot, diffuse_texture.texBuffer.gpuDescriptorHandle);
+      commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::NormalTextureSlot, normal_texture.texBuffer.gpuDescriptorHandle);
       commandList->SetComputeRootDescriptorTable(GlobalRootSignatureParams::MaterialBuffersSlot, material.d3d12_material_resource.gpuDescriptorHandle);
     };
 

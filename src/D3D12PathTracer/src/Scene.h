@@ -19,7 +19,8 @@ class Scene {
 public:
   ifstream fp_in;
   int loadMaterial(string materialid);
-  int loadTexture(string texid);
+  int loadDiffuseTexture(string texid);
+  int loadNormalTexture(string texid);
   int loadModel(string modelid);
   int loadObject(string objectid);
   int loadCamera();
@@ -74,7 +75,8 @@ public:
   D3D12RaytracingSimpleLighting *programState;
 
   std::map<int, ModelLoading::Model> modelMap;
-  std::map<int, ModelLoading::Texture> textureMap;
+  std::map<int, ModelLoading::Texture> diffuseTextureMap;
+  std::map<int, ModelLoading::Texture> normalTextureMap;
   std::map<int, ModelLoading::MaterialResource> materialMap;
 
   ModelLoading::Camera camera;

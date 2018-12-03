@@ -8,11 +8,20 @@ path src/objects/Chromie.obj
 MODEL 2
 path src/objects/wahoo.obj
 
-TEXTURE 0
+MODEL 3
+path src/objects/Cerberus.obj
+
+DIFFUSE_TEXTURE 0
 path src/textures/chromie.jpg
 
-TEXTURE 1
+DIFFUSE_TEXTURE 1
 path src/textures/wahoo.bmp
+
+DIFFUSE_TEXTURE 2
+path src/textures/Cerberus/Cerberus.png
+
+NORMAL_TEXTURE 0
+path src/textures/Cerberus/Cerberus_N.png
 
 // Emissive material (light)
 MATERIAL 0
@@ -146,13 +155,13 @@ scale       0.2 0.2 0.2
 
 // Wa boi
 OBJECT 7
-model 0
-albedo_tex 1
-normal_tex -1
-material 5
+model 3
+albedo_tex 2
+normal_tex 0
+material -1
 trans       0 0 3
-rotat       0 45 20
-scale       1 1 1
+rotat       0 0 0
+scale       5 5 5
 
 CAMERA
 resolution         800 800

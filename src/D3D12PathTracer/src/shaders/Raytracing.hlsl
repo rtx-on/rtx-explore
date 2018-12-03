@@ -29,7 +29,7 @@ ByteAddressBuffer Indices[] : register(t0, space2);
 ConstantBuffer<Info> infos[] : register(b0, space3);
 ConstantBuffer<Material> materials[] : register(b0, space4);
 Texture2D text[] : register(t0, space5);
-Texture2D norm_text[] : register(t0, space6);
+Texture2D normal_text[] : register(t0, space6);
 SamplerState s1 : register(s0);
 SamplerState s2 : register(s1);
 
@@ -420,7 +420,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	uint triangleIndexStride = indicesPerTriangle * indexSizeInBytes;
 	uint baseIndex = PrimitiveIndex() * triangleIndexStride;
 
-    float hitType = emittance ? 1 : 0; // 1 is light, 0 is not
+        float hitType = emittance ? 1 : 0; // 1 is light, 0 is not
 
 	// Load up 3 16 bit indices for the triangle.
 	const uint3 indices = Indices[model_offset].Load3(baseIndex);
@@ -432,19 +432,28 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 		Vertices[model_offset][indices[2]].normal
 	};
 
+        // Compute the triangle's normal.
+	// This is redundant and done for illustration purposes 
+	// as all the per-vertex normals are the same and match triangle's normal in this sample. 
+        float3 triangleNormal = HitAttribute(vertexNormals, attr);
+
 	float2 vertexUVs[3] = {
 		Vertices[model_offset][indices[0]].texCoord,
 		Vertices[model_offset][indices[1]].texCoord,
 		Vertices[model_offset][indices[2]].texCoord
 	};
 
-	// Compute the triangle's normal.
-	// This is redundant and done for illustration purposes 
-	// as all the per-vertex normals are the same and match triangle's normal in this sample. 
-	float3 triangleNormal = HitAttribute(vertexNormals, attr);
-	//triangleNormal = mul(float4(triangleNormal, 1.0f), g_sceneCB.projectionToWorld).xyz;
+        float2 triangleUV = HitAttribute2D(vertexUVs, attr);
+
+        //if texture map, then sample that instead
+        if (texture_normal_offset != NULL_OFFSET)
+        {
+          triangleNormal = normal_text[texture_offset].SampleLevel(s1, triangleUV, 0);
+        }
+
+        //multiply by rotation/scale matrix to correct the normals 
 	triangleNormal = mul(float4(triangleNormal, 1.0f), rotation_matrix).xyz;
-	float2 triangleUV = HitAttribute2D(vertexUVs, attr);
+
 
 	if (reflectiveness > 0.0f && refractiveness > 0.0f) // Do both a R E F L E C C and a R E F R A C C with fresnel effects
 	{

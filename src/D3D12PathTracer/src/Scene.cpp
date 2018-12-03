@@ -55,11 +55,15 @@ Scene::Scene(string filename, D3D12RaytracingSimpleLighting* programState) : pro
 				loadModel(tokens[1]);
 				std::cout << " " << endl;
 			}
-			else if (strcmp(tokens[0].c_str(), "TEXTURE") == 0) {
-				loadTexture(tokens[1]);
+			else if (strcmp(tokens[0].c_str(), "DIFFUSE_TEXTURE") == 0) {
+				loadDiffuseTexture(tokens[1]);
 				std::cout << " " << endl;
 			}
-			else if (strcmp(tokens[0].c_str(), "OBJECT") == 0) {
+			else if (strcmp(tokens[0].c_str(), "NORMAL_TEXTURE") == 0) {
+				loadNormalTexture(tokens[1]);
+				std::cout << " " << endl;
+			}
+		        else if (strcmp(tokens[0].c_str(), "OBJECT") == 0) {
 				loadObject(tokens[1]);
 				std::cout << " " << endl;
 			}
@@ -112,7 +116,7 @@ int Scene::loadObject(string objectid) {
 				wstr << L"----------------------------------------\n";
 				wstr << L"Linking albedo texture...\n";
 				OuputAndReset(wstr);
-				newObject.textures.albedoTex = &(textureMap.find(texId)->second);
+				newObject.textures.albedoTex = &(diffuseTextureMap.find(texId)->second);
 			}
 		}
 
@@ -125,7 +129,7 @@ int Scene::loadObject(string objectid) {
 				wstr << L"----------------------------------------\n";
 				wstr << L"Linking normal texture...\n";
 				OuputAndReset(wstr);
-				newObject.textures.normalTex = &(textureMap.find(texId)->second);
+				newObject.textures.normalTex = &(normalTextureMap.find(texId)->second);
 			}
 		}
 	}
@@ -280,7 +284,7 @@ int Scene::loadModel(string modelid) {
 	return 1;
 }
 
-int Scene::loadTexture(string texid) {
+int Scene::loadDiffuseTexture(string texid) {
 	int id = atoi(texid.c_str());
 
 	std::wstringstream wstr;
@@ -367,7 +371,102 @@ int Scene::loadTexture(string texid) {
 
 	newTexture.id = id;
         std::pair<int, ModelLoading::Texture> pair(id, newTexture);
-	textureMap.insert(pair);
+	diffuseTextureMap.insert(pair);
+
+	wstr << L"Done loading TEXTURE " << id << L" !\n";
+	wstr << L"------------------------------------------------------------------------------\n";
+	OuputAndReset(wstr);
+	return 1;
+}
+
+int Scene::loadNormalTexture(string texid) {
+	int id = atoi(texid.c_str());
+
+	std::wstringstream wstr;
+	wstr << L"Loading TEXTURE " << id << L"\n";
+	wstr << L"----------------------------------------\n";
+	OuputAndReset(wstr);
+
+	ModelLoading::Texture newTexture;
+
+	string line;
+
+	//load texture
+	utilityCore::safeGetline(fp_in, line);
+	if (!line.empty() && fp_in.good()) {
+		vector<string> tokens = utilityCore::tokenizeString(line);
+
+		// Load the image from file
+		D3D12_RESOURCE_DESC& textureDesc = newTexture.textureDesc;
+		int imageBytesPerRow;
+		BYTE* imageData;
+
+		wstring tempStr = utilityCore::string2wstring(tokens[1]);
+		int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, tempStr.c_str(), imageBytesPerRow);
+
+		// make sure we have data
+		if (imageSize <= 0)
+		{
+			return false;
+		}
+
+		auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+		auto device = programState->GetDeviceResources()->GetD3DDevice();
+		ThrowIfFailed(device->CreateCommittedResource(
+			&defaultHeapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&textureDesc,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			nullptr,
+			IID_PPV_ARGS(&newTexture.texBuffer.resource)));
+
+		UINT64 textureUploadBufferSize;
+		// this function gets the size an upload buffer needs to be to upload a texture to the gpu.
+		// each row must be 256 byte aligned except for the last row, which can just be the size in bytes of the row
+		// eg. textureUploadBufferSize = ((((width * numBytesPerPixel) + 255) & ~255) * (height - 1)) + (width * numBytesPerPixel);
+		//textureUploadBufferSize = (((imageBytesPerRow + 255) & ~255) * (textureDesc.Height - 1)) + imageBytesPerRow;
+		device->GetCopyableFootprints(&textureDesc, 0, 1, 0, nullptr, nullptr, nullptr, &textureUploadBufferSize);
+
+		ID3D12Resource* textureBufferUploadHeap = programState->GetTextureBufferUploadHeap();
+		// now we create an upload heap to upload our texture to the GPU
+		ThrowIfFailed(device->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // upload heap
+			D3D12_HEAP_FLAG_NONE, // no flags
+			&CD3DX12_RESOURCE_DESC::Buffer(textureUploadBufferSize), // resource description for a buffer (storing the image data in this heap just to copy to the default heap)
+			D3D12_RESOURCE_STATE_GENERIC_READ, // We will copy the contents from this heap to the default heap above
+			nullptr,
+			IID_PPV_ARGS(&textureBufferUploadHeap)));
+
+		textureBufferUploadHeap->SetName(L"Texture Buffer Upload Resource Heap");
+
+		// store vertex buffer in upload heap
+		D3D12_SUBRESOURCE_DATA textureData = {};
+		textureData.pData = &imageData[0]; // pointer to our image data
+		textureData.RowPitch = imageBytesPerRow; // size of all our triangle vertex data
+		textureData.SlicePitch = imageBytesPerRow * textureDesc.Height; // also the size of our triangle vertex data
+
+
+		auto commandList = programState->GetDeviceResources()->GetCommandList();
+		auto commandAllocator = programState->GetDeviceResources()->GetCommandAllocator();
+
+		commandList->Reset(commandAllocator, nullptr);
+
+		// Reset the command list for the acceleration structure construction.
+		UpdateSubresources(commandList, newTexture.texBuffer.resource.Get(), textureBufferUploadHeap, 0, 0, 1, &textureData);
+
+		// transition the texture default heap to a pixel shader resource (we will be sampling from this heap in the pixel shader to get the color of pixels)
+		commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(newTexture.texBuffer.resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+
+		// Kick off texture uploading
+		programState->GetDeviceResources()->ExecuteCommandList();
+
+		// Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
+		programState->GetDeviceResources()->WaitForGpu();
+	}
+
+	newTexture.id = id;
+        std::pair<int, ModelLoading::Texture> pair(id, newTexture);
+	normalTextureMap.insert(pair);
 
 	wstr << L"Done loading TEXTURE " << id << L" !\n";
 	wstr << L"------------------------------------------------------------------------------\n";
@@ -863,7 +962,8 @@ void Scene::AllocateResourcesInDescriptorHeap()
 
   }
 
-  for (auto& texture_pair : textureMap)
+  //allocate GPU memory for textures into diffuse/normals
+  for (auto& texture_pair : diffuseTextureMap)
   {
     auto &newTexture = texture_pair.second;
     UINT descriptorIndex = programState->AllocateDescriptor(&newTexture.texBuffer.cpuDescriptorHandle);
@@ -879,4 +979,22 @@ void Scene::AllocateResourcesInDescriptorHeap()
     // used to bind to the root signature
     newTexture.texBuffer.gpuDescriptorHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(programState->GetDescriptorHeap()->GetGPUDescriptorHandleForHeapStart(), descriptorIndex, *programState->GetDescriptorSize());
   }
+
+  for (auto& texture_pair : normalTextureMap)
+  {
+    auto &newTexture = texture_pair.second;
+    UINT descriptorIndex = programState->AllocateDescriptor(&newTexture.texBuffer.cpuDescriptorHandle);
+
+    // create SRV descriptor
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Format = newTexture.textureDesc.Format;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = 1;
+    device->CreateShaderResourceView(newTexture.texBuffer.resource.Get(), &srvDesc, newTexture.texBuffer.cpuDescriptorHandle);
+
+    // used to bind to the root signature
+    newTexture.texBuffer.gpuDescriptorHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(programState->GetDescriptorHeap()->GetGPUDescriptorHandleForHeapStart(), descriptorIndex, *programState->GetDescriptorSize());
+  }
+
 }
