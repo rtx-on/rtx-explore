@@ -1,11 +1,15 @@
+//////////////// SCENE MODEL FOR BOX
 MODEL 0
-path src/objects/wahoo.obj
-
-MODEL 1
 path src/objects/crate.obj
 
-TEXTURE 0
-path src/textures/wahoo.bmp
+MODEL 1
+path src/objects/dragon.obj
+
+DIFFUSE_TEXTURE 0
+path src/textures/chromie.jpg
+
+NORMAL_TEXTURE 0
+path src/textures/Cerberus/Cerberus_N.png
 
 // Emissive material (light)
 MATERIAL 0
@@ -17,19 +21,109 @@ REFR        0
 REFRIOR     0
 EMITTANCE   5
 
-// Refractive Material (Glass)
+// Diffuse white
 MATERIAL 1
-RGB         .35 .35 .85
-SPECRGB     1 1 1
+RGB         .98 .98 .98
+SPECRGB     0 0 0
 SPECEX      0
 REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Diffuse red
+MATERIAL 2
+RGB         .85 .35 .35
+SPECRGB     0 0 0
+SPECEX      0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Diffuse green
+MATERIAL 3
+RGB         .35 .85 .35
+SPECRGB     0 0 0
+SPECEX      0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Diffuse blue
+MATERIAL 4
+RGB         .35 .35 .85
+SPECRGB     0 0 0
+SPECEX      0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Dispersive material (glass)
+MATERIAL 5
+RGB         1 1 1
+SPECRGB     0 0 0
+SPECEX      0
+REFL        1
 REFR        1
 REFRIOR     0
 EMITTANCE   0
 
-// Light
+// Ceiling
 OBJECT 0
-model 1
+model 0
+albedo_tex -1
+normal_tex -1
+material 1
+trans       0 7 0
+rotat       0 0 0
+scale       5 0.5 5
+
+// Floor
+OBJECT 1
+model 0
+albedo_tex -1
+normal_tex -1
+material 1
+trans       0 1 0
+rotat       0 0 0
+scale       5 0.4 5
+
+// Back wall
+OBJECT 2
+model 0
+albedo_tex -1
+normal_tex -1
+material 1
+trans       0 3.5 5
+rotat       0 0 0
+scale       5 6.5 0.5
+
+// Left wall
+//OBJECT 3
+//model 0
+//albedo_tex -1
+//normal_tex -1
+//material 3
+//trans       5 3.5 0
+//rotat       0 0 0
+//scale       .04 6.5 5
+
+// Right wall
+OBJECT 3
+model 0
+albedo_tex -1
+normal_tex -1
+material 2
+trans       -5 3.5 0
+rotat       0 0 0
+scale       .04 6.5 5
+
+// Light
+OBJECT 4
+model 0
 albedo_tex -1
 normal_tex -1
 material 0
@@ -38,11 +132,22 @@ rotat       0 0 0
 scale       2 .3 2
 
 // Dragon
-OBJECT 1
-model 0
+OBJECT 5
+model 1
 albedo_tex -1
 normal_tex -1
-material 0
-trans       0 0 0
-rotat       0 0 0
-scale       1 1 1
+material 5
+trans       0 3.5 0
+rotat       0 270 0
+scale       6 6 6
+
+CAMERA
+resolution         800 800
+fovy        45
+iterations  5000
+depth       30
+eye         0.0 2 -5
+lookat      0 0 1
+up          0 1 0
+focal		10
+lensr		0.5
