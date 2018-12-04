@@ -12,6 +12,7 @@ namespace ModelLoading {
 // Holds the buffer that contains the texture data
 struct Texture {
   int id;
+  std::string name{};
 
   D3DBuffer texBuffer;
   ID3D12Resource *textureBufferUploadHeap;
@@ -28,6 +29,7 @@ struct MaterialResource
 {
   Material material;
   int id;
+  std::string name{};
   D3DBuffer d3d12_material_resource;
 };
 
@@ -40,6 +42,7 @@ struct InfoResource
 // Holds the vertex and index buffer (triangulated) for a loaded model
 struct Model {
   int id;
+  std::string name{};
 
   D3DBuffer indices;
   D3DBuffer vertices;
@@ -93,6 +96,7 @@ public:
   FLOAT *getTransform3x4();
 
   int id;
+  std::string name{};
 
   Model *model;
   TextureBundle textures;

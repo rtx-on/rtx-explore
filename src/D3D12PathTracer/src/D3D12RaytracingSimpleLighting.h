@@ -201,4 +201,11 @@ private:
     void UpdateForSizeChange(UINT clientWidth, UINT clientHeight);
     void CopyRaytracingOutputToBackbuffer();
     void CalculateFrameStats();
+
+    //IMGUI stuff
+    ComPtr<ID3D12DescriptorHeap> g_pd3dSrvDescHeap;
+    void InitImGUI();
+    void StartFrameImGUI();
+    void RenderImGUI();
+    void ShutdownImGUI();
 };

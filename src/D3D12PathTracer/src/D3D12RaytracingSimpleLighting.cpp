@@ -223,6 +223,8 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
 
     // Create an output 2D texture to store the raytracing result to.
     CreateRaytracingOutputResource();
+
+    InitImGUI();
 }
 
 void D3D12RaytracingSimpleLighting::SerializeAndCreateRaytracingRootSignature(D3D12_ROOT_SIGNATURE_DESC& desc, ComPtr<ID3D12RootSignature>* rootSig)
@@ -718,17 +720,7 @@ void D3D12RaytracingSimpleLighting::OnUpdate()
   }
 
   {
-    if (m_camChanged)
-    {
-      m_sceneCB[frameIndex].iteration = 1;
-    }
-    else
-    {
-      if (m_sceneCB[frameIndex].iteration)
-      {
-        m_sceneCB[frameIndex].iteration += 1;
-      }
-    }
+    m_sceneCB[frameIndex].iteration += 1;
   }
 }
 
@@ -826,9 +818,9 @@ void D3D12RaytracingSimpleLighting::UpdateForSizeChange(UINT width, UINT height)
 // Copy the raytracing output to the backbuffer.
 void D3D12RaytracingSimpleLighting::CopyRaytracingOutputToBackbuffer()
 {
-    auto commandList= m_deviceResources->GetCommandList();
+    auto commandList = m_deviceResources->GetCommandList();
     auto renderTarget = m_deviceResources->GetRenderTarget();
-
+    
     D3D12_RESOURCE_BARRIER preCopyBarriers[2];
     preCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST);
     preCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_raytracingOutput.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
@@ -837,10 +829,18 @@ void D3D12RaytracingSimpleLighting::CopyRaytracingOutputToBackbuffer()
     commandList->CopyResource(renderTarget, m_raytracingOutput.Get());
 
     D3D12_RESOURCE_BARRIER postCopyBarriers[2];
-    postCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT);
+    postCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
     postCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_raytracingOutput.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
     commandList->ResourceBarrier(ARRAYSIZE(postCopyBarriers), postCopyBarriers);
+
+    //Render IMGUI to screen
+    RenderImGUI();
+
+    D3D12_RESOURCE_BARRIER ImGUIBarriers[1];
+    ImGUIBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+
+    commandList->ResourceBarrier(ARRAYSIZE(ImGUIBarriers), ImGUIBarriers);
 }
 
 // Create resources that are dependent on the size of the main window.
@@ -883,6 +883,8 @@ void D3D12RaytracingSimpleLighting::ReleaseDeviceDependentResources()
 
     m_bottomLevelAccelerationStructure.Reset();
     m_topLevelAccelerationStructure.Reset();
+
+    ShutdownImGUI();
 }
 
 void D3D12RaytracingSimpleLighting::RecreateD3D()
@@ -907,21 +909,32 @@ void D3D12RaytracingSimpleLighting::OnRender()
         return;
     }
 
+    auto device = m_deviceResources->GetD3DDevice();
+    auto commandList = m_deviceResources->GetCommandList();
+
+    //Draw ImGUI
+    StartFrameImGUI();
+
     m_deviceResources->Prepare();
+
+    commandList->RSSetViewports(1, &m_deviceResources->GetScreenViewport());
+    commandList->RSSetScissorRects(1, &m_deviceResources->GetScissorRect());
+    commandList->OMSetRenderTargets(1, &m_deviceResources->GetRenderTargetView(), FALSE, nullptr);
+
     DoRaytracing();
     CopyRaytracingOutputToBackbuffer();
 
-    //TODO fix this better
     if (m_camChanged)
     {
-      auto device = m_deviceResources->GetD3DDevice();
-      auto commandList = m_deviceResources->GetCommandList();
+      //reset iterations
+      for (int i = 0; i < FrameCount; i++)
+      {
+        m_sceneCB[i].iteration = 1;
+      }
 
       static bool give_epilepsy = true;
       if (give_epilepsy)
       {
-        // std::vector<float> epilepsy_cure_pill(m_width * m_height);
-        // AllocateUploadBuffer(device, epilepsy_cure_pill.data(), epilepsy_cure_pill.size(), &cure_epilepsy, L"Cure Epilepsy");
         auto uavDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R32G32B32A32_FLOAT, m_width, m_height, 1, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
         
         auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
@@ -944,6 +957,8 @@ void D3D12RaytracingSimpleLighting::OnRender()
 
       commandList->ResourceBarrier(ARRAYSIZE(postCopyBarriers), postCopyBarriers);
       m_camChanged = false;
+
+      m_deviceResources->WaitForGpu();
     }
 
     m_deviceResources->Present(D3D12_RESOURCE_STATE_PRESENT);
@@ -1093,6 +1108,10 @@ UINT D3D12RaytracingSimpleLighting::CreateBufferSRV(D3DBuffer* buffer, UINT numE
 
 void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 {
+  if(ImGui::GetIO().WantCaptureMouse || ImGui::GetIO().WantCaptureKeyboard || ImGui::GetIO().WantTextInput)
+  {
+    return;
+  }
 	// Store previous values.
 	RaytracingAPI previousRaytracingAPI = m_raytracingAPI;
 	bool previousForceComputeFallback = m_forceComputeFallback;
@@ -1242,4 +1261,279 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		// Raytracing API selection changed, recreate everything.
 		RecreateD3D();
 	}
+}
+
+void D3D12RaytracingSimpleLighting::InitImGUI()
+{
+  auto device = m_deviceResources->GetD3DDevice();
+  // #IMGUI Setup ImGui binding
+  {
+    {
+      D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+      desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+      desc.NumDescriptors = 1;
+      desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+      ThrowIfFailed(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&g_pd3dSrvDescHeap)));
+    }
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
+    ImGui_ImplDX12_Init(Win32Application::GetHwnd(), FrameCount, device, DXGI_FORMAT_R8G8B8A8_UNORM,
+      g_pd3dSrvDescHeap->GetCPUDescriptorHandleForHeapStart(),
+      g_pd3dSrvDescHeap->GetGPUDescriptorHandleForHeapStart());
+
+    // Setup style
+    ImGui::StyleColorsDark();
+    ImGui_ImplDX12_CreateDeviceObjects();
+  }
+}
+
+void D3D12RaytracingSimpleLighting::StartFrameImGUI()
+{
+  auto ShowMainMenuBar = [&]()
+  {
+    if (ImGui::BeginMainMenuBar())
+    {
+      if (ImGui::BeginMenu("File"))
+      {
+        ImGui::MenuItem("(dummy menu)", NULL, false, false);
+        if (ImGui::MenuItem("New")) {}
+        if (ImGui::MenuItem("Open", "Ctrl+O")) {}
+        if (ImGui::BeginMenu("Open Recent"))
+        {
+          ImGui::MenuItem("fish_hat.c");
+          ImGui::MenuItem("fish_hat.inl");
+          ImGui::MenuItem("fish_hat.h");
+          if (ImGui::BeginMenu("More.."))
+          {
+            ImGui::MenuItem("Hello");
+            ImGui::MenuItem("Sailor");
+            if (ImGui::BeginMenu("Recurse.."))
+            {
+              ImGui::EndMenu();
+            }
+            ImGui::EndMenu();
+          }
+          ImGui::EndMenu();
+        }
+        if (ImGui::MenuItem("Save", "Ctrl+S")) {}
+        if (ImGui::MenuItem("Save As..")) {}
+        ImGui::Separator();
+        if (ImGui::BeginMenu("Options"))
+        {
+          static bool enabled = true;
+          ImGui::MenuItem("Enabled", "", &enabled);
+          ImGui::BeginChild("child", ImVec2(0, 60), true);
+          for (int i = 0; i < 10; i++)
+            ImGui::Text("Scrolling Text %d", i);
+          ImGui::EndChild();
+          static float f = 0.5f;
+          static int n = 0;
+          static bool b = true;
+          ImGui::SliderFloat("Value", &f, 0.0f, 1.0f);
+          ImGui::InputFloat("Input", &f, 0.1f);
+          ImGui::Combo("Combo", &n, "Yes\0No\0Maybe\0\0");
+          ImGui::Checkbox("Check", &b);
+          ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Colors"))
+        {
+          float sz = ImGui::GetTextLineHeight();
+          for (int i = 0; i < ImGuiCol_COUNT; i++)
+          {
+            const char* name = ImGui::GetStyleColorName((ImGuiCol)i);
+            ImVec2 p = ImGui::GetCursorScreenPos();
+            ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + sz, p.y + sz), ImGui::GetColorU32((ImGuiCol)i));
+            ImGui::Dummy(ImVec2(sz, sz));
+            ImGui::SameLine();
+            ImGui::MenuItem(name);
+          }
+          ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Disabled", false)) // Disabled
+        {
+          IM_ASSERT(0);
+        }
+        if (ImGui::MenuItem("Checked", NULL, true)) {}
+        if (ImGui::MenuItem("Quit", "Alt+F4")) {}
+        ImGui::EndMenu();
+      }
+      if (ImGui::BeginMenu("Edit"))
+      {
+        if (ImGui::MenuItem("Undo", "CTRL+Z")) {}
+        if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
+        ImGui::Separator();
+        if (ImGui::MenuItem("Cut", "CTRL+X")) {}
+        if (ImGui::MenuItem("Copy", "CTRL+C")) {}
+        if (ImGui::MenuItem("Paste", "CTRL+V")) {}
+        ImGui::EndMenu();
+      }
+      ImGui::EndMainMenuBar();
+    }
+  };
+
+  auto FormatIdAndName = [&](std::string type, auto& object)
+  {
+    return std::string(utilityCore::stringAndId(type, object.id) + " | " + object.name);
+  };
+
+  auto FindIdFromFormat = [&](std::string format)
+  {
+    auto found_first_space = format.find(" ");
+    found_first_space++;
+    auto found_second_space = format.find(" ", found_first_space);
+    int id = 0;
+    try
+    {
+      id = std::stol(format.substr(found_first_space, found_second_space - found_first_space));
+    }
+    catch(std::exception& e)
+    {
+      return 0;
+    }
+    return id;
+  };
+
+  auto ShowHelpMarker = [&](const char* desc)
+  {
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered())
+    {
+      ImGui::BeginTooltip();
+      ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+      ImGui::TextUnformatted(desc);
+      ImGui::PopTextWrapPos();
+      ImGui::EndTooltip();
+    }
+  };
+
+  auto ResetPathTracing = [&]()
+  {
+    m_camChanged = true;
+  };
+
+#define NAME_LIMIT (32)
+
+  auto ShowMaterial = [&](ModelLoading::MaterialResource& material_resource)
+  {
+    if (ImGui::TreeNode(FormatIdAndName("Material", material_resource).c_str()))
+    {
+      std::vector<char> material_name(NAME_LIMIT);
+      std::copy(std::begin(material_resource.name), std::end(material_resource.name), std::begin(material_name));
+      ImGui::InputText("Material name", material_name.data(), NAME_LIMIT);
+
+      ImGui::ColorEdit3("Diffuse", &material_resource.material.diffuse.x);
+      ImGui::SameLine(); ShowHelpMarker("Click on the colored square to open a color picker.\nRight-click on the colored square to show options.\nCTRL+click on individual component to input value.\n");
+      ImGui::ColorEdit3("Specular", &material_resource.material.specular.x);
+      ImGui::SliderFloat("Specular Exponent", &material_resource.material.specularExp, 0.0f, 10.0f);
+      ImGui::SliderFloat("Reflectiveness", &material_resource.material.reflectiveness, 0.0f, 10.0f);
+      ImGui::SliderFloat("Refractiveness", &material_resource.material.refractiveness, 0.0f, 10.0f);
+      ImGui::SliderFloat("Index of Refraction", &material_resource.material.eta, 0.0f, 10.0f);
+      ImGui::SliderFloat("Emittance", &material_resource.material.emittance, 0.0f, 10.0f);
+      if(ImGui::TreeNode("Resource"))
+      {
+        ImGui::Text("Resource Pointer: %p", material_resource.d3d12_material_resource.resource.GetAddressOf());
+        ImGui::Text("GPU handle: %p", material_resource.d3d12_material_resource.gpuDescriptorHandle.ptr);
+        ImGui::Text("CPU handle: %p", material_resource.d3d12_material_resource.cpuDescriptorHandle.ptr);
+        ImGui::TreePop();
+      }
+      if(ImGui::Button("Update"))
+      {
+        material_resource.name = material_name.data();
+
+        void* data;
+        material_resource.d3d12_material_resource.resource->Map(0, nullptr, &data);
+        memcpy(data, &material_resource.material, sizeof(Material));
+        material_resource.d3d12_material_resource.resource->Unmap(0, nullptr);
+
+        ResetPathTracing();
+      }
+
+      ImGui::TreePop();
+    }
+  };
+
+  auto ShowHeaders = [&]()
+  {
+    ImGui::Spacing();
+    if (ImGui::CollapsingHeader("Objects"))
+    {
+      for(auto& object : m_sceneLoaded->objects)
+      {
+        if (ImGui::TreeNode(FormatIdAndName("Object", object).c_str()))
+        {
+          std::vector<std::pair<std::string, ModelLoading::MaterialResource&>> material_names;
+          material_names.reserve(m_sceneLoaded->materialMap.size());
+          for(auto& material_pair : m_sceneLoaded->materialMap)
+          {
+            auto& material = material_pair.second;
+            material_names.emplace_back(FormatIdAndName("Material", material), material);
+          }
+
+          if (ImGui::Button("Select..."))
+            ImGui::OpenPopup("material_select");
+
+          if (ImGui::BeginPopup("material_select"))
+          {
+            ImGui::Text("Material");
+            ImGui::Separator();
+            for (std::size_t i = 0; i < material_names.size(); i++)
+            {
+              if (ImGui::Selectable(material_names[i].first.data()))
+              {
+                object.material = &material_names[i].second;
+                object.info_resource.info.material_offset = object.material->id;
+
+                void* mapped_data;
+                object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
+                memcpy(mapped_data, &object.info_resource.info, sizeof(Info));
+                object.info_resource.d3d12_resource.resource->Unmap(0, nullptr);
+              }
+            }
+
+            ImGui::EndPopup();
+          }
+          if (object.material != nullptr)
+          {
+            ShowMaterial(*object.material);
+          }
+
+          ImGui::TreePop();
+        }
+      }
+    }
+  };
+
+  auto commandList = m_deviceResources->GetCommandList();
+  ImGui_ImplDX12_NewFrame(commandList);
+
+  bool resize = true;
+  ImGui::Begin("DXR Path Tracer", &resize, ImGuiWindowFlags_AlwaysAutoResize);
+
+  ImGui::Text("dear imgui says hello. (%s)", IMGUI_VERSION);
+
+  ShowHeaders();
+
+  ImGui::End();
+  bool a = true;
+  ImGui::ShowDemoWindow(&a);
+}
+
+void D3D12RaytracingSimpleLighting::RenderImGUI()
+{
+  auto commandList = m_deviceResources->GetCommandList();
+
+  std::vector<ID3D12DescriptorHeap*> heaps = { g_pd3dSrvDescHeap.Get() };
+  commandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
+  ImGui::Render();
+  ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData());
+}
+
+void D3D12RaytracingSimpleLighting::ShutdownImGUI()
+{
+  g_pd3dSrvDescHeap.Reset();
+  ImGui_ImplDX12_Shutdown();
+  ImGui::DestroyContext();
 }

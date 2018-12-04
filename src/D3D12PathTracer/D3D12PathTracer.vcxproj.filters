@@ -104,6 +104,16 @@
     <ClInclude Include="src\Scene.h" />
     <ClInclude Include="src\Utilities.h" />
     <ClInclude Include="src\Model.h" />
+    <ClInclude Include="src\imgui\imconfig.h" />
+    <ClInclude Include="src\imgui\imgui.h" />
+    <ClInclude Include="src\imgui\imgui_impl_dx12.h" />
+    <ClInclude Include="src\imgui\imgui_internal.h" />
+    <ClInclude Include="src\imgui\imstb_rectpack.h" />
+    <ClInclude Include="src\imgui\imstb_textedit.h" />
+    <ClInclude Include="src\imgui\imstb_truetype.h" />
+    <ClInclude Include="src\imgui\stb_rect_pack.h" />
+    <ClInclude Include="src\imgui\stb_textedit.h" />
+    <ClInclude Include="src\imgui\stb_truetype.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\D3D12RaytracingSimpleLighting.cpp">
@@ -131,6 +141,10 @@
     <ClCompile Include="src\Scene.cpp" />
     <ClCompile Include="src\Utilities.cpp" />
     <ClCompile Include="src\Model.cpp" />
+    <ClCompile Include="src\imgui\imgui.cpp" />
+    <ClCompile Include="src\imgui\imgui_demo.cpp" />
+    <ClCompile Include="src\imgui\imgui_draw.cpp" />
+    <ClCompile Include="src\imgui\imgui_impl_dx12.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

@@ -25,11 +25,11 @@ public:
   void recurse_gltf(tinygltf::Model &model, tinygltf::Node &node, Callback callback);
   void parse_gltf(std::string filename);
 
-  int loadMaterial(string materialid);
+  int loadMaterial(string materialid, std::string name = "");
   int loadDiffuseTexture(string texid);
   int loadNormalTexture(string texid);
   int loadModel(string modelid);
-  int loadObject(string objectid);
+  int loadObject(string objectid, std::string name = "");
   int loadCamera();
 
   D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC &GetTopLevelDesc();

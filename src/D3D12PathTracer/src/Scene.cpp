@@ -1,6 +1,3 @@
-#pragma once
-
-#include <iostream>
 #include "stdafx.h"
 #include "Scene.h"
 #include "Utilities.h"
@@ -130,8 +127,14 @@ Scene::Scene(string filename, D3D12RaytracingSimpleLighting* programState) : pro
 		  utilityCore::safeGetline(fp_in, line);
 		  if (!line.empty()) {
 			  vector<string> tokens = utilityCore::tokenizeString(line);
+                          std::string name{};
+                          if (tokens.size() == 3)
+                          {
+                            name = tokens[2];
+                          }
 			  if (strcmp(tokens[0].c_str(), "MATERIAL") == 0) {
-				  loadMaterial(tokens[1]);
+                      
+				  loadMaterial(tokens[1], name);
 				  std::cout << " " << endl;
 			  }
 			  else if (strcmp(tokens[0].c_str(), "MODEL") == 0) {
@@ -147,7 +150,7 @@ Scene::Scene(string filename, D3D12RaytracingSimpleLighting* programState) : pro
 				  std::cout << " " << endl;
 			  }
 		          else if (strcmp(tokens[0].c_str(), "OBJECT") == 0) {
-				  loadObject(tokens[1]);
+				  loadObject(tokens[1], name);
 				  std::cout << " " << endl;
 			  }
 		  }
@@ -588,7 +591,7 @@ void Scene::parse_gltf(std::string filename)
   objects.emplace_back(std::move(new_object));
 }
 
-int Scene::loadObject(string objectid) {
+int Scene::loadObject(string objectid, std::string name) {
 	int id = atoi(objectid.c_str());
 
 	std::wstringstream wstr;
@@ -596,6 +599,7 @@ int Scene::loadObject(string objectid) {
 	OuputAndReset(wstr);
 
 	ModelLoading::SceneObject newObject;
+        newObject.name = name;
 
 	string line;
 
@@ -716,6 +720,7 @@ int Scene::loadModel(string modelid) {
 	utilityCore::safeGetline(fp_in, line);
 	if (!line.empty() && fp_in.good()) {
 		vector<string> tokens = utilityCore::tokenizeString(line);
+                newModel.name = tokens[1];
 
 		// load mesh here
 		std::vector<tinyobj::shape_t> shapes;
@@ -817,14 +822,15 @@ int Scene::loadDiffuseTexture(string texid) {
 	utilityCore::safeGetline(fp_in, line);
 	if (!line.empty() && fp_in.good()) {
 		vector<string> tokens = utilityCore::tokenizeString(line);
+                newTexture.name = tokens[1];
 
 		// Load the image from file
 		D3D12_RESOURCE_DESC& textureDesc = newTexture.textureDesc;
 		int imageBytesPerRow;
 		BYTE* imageData;
 
-		wstring tempStr = utilityCore::string2wstring(tokens[1]);
-		int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, tempStr.c_str(), imageBytesPerRow);
+		wstring path = utilityCore::string2wstring(tokens[1]);
+		int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, path.c_str(), imageBytesPerRow);
 
 		// make sure we have data
 		if (imageSize <= 0)
@@ -862,14 +868,15 @@ int Scene::loadNormalTexture(string texid) {
 	utilityCore::safeGetline(fp_in, line);
 	if (!line.empty() && fp_in.good()) {
 		vector<string> tokens = utilityCore::tokenizeString(line);
+                newTexture.name = tokens[1];
 
 		// Load the image from file
 		D3D12_RESOURCE_DESC& textureDesc = newTexture.textureDesc;
 		int imageBytesPerRow;
 		BYTE* imageData;
 
-		wstring tempStr = utilityCore::string2wstring(tokens[1]);
-		int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, tempStr.c_str(), imageBytesPerRow);
+		wstring path = utilityCore::string2wstring(tokens[1]);
+		int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, path.c_str(), imageBytesPerRow);
 
 		// make sure we have data
 		if (imageSize <= 0)
@@ -891,7 +898,7 @@ int Scene::loadNormalTexture(string texid) {
 	return 1;
 }
 
-int Scene::loadMaterial(string matid) {
+int Scene::loadMaterial(string matid, std::string name) {
 	int id = atoi(matid.c_str());
 
 	std::wstringstream wstr;
@@ -900,6 +907,7 @@ int Scene::loadMaterial(string matid) {
 	OuputAndReset(wstr);
 
 	ModelLoading::MaterialResource newMat;
+        newMat.name = name;
 	string line;
 
 	// LOAD RGB
