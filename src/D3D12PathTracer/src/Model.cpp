@@ -31,7 +31,6 @@ D3D12_RAYTRACING_GEOMETRY_DESC& Model::GetGeomDesc()
 
 D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC& Model::GetBottomLevelBuildDesc()
 {
-  
     if (!bottom_level_build_desc_allocated)
     {
       D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS &bottomLevelInputs =

@@ -47,6 +47,13 @@ struct Model {
   D3DBuffer indices;
   D3DBuffer vertices;
 
+  //ImGUI stuff
+  std::vector<Vertex> vertices_vec;
+  std::vector<Index> indices_vec;
+  //line vertex buffer is on
+  int vertex_line = 0;
+  int indices_line = 0;
+
   D3D12_RAYTRACING_GEOMETRY_DESC& GetGeomDesc();
   D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC &GetBottomLevelBuildDesc();
 

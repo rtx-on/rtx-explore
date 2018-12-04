@@ -1432,29 +1432,109 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       std::copy(std::begin(model.name), std::end(model.name), std::begin(model_name));
       ImGui::InputText("Model name", model_name.data(), NAME_LIMIT);
 
-      static int line = 50;
-      bool goto_line = ImGui::Button("Goto");
-      ImGui::SameLine();
-      ImGui::PushItemWidth(100);
-      goto_line |= ImGui::InputInt("##Line", &line, 0, 0, ImGuiInputTextFlags_EnterReturnsTrue);
-      ImGui::PopItemWidth();
-
+      if (ImGui::TreeNode("Vertices"))
       {
-        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
-        ImGui::BeginChild("Child2", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
-        ImGui::Columns(3);
-        for (int i = 0; i < 100; i++)
-        {
-          ImGui::Text("%04d: scrollable region", i);
-          if (goto_line && line == i)
-            ImGui::SetScrollHere();
-        }
-        ImGui::NextColumn();
+        int line_offset = 10;
+        ImGui::PushItemWidth(100);
+        ImGui::InputInt("##Line", &model.vertex_line, 0, 0, 0);
+        ImGui::SameLine();
+        ImGui::SliderInt("##Line2", &model.vertex_line, 0, model.vertices_vec.size());
+        ImGui::PopItemWidth();
 
-        if (goto_line && line >= 100)
-          ImGui::SetScrollHere();
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
+        ImGui::BeginChild("Child2", ImVec2(600, 0), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar);
+        ImGui::Columns(9);
+
+        int begin = model.vertex_line - line_offset;
+        begin = begin >= 0 ? begin : 0;
+
+        int end = model.vertex_line + line_offset;
+        end = end >= model.vertices_vec.size() ? model.vertices_vec.size() - 1 : end;
+
+        //header
+        ImGui::Text("Index");
+        ImGui::NextColumn();
+        ImGui::Text("Vertex");
+        ImGui::NextColumn();
+        ImGui::NextColumn();
+        ImGui::NextColumn();
+        ImGui::Text("Normal");
+        ImGui::NextColumn();
+        ImGui::NextColumn();
+        ImGui::NextColumn();
+        ImGui::Text("UV");
+        ImGui::NextColumn();
+        ImGui::NextColumn();
+        ImGui::Separator();
+
+        //contents
+        for (std::size_t i = begin; i < end; i++)
+        {
+          ImGui::Text("%d", i);
+          ImGui::NextColumn();
+          const auto& vertex = model.vertices_vec[i];
+          ImGui::Text("%.2f", vertex.position.x);
+          ImGui::NextColumn();
+          ImGui::Text("%.2f", vertex.position.y);
+          ImGui::NextColumn();
+          ImGui::Text("%.2f", vertex.position.z);
+          ImGui::NextColumn();
+          ImGui::Text("%.2f", vertex.normal.x);
+          ImGui::NextColumn();
+          ImGui::Text("%.2f", vertex.normal.y);
+          ImGui::NextColumn();
+          ImGui::Text("%.2f", vertex.normal.z);
+          ImGui::NextColumn();
+          ImGui::Text("%.2f", vertex.texCoord.x);
+          ImGui::NextColumn();
+          ImGui::Text("%.2f", vertex.texCoord.y);
+          ImGui::NextColumn();
+        }
+
         ImGui::EndChild();
         ImGui::PopStyleVar();
+        ImGui::TreePop();
+      }
+
+      if (ImGui::TreeNode("Indices"))
+      {
+        int line_offset = 10;
+        ImGui::PushItemWidth(100);
+        ImGui::InputInt("##Line", &model.indices_line, 0, 0, 0);
+        ImGui::SameLine();
+        ImGui::SliderInt("##Line2", &model.indices_line, 0, model.indices_vec.size());
+        ImGui::PopItemWidth();
+
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
+        ImGui::BeginChild("Child2", ImVec2(600, 0), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar);
+        ImGui::Columns(2);
+
+        int begin = model.indices_line - line_offset;
+        begin = begin >= 0 ? begin : 0;
+
+        int end = model.indices_line + line_offset;
+        end = end >= model.indices_vec.size() ? model.indices_vec.size() - 1 : end;
+
+        //header
+        ImGui::Text("Index");
+        ImGui::NextColumn();
+        ImGui::Text("Index Value");
+        ImGui::NextColumn();
+        ImGui::Separator();
+
+        //contents
+        for (std::size_t i = begin; i < end; i++)
+        {
+          ImGui::Text("%d", i);
+          ImGui::NextColumn();
+          const auto& index = model.indices_vec[i];
+          ImGui::Text("%d", index);
+          ImGui::NextColumn();
+        }
+
+        ImGui::EndChild();
+        ImGui::PopStyleVar();
+        ImGui::TreePop();
       }
 
       if (ImGui::TreeNode("Resource"))
@@ -1486,8 +1566,8 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       if(ImGui::TreeNode("Resource"))
       {
         ImGui::Text("Resource Pointer: %p", material_resource.d3d12_material_resource.resource.GetAddressOf());
-        ImGui::Text("GPU handle: %p", material_resource.d3d12_material_resource.gpuDescriptorHandle.ptr);
         ImGui::Text("CPU handle: %p", material_resource.d3d12_material_resource.cpuDescriptorHandle.ptr);
+        ImGui::Text("GPU handle: %p", material_resource.d3d12_material_resource.gpuDescriptorHandle.ptr);
         ImGui::TreePop();
       }
       if(ImGui::Button("Update"))
@@ -1514,45 +1594,50 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       std::copy(std::begin(diffuse_texture.name), std::end(diffuse_texture.name), std::begin(diffuse_texture_name));
       ImGui::InputText("Texture name", diffuse_texture_name.data(), NAME_LIMIT);
 
-      ImGuiIO& io = ImGui::GetIO();
-
-      auto device = m_deviceResources->GetD3DDevice();
-
-      D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-      srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-      srvDesc.Format = diffuse_texture.textureDesc.Format;
-      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-      srvDesc.Texture2D.MipLevels = 1;
-
-      const auto cpu_gpu_handles = GetNewCPUGPUHandles();
-      device->CreateShaderResourceView(diffuse_texture.texBuffer.resource.Get(), &srvDesc, cpu_gpu_handles.first);
-      ImTextureID my_tex_id = (ImTextureID)cpu_gpu_handles.second.ptr;
-      float my_tex_w = (float)diffuse_texture.textureDesc.Width;
-      float my_tex_h = (float)diffuse_texture.textureDesc.Height;
-
-      ImGui::Text("%.0fx%.0f", my_tex_w, my_tex_h);
-      ImVec2 pos = ImGui::GetCursorScreenPos();
-      ImGui::Image(my_tex_id, ImVec2(my_tex_w, my_tex_h), ImVec2(0, 0), ImVec2(1, 1), ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
-      if (ImGui::IsItemHovered())
+      if (ImGui::TreeNode("Raw Texture"))
       {
-        ImGui::BeginTooltip();
-        float region_sz = 32.0f;
-        float region_x = io.MousePos.x - pos.x - region_sz * 0.5f; if (region_x < 0.0f) region_x = 0.0f; else if (region_x > my_tex_w - region_sz) region_x = my_tex_w - region_sz;
-        float region_y = io.MousePos.y - pos.y - region_sz * 0.5f; if (region_y < 0.0f) region_y = 0.0f; else if (region_y > my_tex_h - region_sz) region_y = my_tex_h - region_sz;
-        float zoom = 4.0f;
-        ImGui::Text("Min: (%.2f, %.2f)", region_x, region_y);
-        ImGui::Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz);
-        ImVec2 uv0 = ImVec2((region_x) / my_tex_w, (region_y) / my_tex_h);
-        ImVec2 uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h);
-        ImGui::Image(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
-        ImGui::EndTooltip();
+        ImGuiIO& io = ImGui::GetIO();
+
+        auto device = m_deviceResources->GetD3DDevice();
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srvDesc.Format = diffuse_texture.textureDesc.Format;
+        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srvDesc.Texture2D.MipLevels = 1;
+
+        const auto cpu_gpu_handles = GetNewCPUGPUHandles();
+        device->CreateShaderResourceView(diffuse_texture.texBuffer.resource.Get(), &srvDesc, cpu_gpu_handles.first);
+        ImTextureID my_tex_id = (ImTextureID)cpu_gpu_handles.second.ptr;
+        float my_tex_w = (float)diffuse_texture.textureDesc.Width;
+        float my_tex_h = (float)diffuse_texture.textureDesc.Height;
+
+        ImGui::Text("%.0fx%.0f", my_tex_w, my_tex_h);
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImGui::Image(my_tex_id, ImVec2(my_tex_w, my_tex_h), ImVec2(0, 0), ImVec2(1, 1), ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
+        if (ImGui::IsItemHovered())
+        {
+          ImGui::BeginTooltip();
+          float region_sz = 32.0f;
+          float region_x = io.MousePos.x - pos.x - region_sz * 0.5f; if (region_x < 0.0f) region_x = 0.0f; else if (region_x > my_tex_w - region_sz) region_x = my_tex_w - region_sz;
+          float region_y = io.MousePos.y - pos.y - region_sz * 0.5f; if (region_y < 0.0f) region_y = 0.0f; else if (region_y > my_tex_h - region_sz) region_y = my_tex_h - region_sz;
+          float zoom = 4.0f;
+          ImGui::Text("Min: (%.2f, %.2f)", region_x, region_y);
+          ImGui::Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz);
+          ImVec2 uv0 = ImVec2((region_x) / my_tex_w, (region_y) / my_tex_h);
+          ImVec2 uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h);
+          ImGui::Image(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
+          ImGui::EndTooltip();
+        }
+
+        ImGui::TreePop();
       }
 
       if (ImGui::TreeNode("Resource"))
       {
         ImGui::Text("Resource Pointer: %p", diffuse_texture.texBuffer.resource.GetAddressOf());
-        ImGui::Text("GPU handle: %p", diffuse_texture.texBuffer.gpuDescriptorHandle.ptr);
         ImGui::Text("CPU handle: %p", diffuse_texture.texBuffer.cpuDescriptorHandle.ptr);
+        ImGui::Text("GPU handle: %p", diffuse_texture.texBuffer.gpuDescriptorHandle.ptr);
         ImGui::TreePop();
       }
 
@@ -1568,45 +1653,50 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       std::copy(std::begin(normal_texture.name), std::end(normal_texture.name), std::begin(normal_texture_name));
       ImGui::InputText("Texture name", normal_texture_name.data(), NAME_LIMIT);
 
-      ImGuiIO& io = ImGui::GetIO();
-
-      auto device = m_deviceResources->GetD3DDevice();
-
-      D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-      srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-      srvDesc.Format = normal_texture.textureDesc.Format;
-      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-      srvDesc.Texture2D.MipLevels = 1;
-
-      const auto cpu_gpu_handles = GetNewCPUGPUHandles();
-      device->CreateShaderResourceView(normal_texture.texBuffer.resource.Get(), &srvDesc, cpu_gpu_handles.first);
-      ImTextureID my_tex_id = (ImTextureID)cpu_gpu_handles.second.ptr;
-      float my_tex_w = (float)normal_texture.textureDesc.Width;
-      float my_tex_h = (float)normal_texture.textureDesc.Height;
-
-      ImGui::Text("%.0fx%.0f", my_tex_w, my_tex_h);
-      ImVec2 pos = ImGui::GetCursorScreenPos();
-      ImGui::Image(my_tex_id, ImVec2(my_tex_w, my_tex_h), ImVec2(0, 0), ImVec2(1, 1), ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
-      if (ImGui::IsItemHovered())
+      if (ImGui::TreeNode("Raw Texture"))
       {
-        ImGui::BeginTooltip();
-        float region_sz = 32.0f;
-        float region_x = io.MousePos.x - pos.x - region_sz * 0.5f; if (region_x < 0.0f) region_x = 0.0f; else if (region_x > my_tex_w - region_sz) region_x = my_tex_w - region_sz;
-        float region_y = io.MousePos.y - pos.y - region_sz * 0.5f; if (region_y < 0.0f) region_y = 0.0f; else if (region_y > my_tex_h - region_sz) region_y = my_tex_h - region_sz;
-        float zoom = 4.0f;
-        ImGui::Text("Min: (%.2f, %.2f)", region_x, region_y);
-        ImGui::Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz);
-        ImVec2 uv0 = ImVec2((region_x) / my_tex_w, (region_y) / my_tex_h);
-        ImVec2 uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h);
-        ImGui::Image(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
-        ImGui::EndTooltip();
-      }
+        ImGuiIO& io = ImGui::GetIO();
 
+        auto device = m_deviceResources->GetD3DDevice();
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srvDesc.Format = normal_texture.textureDesc.Format;
+        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srvDesc.Texture2D.MipLevels = 1;
+
+        const auto cpu_gpu_handles = GetNewCPUGPUHandles();
+        device->CreateShaderResourceView(normal_texture.texBuffer.resource.Get(), &srvDesc, cpu_gpu_handles.first);
+        ImTextureID my_tex_id = (ImTextureID)cpu_gpu_handles.second.ptr;
+        float my_tex_w = (float)normal_texture.textureDesc.Width;
+        float my_tex_h = (float)normal_texture.textureDesc.Height;
+
+        ImGui::Text("%.0fx%.0f", my_tex_w, my_tex_h);
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImGui::Image(my_tex_id, ImVec2(my_tex_w, my_tex_h), ImVec2(0, 0), ImVec2(1, 1), ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
+        if (ImGui::IsItemHovered())
+        {
+          ImGui::BeginTooltip();
+          float region_sz = 32.0f;
+          float region_x = io.MousePos.x - pos.x - region_sz * 0.5f; if (region_x < 0.0f) region_x = 0.0f; else if (region_x > my_tex_w - region_sz) region_x = my_tex_w - region_sz;
+          float region_y = io.MousePos.y - pos.y - region_sz * 0.5f; if (region_y < 0.0f) region_y = 0.0f; else if (region_y > my_tex_h - region_sz) region_y = my_tex_h - region_sz;
+          float zoom = 4.0f;
+          ImGui::Text("Min: (%.2f, %.2f)", region_x, region_y);
+          ImGui::Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz);
+          ImVec2 uv0 = ImVec2((region_x) / my_tex_w, (region_y) / my_tex_h);
+          ImVec2 uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h);
+          ImGui::Image(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
+          ImGui::EndTooltip();
+        }
+
+        ImGui::TreePop();
+      }
+      
       if (ImGui::TreeNode("Resource"))
       {
         ImGui::Text("Resource Pointer: %p", normal_texture.texBuffer.resource.GetAddressOf());
-        ImGui::Text("GPU handle: %p", normal_texture.texBuffer.gpuDescriptorHandle.ptr);
         ImGui::Text("CPU handle: %p", normal_texture.texBuffer.cpuDescriptorHandle.ptr);
+        ImGui::Text("GPU handle: %p", normal_texture.texBuffer.gpuDescriptorHandle.ptr);
         ImGui::TreePop();
       }
 
@@ -1659,6 +1749,8 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
                 object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
                 memcpy(mapped_data, &object.info_resource.info, sizeof(Info));
                 object.info_resource.d3d12_resource.resource->Unmap(0, nullptr);
+
+                ResetPathTracing();
               }
             }
 
@@ -1700,6 +1792,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
                   object.textures.albedoTex = nullptr;
                   object.info_resource.info.texture_offset = -1;
                 }
+
                 //update the resource info
                 void* mapped_data;
                 object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
@@ -1788,9 +1881,59 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
     }
   };
 
+  auto ShowMaterialHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Materials"))
+    {
+      for (auto& material_pair : m_sceneLoaded->materialMap)
+      {
+        auto& material = material_pair.second;
+        if (ImGui::TreeNode(FormatIdAndName("Material", material).c_str()))
+        {
+          ShowMaterial(material);
+          ImGui::TreePop();
+        }
+      }
+    }
+  };
+
+  auto ShowDiffuseTextureHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Diffuse Textures"))
+    {
+      for (auto& diffuse_texture_pair : m_sceneLoaded->diffuseTextureMap)
+      {
+        auto& diffuse_texture = diffuse_texture_pair.second;
+        if (ImGui::TreeNode(FormatIdAndName("Diffuse Texture", diffuse_texture).c_str()))
+        {
+          ShowDiffuseTexture(diffuse_texture);
+          ImGui::TreePop();
+        }
+      }
+    }
+  };
+
+  auto ShowNormalTextureHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Normal Textures"))
+    {
+      for (auto& normal_texture_pair : m_sceneLoaded->normalTextureMap)
+      {
+        auto& normal_texture = normal_texture_pair.second;
+        if (ImGui::TreeNode(FormatIdAndName("Normal Texture", normal_texture).c_str()))
+        {
+          ShowNormalTexture(normal_texture);
+          ImGui::TreePop();
+        }
+      }
+    }
+  };
   auto ShowHeaders = [&]()
   {
     ShowModelHeader();
+    ShowMaterialHeader();
+    ShowDiffuseTextureHeader();
+    ShowNormalTextureHeader();
     ShowObjectHeader();
   };
 
@@ -1804,7 +1947,21 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
   ImGui::Begin("DXR Path Tracer", &resize, ImGuiWindowFlags_AlwaysAutoResize);
 
   ImGui::Text("dear imgui says hello. (%s)", IMGUI_VERSION);
+  const bool browseButtonPressed = ImGui::Button("...");                          // we need a trigger boolean variable
+  static ImGuiFs::Dialog dlg;                                                     // one per dialog (and must be static)
+  const char* chosenPath = dlg.chooseFileDialog(browseButtonPressed);             // see other dialog types and the full list of arguments for advanced usage
+  if (strlen(chosenPath) > 0) {
+    // A path (chosenPath) has been chosen RIGHT NOW. However we can retrieve it later more comfortably using: dlg.getChosenPath()
+  }
+  if (strlen(dlg.getChosenPath()) > 0) {
+    ImGui::Text("Chosen file: \"%s\"", dlg.getChosenPath());
+  }
 
+  // If you want to copy the (valid) returned path somewhere, you can use something like:
+  static char myPath[ImGuiFs::MAX_PATH_BYTES];
+  if (strlen(dlg.getChosenPath()) > 0) {
+    strcpy(myPath, dlg.getChosenPath());
+  }
   ShowHeaders();
 
   ImGui::End();

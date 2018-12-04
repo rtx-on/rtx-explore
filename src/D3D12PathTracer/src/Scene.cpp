@@ -782,16 +782,12 @@ int Scene::loadModel(string modelid) {
                         //now on gpu
                         AllocateBufferOnGpu(iPtr, indices.size() * sizeof(Index), &newModel.indices.resource, utilityCore::stringAndId(L"Vertices", id));
                         AllocateBufferOnGpu(vPtr, vertices.size() * sizeof(Vertex), &newModel.vertices.resource, utilityCore::stringAndId(L"Indices", id));
-		        //AllocateUploadBuffer(device, iPtr, indices.size() * sizeof(Index), &newModel.indices.resource);
-			//AllocateUploadBuffer(device, vPtr, vertices.size() * sizeof(Vertex), &newModel.vertices.resource);
-
-			// Vertex buffer is passed to the shader along with index buffer as a descriptor table.
-			// Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
-			//UINT descriptorIndexIB = programState->CreateBufferSRV(&newModel.indices, indices.size() * sizeof(Index) / 4, 0);
-			//UINT descriptorIndexVB = programState->CreateBufferSRV(&newModel.vertices, vertices.size(), sizeof(Vertex));
-                        newModel.verticesCount = vertices.size();
+                        
+		        newModel.verticesCount = vertices.size();
                         newModel.indicesCount = indices.size();
-			//ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
+
+                        newModel.vertices_vec = std::move(vertices);
+                        newModel.indices_vec = std::move(indices);
 		}
 	}
 
