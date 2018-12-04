@@ -201,10 +201,4 @@ private:
     void UpdateForSizeChange(UINT clientWidth, UINT clientHeight);
     void CopyRaytracingOutputToBackbuffer();
     void CalculateFrameStats();
-    
-
-	void BuildMesh(std::string path);
-
-	bool CreateTexture();
-	bool CreateNormalTexture();
 };
