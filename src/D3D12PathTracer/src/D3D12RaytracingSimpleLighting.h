@@ -203,9 +203,48 @@ private:
     void CalculateFrameStats();
 
     //IMGUI stuff
+#define HEAP_DESCRIPTOR_SIZE (10000)
     ComPtr<ID3D12DescriptorHeap> g_pd3dSrvDescHeap;
     void InitImGUI();
     void StartFrameImGUI();
     void RenderImGUI();
     void ShutdownImGUI();
+
+    int current_imgui_heap_descriptor = 0;
+
+#define VERTEX_HEAP_OFFSET (1000)
+#define INDICIES_HEAP_OFFSET (2000)
+#define OBJECTS_HEAP_OFFSET (3000)
+#define MATERIALS_HEAP_OFFSET (4000)
+#define DIFFUSE_TEXTURES_HEAP_OFFSET (5000)
+#define NORMAL_TEXTURES_HEAP_OFFSET (6000)
+
+    int vertex_offset = VERTEX_HEAP_OFFSET;
+    int indices_offset = INDICIES_HEAP_OFFSET;
+    int objects_offset = OBJECTS_HEAP_OFFSET;
+    int materials_offset = MATERIALS_HEAP_OFFSET;
+    int diffuse_textures_offset = DIFFUSE_TEXTURES_HEAP_OFFSET;
+    int normal_textures_offset = NORMAL_TEXTURES_HEAP_OFFSET;
+
+public:
+    int GetHeapOffsetForVertices();
+    int GetHeapOffsetForIndices();
+    int GetHeapOffsetForObjects();
+    int GetHeapOffsetForMaterials();
+    int GetHeapOffsetForDiffuseTextures();
+    int GetHeapOffsetForNormalTextures();
+    void ResetHeapOffsets();
+
+    enum class HeapDescriptorOffsetType
+    {
+      NONE,
+      VERTEX,
+      INDICES,
+      OBJECTS,
+      MATERIALS,
+      DIFFUSE_TEXTURES,
+      NORMAL_TEXTURES
+    };
+
+    int AllocateHeapDescriptorType(D3D12_CPU_DESCRIPTOR_HANDLE* cpuDescriptor, UINT descriptorIndexToUse, HeapDescriptorOffsetType offset_type);
 };

@@ -489,7 +489,7 @@ void D3D12RaytracingSimpleLighting::CreateDescriptorHeap()
 	// 1 - norm tex
     // 1 - raytracing output texture SRV
     // 2 - bottom and top level acceleration structure fallback wrapped pointer UAVs
-    descriptorHeapDesc.NumDescriptors = 10000; 
+    descriptorHeapDesc.NumDescriptors = HEAP_DESCRIPTOR_SIZE; 
     descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     descriptorHeapDesc.NodeMask = 0;
@@ -1271,7 +1271,7 @@ void D3D12RaytracingSimpleLighting::InitImGUI()
     {
       D3D12_DESCRIPTOR_HEAP_DESC desc = {};
       desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-      desc.NumDescriptors = 1;
+      desc.NumDescriptors = HEAP_DESCRIPTOR_SIZE;
       desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
       ThrowIfFailed(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&g_pd3dSrvDescHeap)));
     }
@@ -1414,7 +1414,58 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
     m_camChanged = true;
   };
 
-#define NAME_LIMIT (32)
+  auto GetNewCPUGPUHandles = [&]
+  {
+    current_imgui_heap_descriptor++;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(g_pd3dSrvDescHeap->GetCPUDescriptorHandleForHeapStart(), current_imgui_heap_descriptor, m_descriptorSize);
+    CD3DX12_GPU_DESCRIPTOR_HANDLE gpu_handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(g_pd3dSrvDescHeap->GetGPUDescriptorHandleForHeapStart(), current_imgui_heap_descriptor, m_descriptorSize);
+    return std::make_pair(cpu_handle, gpu_handle);
+  };
+
+#define NAME_LIMIT (256)
+
+  auto ShowModel = [&](ModelLoading::Model& model)
+  {
+    if (ImGui::TreeNode(FormatIdAndName("Material", model).c_str()))
+    {
+      std::vector<char> model_name(NAME_LIMIT);
+      std::copy(std::begin(model.name), std::end(model.name), std::begin(model_name));
+      ImGui::InputText("Model name", model_name.data(), NAME_LIMIT);
+
+      static int line = 50;
+      bool goto_line = ImGui::Button("Goto");
+      ImGui::SameLine();
+      ImGui::PushItemWidth(100);
+      goto_line |= ImGui::InputInt("##Line", &line, 0, 0, ImGuiInputTextFlags_EnterReturnsTrue);
+      ImGui::PopItemWidth();
+
+      {
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
+        ImGui::BeginChild("Child2", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
+        ImGui::Columns(3);
+        for (int i = 0; i < 100; i++)
+        {
+          ImGui::Text("%04d: scrollable region", i);
+          if (goto_line && line == i)
+            ImGui::SetScrollHere();
+        }
+        ImGui::NextColumn();
+
+        if (goto_line && line >= 100)
+          ImGui::SetScrollHere();
+        ImGui::EndChild();
+        ImGui::PopStyleVar();
+      }
+
+      if (ImGui::TreeNode("Resource"))
+      {
+        ImGui::Text("Resource Pointer: %p", model.m_bottomLevelAccelerationStructure.GetAddressOf());
+        ImGui::TreePop();
+      }
+
+      ImGui::TreePop();
+    }
+  };
 
   auto ShowMaterial = [&](ModelLoading::MaterialResource& material_resource)
   {
@@ -1455,24 +1506,133 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
     }
   };
 
-  auto ShowHeaders = [&]()
+  auto ShowDiffuseTexture = [&](ModelLoading::Texture& diffuse_texture)
   {
-    ImGui::Spacing();
+    if (ImGui::TreeNode(FormatIdAndName("Diffuse Texture", diffuse_texture).c_str()))
+    {
+      std::vector<char> diffuse_texture_name(NAME_LIMIT);
+      std::copy(std::begin(diffuse_texture.name), std::end(diffuse_texture.name), std::begin(diffuse_texture_name));
+      ImGui::InputText("Texture name", diffuse_texture_name.data(), NAME_LIMIT);
+
+      ImGuiIO& io = ImGui::GetIO();
+
+      auto device = m_deviceResources->GetD3DDevice();
+
+      D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+      srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+      srvDesc.Format = diffuse_texture.textureDesc.Format;
+      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+      srvDesc.Texture2D.MipLevels = 1;
+
+      const auto cpu_gpu_handles = GetNewCPUGPUHandles();
+      device->CreateShaderResourceView(diffuse_texture.texBuffer.resource.Get(), &srvDesc, cpu_gpu_handles.first);
+      ImTextureID my_tex_id = (ImTextureID)cpu_gpu_handles.second.ptr;
+      float my_tex_w = (float)diffuse_texture.textureDesc.Width;
+      float my_tex_h = (float)diffuse_texture.textureDesc.Height;
+
+      ImGui::Text("%.0fx%.0f", my_tex_w, my_tex_h);
+      ImVec2 pos = ImGui::GetCursorScreenPos();
+      ImGui::Image(my_tex_id, ImVec2(my_tex_w, my_tex_h), ImVec2(0, 0), ImVec2(1, 1), ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
+      if (ImGui::IsItemHovered())
+      {
+        ImGui::BeginTooltip();
+        float region_sz = 32.0f;
+        float region_x = io.MousePos.x - pos.x - region_sz * 0.5f; if (region_x < 0.0f) region_x = 0.0f; else if (region_x > my_tex_w - region_sz) region_x = my_tex_w - region_sz;
+        float region_y = io.MousePos.y - pos.y - region_sz * 0.5f; if (region_y < 0.0f) region_y = 0.0f; else if (region_y > my_tex_h - region_sz) region_y = my_tex_h - region_sz;
+        float zoom = 4.0f;
+        ImGui::Text("Min: (%.2f, %.2f)", region_x, region_y);
+        ImGui::Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz);
+        ImVec2 uv0 = ImVec2((region_x) / my_tex_w, (region_y) / my_tex_h);
+        ImVec2 uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h);
+        ImGui::Image(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
+        ImGui::EndTooltip();
+      }
+
+      if (ImGui::TreeNode("Resource"))
+      {
+        ImGui::Text("Resource Pointer: %p", diffuse_texture.texBuffer.resource.GetAddressOf());
+        ImGui::Text("GPU handle: %p", diffuse_texture.texBuffer.gpuDescriptorHandle.ptr);
+        ImGui::Text("CPU handle: %p", diffuse_texture.texBuffer.cpuDescriptorHandle.ptr);
+        ImGui::TreePop();
+      }
+
+      ImGui::TreePop();
+    }
+  };
+
+  auto ShowNormalTexture = [&](ModelLoading::Texture& normal_texture)
+  {
+    if (ImGui::TreeNode(FormatIdAndName("Normal Texture", normal_texture).c_str()))
+    {
+      std::vector<char> normal_texture_name(NAME_LIMIT);
+      std::copy(std::begin(normal_texture.name), std::end(normal_texture.name), std::begin(normal_texture_name));
+      ImGui::InputText("Texture name", normal_texture_name.data(), NAME_LIMIT);
+
+      ImGuiIO& io = ImGui::GetIO();
+
+      auto device = m_deviceResources->GetD3DDevice();
+
+      D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+      srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+      srvDesc.Format = normal_texture.textureDesc.Format;
+      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+      srvDesc.Texture2D.MipLevels = 1;
+
+      const auto cpu_gpu_handles = GetNewCPUGPUHandles();
+      device->CreateShaderResourceView(normal_texture.texBuffer.resource.Get(), &srvDesc, cpu_gpu_handles.first);
+      ImTextureID my_tex_id = (ImTextureID)cpu_gpu_handles.second.ptr;
+      float my_tex_w = (float)normal_texture.textureDesc.Width;
+      float my_tex_h = (float)normal_texture.textureDesc.Height;
+
+      ImGui::Text("%.0fx%.0f", my_tex_w, my_tex_h);
+      ImVec2 pos = ImGui::GetCursorScreenPos();
+      ImGui::Image(my_tex_id, ImVec2(my_tex_w, my_tex_h), ImVec2(0, 0), ImVec2(1, 1), ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
+      if (ImGui::IsItemHovered())
+      {
+        ImGui::BeginTooltip();
+        float region_sz = 32.0f;
+        float region_x = io.MousePos.x - pos.x - region_sz * 0.5f; if (region_x < 0.0f) region_x = 0.0f; else if (region_x > my_tex_w - region_sz) region_x = my_tex_w - region_sz;
+        float region_y = io.MousePos.y - pos.y - region_sz * 0.5f; if (region_y < 0.0f) region_y = 0.0f; else if (region_y > my_tex_h - region_sz) region_y = my_tex_h - region_sz;
+        float zoom = 4.0f;
+        ImGui::Text("Min: (%.2f, %.2f)", region_x, region_y);
+        ImGui::Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz);
+        ImVec2 uv0 = ImVec2((region_x) / my_tex_w, (region_y) / my_tex_h);
+        ImVec2 uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h);
+        ImGui::Image(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
+        ImGui::EndTooltip();
+      }
+
+      if (ImGui::TreeNode("Resource"))
+      {
+        ImGui::Text("Resource Pointer: %p", normal_texture.texBuffer.resource.GetAddressOf());
+        ImGui::Text("GPU handle: %p", normal_texture.texBuffer.gpuDescriptorHandle.ptr);
+        ImGui::Text("CPU handle: %p", normal_texture.texBuffer.cpuDescriptorHandle.ptr);
+        ImGui::TreePop();
+      }
+
+      ImGui::TreePop();
+    }
+  };
+
+  auto ShowObjectHeader = [&]()
+  {
     if (ImGui::CollapsingHeader("Objects"))
     {
       for(auto& object : m_sceneLoaded->objects)
       {
         if (ImGui::TreeNode(FormatIdAndName("Object", object).c_str()))
         {
-          std::vector<std::pair<std::string, ModelLoading::MaterialResource&>> material_names;
-          material_names.reserve(m_sceneLoaded->materialMap.size());
+          //materials
+          std::vector<std::pair<std::string, ModelLoading::MaterialResource*>> material_names;
+          material_names.reserve(m_sceneLoaded->materialMap.size() + 1);
+          material_names.emplace_back(std::make_pair("None", nullptr));
           for(auto& material_pair : m_sceneLoaded->materialMap)
           {
             auto& material = material_pair.second;
-            material_names.emplace_back(FormatIdAndName("Material", material), material);
+            material_names.emplace_back(FormatIdAndName("Material", material), &material);
           }
 
-          if (ImGui::Button("Select..."))
+          if (ImGui::Button("Select material"))
             ImGui::OpenPopup("material_select");
 
           if (ImGui::BeginPopup("material_select"))
@@ -1483,9 +1643,18 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
             {
               if (ImGui::Selectable(material_names[i].first.data()))
               {
-                object.material = &material_names[i].second;
-                object.info_resource.info.material_offset = object.material->id;
+                if(i != 0)
+                {
+                  object.material = material_names[i].second;
+                  object.info_resource.info.material_offset = object.material->id;
+                }
+                else
+                {
+                  object.material = nullptr;
+                  object.info_resource.info.material_offset = -1;
+                }
 
+                //update the resource info
                 void* mapped_data;
                 object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
                 memcpy(mapped_data, &object.info_resource.info, sizeof(Info));
@@ -1500,14 +1669,136 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
             ShowMaterial(*object.material);
           }
 
+          //diffuse textures
+          std::vector<std::pair<std::string, ModelLoading::Texture*>> diffuse_texture_names;
+          diffuse_texture_names.reserve(m_sceneLoaded->diffuseTextureMap.size() + 1);
+          diffuse_texture_names.emplace_back(std::make_pair("None", nullptr));
+          for (auto& diffuse_texture_pair : m_sceneLoaded->diffuseTextureMap)
+          {
+            auto& diffuse_texture = diffuse_texture_pair.second;
+            diffuse_texture_names.emplace_back(FormatIdAndName("Diffuse Texture", diffuse_texture), &diffuse_texture);
+          }
+
+          if (ImGui::Button("Select diffuse texture"))
+            ImGui::OpenPopup("diffuse_texture_select");
+
+          if (ImGui::BeginPopup("diffuse_texture_select"))
+          {
+            ImGui::Text("Diffuse");
+            ImGui::Separator();
+            for (std::size_t i = 0; i < diffuse_texture_names.size(); i++)
+            {
+              if (ImGui::Selectable(diffuse_texture_names[i].first.data()))
+              {
+                if(i != 0)
+                {
+                  object.textures.albedoTex = diffuse_texture_names[i].second;
+                  object.info_resource.info.texture_offset = object.textures.albedoTex->id;
+                }
+                else
+                {
+                  object.textures.albedoTex = nullptr;
+                  object.info_resource.info.texture_offset = -1;
+                }
+                //update the resource info
+                void* mapped_data;
+                object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
+                memcpy(mapped_data, &object.info_resource.info, sizeof(Info));
+                object.info_resource.d3d12_resource.resource->Unmap(0, nullptr);
+
+                ResetPathTracing();
+              }
+            }
+
+            ImGui::EndPopup();
+          }
+          if (object.textures.albedoTex != nullptr)
+          {
+            ShowDiffuseTexture(*object.textures.albedoTex);
+          }
+
+          //normal textures
+          std::vector<std::pair<std::string, ModelLoading::Texture*>> normal_texture_names;
+          normal_texture_names.reserve(m_sceneLoaded->normalTextureMap.size() + 1);
+          normal_texture_names.emplace_back(std::make_pair("None", nullptr));
+          for (auto& normal_texture_pair : m_sceneLoaded->normalTextureMap)
+          {
+            auto& normal_texture = normal_texture_pair.second;
+            normal_texture_names.emplace_back(FormatIdAndName("Normal Texture", normal_texture), &normal_texture);
+          }
+
+          if (ImGui::Button("Select normal texture"))
+            ImGui::OpenPopup("normal_texture_select");
+
+          if (ImGui::BeginPopup("normal_texture_select"))
+          {
+            ImGui::Text("Normal");
+            ImGui::Separator();
+            for (std::size_t i = 0; i < normal_texture_names.size(); i++)
+            {
+              if (ImGui::Selectable(normal_texture_names[i].first.data()))
+              {
+                if(i != 0)
+                {
+                  object.textures.normalTex = normal_texture_names[i].second;
+                  object.info_resource.info.texture_normal_offset = object.textures.normalTex->id;
+                }
+                else
+                {
+                  object.textures.normalTex = nullptr;
+                  object.info_resource.info.texture_normal_offset = -1;
+                }
+
+                //update the resource info
+                void* mapped_data;
+                object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
+                memcpy(mapped_data, &object.info_resource.info, sizeof(Info));
+                object.info_resource.d3d12_resource.resource->Unmap(0, nullptr);
+
+                ResetPathTracing();
+              }
+            }
+
+            ImGui::EndPopup();
+          }
+          if (object.textures.normalTex != nullptr)
+          {
+            ShowNormalTexture(*object.textures.normalTex);
+          }
+
           ImGui::TreePop();
         }
       }
     }
   };
 
+  auto ShowModelHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Models"))
+    {
+      for (auto& model_pair : m_sceneLoaded->modelMap)
+      {
+        auto& model = model_pair.second;
+        if (ImGui::TreeNode(FormatIdAndName("Model", model).c_str()))
+        {
+          ShowModel(model);
+          ImGui::TreePop();
+        }
+      }
+    }
+  };
+
+  auto ShowHeaders = [&]()
+  {
+    ShowModelHeader();
+    ShowObjectHeader();
+  };
+
   auto commandList = m_deviceResources->GetCommandList();
   ImGui_ImplDX12_NewFrame(commandList);
+  
+  //make sure to reset the heap descriptor
+  current_imgui_heap_descriptor = 0;
 
   bool resize = true;
   ImGui::Begin("DXR Path Tracer", &resize, ImGuiWindowFlags_AlwaysAutoResize);
@@ -1537,3 +1828,80 @@ void D3D12RaytracingSimpleLighting::ShutdownImGUI()
   ImGui_ImplDX12_Shutdown();
   ImGui::DestroyContext();
 }
+
+int D3D12RaytracingSimpleLighting::GetHeapOffsetForVertices()
+{
+  return vertex_offset++;
+}
+
+int D3D12RaytracingSimpleLighting::GetHeapOffsetForIndices()
+{
+  return indices_offset++;
+}
+
+int D3D12RaytracingSimpleLighting::GetHeapOffsetForObjects()
+{
+  return objects_offset++;
+}
+
+int D3D12RaytracingSimpleLighting::GetHeapOffsetForMaterials()
+{
+  return materials_offset++;
+}
+
+int D3D12RaytracingSimpleLighting::GetHeapOffsetForDiffuseTextures()
+{
+  return diffuse_textures_offset++;
+}
+
+int D3D12RaytracingSimpleLighting::GetHeapOffsetForNormalTextures()
+{
+  return normal_textures_offset++;
+}
+
+void D3D12RaytracingSimpleLighting::ResetHeapOffsets()
+{
+  vertex_offset = VERTEX_HEAP_OFFSET;
+  indices_offset = INDICIES_HEAP_OFFSET;
+  objects_offset = OBJECTS_HEAP_OFFSET;
+  materials_offset = MATERIALS_HEAP_OFFSET;
+  diffuse_textures_offset = DIFFUSE_TEXTURES_HEAP_OFFSET;
+  normal_textures_offset = NORMAL_TEXTURES_HEAP_OFFSET;
+}
+
+int D3D12RaytracingSimpleLighting::AllocateHeapDescriptorType(D3D12_CPU_DESCRIPTOR_HANDLE* cpuDescriptor, UINT descriptorIndexToUse, HeapDescriptorOffsetType offset_type)
+{
+  switch (offset_type)
+  {
+  case HeapDescriptorOffsetType::NONE:
+    {
+      return AllocateDescriptor(cpuDescriptor, descriptorIndexToUse);
+    }
+  case HeapDescriptorOffsetType::VERTEX:
+    {
+      return AllocateDescriptor(cpuDescriptor, GetHeapOffsetForVertices());
+    }
+  case HeapDescriptorOffsetType::INDICES:
+    {
+      return AllocateDescriptor(cpuDescriptor, GetHeapOffsetForIndices());
+    }
+  case HeapDescriptorOffsetType::OBJECTS:
+    {
+      return AllocateDescriptor(cpuDescriptor, GetHeapOffsetForObjects());
+    }
+  case HeapDescriptorOffsetType::MATERIALS:
+    {
+      return AllocateDescriptor(cpuDescriptor, GetHeapOffsetForMaterials());
+    }
+  case HeapDescriptorOffsetType::DIFFUSE_TEXTURES:
+    {
+      return AllocateDescriptor(cpuDescriptor, GetHeapOffsetForDiffuseTextures());
+    }
+  case HeapDescriptorOffsetType::NORMAL_TEXTURES:
+    {
+      return AllocateDescriptor(cpuDescriptor, GetHeapOffsetForNormalTextures());
+    }
+  default: return AllocateDescriptor(cpuDescriptor, descriptorIndexToUse);
+  }
+}
+
