@@ -26,6 +26,6 @@ namespace utilityCore {
 	extern std::istream& safeGetline(std::istream& is, std::string& t); //Thanks to http://stackoverflow.com/a/6089413
         inline std::wstring stringAndId(std::wstring s, int id)
         {
-          return std::wstring(s + std::to_wstring(id));          
+          return std::wstring(s + L" " + std::to_wstring(id));          
         }
 }

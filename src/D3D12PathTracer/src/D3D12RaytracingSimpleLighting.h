@@ -148,6 +148,7 @@ private:
 
     //pathtracing accumulator
     ComPtr<ID3D12Resource> pathtracing_accumulation_resource;
+    ComPtr<ID3D12Resource> cure_epilepsy;
 
     // Shader tables
     static const wchar_t* c_hitGroupName;

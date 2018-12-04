@@ -18,6 +18,13 @@ class D3D12RaytracingSimpleLighting;
 class Scene {
 public:
   ifstream fp_in;
+
+  void AllocateBufferOnGpu(void *pData, UINT64 width, ID3D12Resource **ppResource, std::wstring resource_name, CD3DX12_RESOURCE_DESC* resource_desc_ptr = nullptr);
+
+  template<typename Callback>
+  void recurse_gltf(tinygltf::Model &model, tinygltf::Node &node, Callback callback);
+  void parse_gltf(std::string filename);
+
   int loadMaterial(string materialid);
   int loadDiffuseTexture(string texid);
   int loadNormalTexture(string texid);

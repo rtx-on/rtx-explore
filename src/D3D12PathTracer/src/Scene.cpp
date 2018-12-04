@@ -12,8 +12,85 @@
 #include "D3D12RaytracingSimpleLighting.h"
 #include "TextureLoader.h"
 
+#define TINYGLTF_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define STBI_MSC_SECURE_CRT
+// #define TINYGLTF_NOEXCEPTION // optional. disable exception handling.
+#include "tiny_gltf.h"
+
 using namespace tinyobj;
 using namespace std;
+
+void Scene::AllocateBufferOnGpu(void *pData, UINT64 width, ID3D12Resource **ppResource, std::wstring resource_name, CD3DX12_RESOURCE_DESC* resource_desc_ptr)
+{
+  CD3DX12_RESOURCE_DESC resource_desc;
+  if (resource_desc_ptr == nullptr)
+  {
+    resource_desc = CD3DX12_RESOURCE_DESC::Buffer(width);    
+  }
+  else
+  {
+    resource_desc = *resource_desc_ptr;
+  }
+
+  auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+  auto device = programState->GetDeviceResources()->GetD3DDevice();
+  ThrowIfFailed(device->CreateCommittedResource(
+    &defaultHeapProperties,
+    D3D12_HEAP_FLAG_NONE,
+    &resource_desc,
+    D3D12_RESOURCE_STATE_COPY_DEST,
+    nullptr,
+    IID_PPV_ARGS(ppResource)));
+
+  (*ppResource)->SetName(std::wstring(L"Default Heap " + resource_name).c_str());
+
+  UINT64 textureUploadBufferSize;
+  // this function gets the size an upload buffer needs to be to upload a texture to the gpu.
+  // each row must be 256 byte aligned except for the last row, which can just be the size in bytes of the row
+  // eg. textureUploadBufferSize = ((((width * numBytesPerPixel) + 255) & ~255) * (height - 1)) + (width * numBytesPerPixel);
+  //textureUploadBufferSize = (((imageBytesPerRow + 255) & ~255) * (textureDesc.Height - 1)) + imageBytesPerRow;
+  device->GetCopyableFootprints(&resource_desc, 0, 1, 0, nullptr, nullptr, nullptr, &textureUploadBufferSize);
+
+  ID3D12Resource* textureBufferUploadHeap = programState->GetTextureBufferUploadHeap();
+  // now we create an upload heap to upload our texture to the GPU
+  ThrowIfFailed(device->CreateCommittedResource(
+    &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // upload heap
+    D3D12_HEAP_FLAG_NONE, // no flags
+    &CD3DX12_RESOURCE_DESC::Buffer(textureUploadBufferSize),
+    // resource description for a buffer (storing the image data in this heap just to copy to the default heap)
+    D3D12_RESOURCE_STATE_GENERIC_READ, // We will copy the contents from this heap to the default heap above
+    nullptr,
+    IID_PPV_ARGS(&textureBufferUploadHeap)));
+
+  textureBufferUploadHeap->SetName(std::wstring(L"Upload Heap " + resource_name).c_str());
+
+  // store vertex buffer in upload heap
+  D3D12_SUBRESOURCE_DATA textureData = {};
+  textureData.pData = pData; // pointer to our image data
+  textureData.RowPitch = width; // size of all our triangle vertex data
+  textureData.SlicePitch = width * resource_desc.Height; // also the size of our triangle vertex data    
+
+  auto commandList = programState->GetDeviceResources()->GetCommandList();
+  auto commandAllocator = programState->GetDeviceResources()->GetCommandAllocator();
+
+  commandList->Reset(commandAllocator, nullptr);
+
+  // Reset the command list for the acceleration structure construction.
+  UpdateSubresources(commandList, *ppResource, textureBufferUploadHeap, 0, 0, 1, &textureData);
+
+  // transition the texture default heap to a pixel shader resource (we will be sampling from this heap in the pixel shader to get the color of pixels)
+  commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(*ppResource, D3D12_RESOURCE_STATE_COPY_DEST,
+                                                                        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE |
+                                                                        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+
+  // Kick off texture uploading
+  programState->GetDeviceResources()->ExecuteCommandList();
+
+  // Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
+  programState->GetDeviceResources()->WaitForGpu();
+};
 
 void OuputAndReset(std::wstringstream& stream)
 {
@@ -34,45 +111,481 @@ Scene::Scene(string filename, D3D12RaytracingSimpleLighting* programState) : pro
 	wstr << L"------------------------------------------------------------------------------\n";
 	OuputAndReset(wstr);
 
-	char* fname = (char*)filename.c_str();
-	fp_in.open(fname);
-	if (!fp_in.is_open()) {
-		wstr << L"Error reading from file - aborting!\n";
-		wstr << L"------------------------------------------------------------------------------\n";
-		OuputAndReset(wstr);
-		throw;
-	}
-	while (fp_in.good()) {
-		string line;
-		utilityCore::safeGetline(fp_in, line);
-		if (!line.empty()) {
-			vector<string> tokens = utilityCore::tokenizeString(line);
-			if (strcmp(tokens[0].c_str(), "MATERIAL") == 0) {
-				loadMaterial(tokens[1]);
-				std::cout << " " << endl;
-			}
-			else if (strcmp(tokens[0].c_str(), "MODEL") == 0) {
-				loadModel(tokens[1]);
-				std::cout << " " << endl;
-			}
-			else if (strcmp(tokens[0].c_str(), "DIFFUSE_TEXTURE") == 0) {
-				loadDiffuseTexture(tokens[1]);
-				std::cout << " " << endl;
-			}
-			else if (strcmp(tokens[0].c_str(), "NORMAL_TEXTURE") == 0) {
-				loadNormalTexture(tokens[1]);
-				std::cout << " " << endl;
-			}
-		        else if (strcmp(tokens[0].c_str(), "OBJECT") == 0) {
-				loadObject(tokens[1]);
-				std::cout << " " << endl;
-			}
-		}
-	}
+        if (filename.find(".gltf") != std::string::npos)
+        {
+          parse_gltf(filename);
+        }
+        else
+        {
+          char* fname = (char*)filename.c_str();
+	  fp_in.open(fname);
+	  if (!fp_in.is_open()) {
+		  wstr << L"Error reading from file - aborting!\n";
+		  wstr << L"------------------------------------------------------------------------------\n";
+		  OuputAndReset(wstr);
+		  throw;
+	  }
+	  while (fp_in.good()) {
+		  string line;
+		  utilityCore::safeGetline(fp_in, line);
+		  if (!line.empty()) {
+			  vector<string> tokens = utilityCore::tokenizeString(line);
+			  if (strcmp(tokens[0].c_str(), "MATERIAL") == 0) {
+				  loadMaterial(tokens[1]);
+				  std::cout << " " << endl;
+			  }
+			  else if (strcmp(tokens[0].c_str(), "MODEL") == 0) {
+				  loadModel(tokens[1]);
+				  std::cout << " " << endl;
+			  }
+			  else if (strcmp(tokens[0].c_str(), "DIFFUSE_TEXTURE") == 0) {
+				  loadDiffuseTexture(tokens[1]);
+				  std::cout << " " << endl;
+			  }
+			  else if (strcmp(tokens[0].c_str(), "NORMAL_TEXTURE") == 0) {
+				  loadNormalTexture(tokens[1]);
+				  std::cout << " " << endl;
+			  }
+		          else if (strcmp(tokens[0].c_str(), "OBJECT") == 0) {
+				  loadObject(tokens[1]);
+				  std::cout << " " << endl;
+			  }
+		  }
+	  }
 
-	wstr << L"Done loading the scene file!\n";
-	wstr << L"------------------------------------------------------------------------------\n";
-	OuputAndReset(wstr);
+	  wstr << L"Done loading the scene file!\n";
+	  wstr << L"------------------------------------------------------------------------------\n";
+	  OuputAndReset(wstr);
+        }
+}
+
+template <typename Callback>
+void Scene::recurse_gltf(tinygltf::Model& model, tinygltf::Node& node, Callback callback)
+{
+  if (node.mesh != -1)
+  {
+    callback(model, node);
+  }
+  for (size_t i = 0; i < node.children.size(); i++)
+  {
+    recurse_gltf(model, model.nodes[node.children[i]], callback);
+  }
+}
+
+
+void Scene::parse_gltf(std::string filename)
+{
+  tinygltf::Model model;
+  tinygltf::TinyGLTF loader;
+  std::string err;
+  std::string warn;
+
+  bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, filename);
+  if (!warn.empty())
+  {
+    printf("Warn: %s\n", warn.c_str());
+  }
+
+  if (!err.empty())
+  {
+    printf("Err: %s\n", err.c_str());
+  }
+
+  if (!ret)
+  {
+    printf("Failed to parse glTF\n");
+    exit(-1);
+  }
+
+  int model_id = 0;
+  int diffuse_texture_id = 0;
+  int normal_texture_id = 0;
+  int material_id = 0;
+  int object_id = 0;
+
+  const tinygltf::Scene &scene = model.scenes[model.defaultScene];
+  for (size_t i = 0; i < scene.nodes.size(); ++i) 
+  {
+    recurse_gltf(model, model.nodes[scene.nodes[i]], [&](tinygltf::Model &model, tinygltf::Node& node)
+    {
+      const tinygltf::Mesh &mesh = model.meshes[node.mesh];
+      
+      for (size_t i = 0; i < mesh.primitives.size(); ++i)
+      {
+        tinygltf::Primitive primitive = mesh.primitives[i];
+        tinygltf::Accessor indexAccessor = model.accessors[primitive.indices];
+        
+        std::vector<unsigned char> vertex_data;
+        std::vector<unsigned char> indices_data;
+        std::vector<unsigned char> texture_data;
+        std::vector<unsigned char> normal_data;
+
+        int vertex_stride = 0;
+        int indices_stride = 0;
+        int texture_stride = 0;
+        int normal_stride = 0;
+
+        //parse indices
+        const tinygltf::BufferView& buffer_view = model.bufferViews[primitive.indices];
+        const tinygltf::Buffer& buffer = model.buffers[buffer_view.buffer];
+        indices_stride = indexAccessor.ByteStride(buffer_view);
+        indices_data = std::vector<unsigned char>(buffer.data.begin() + buffer_view.byteOffset, buffer.data.begin() + buffer_view.byteOffset + buffer_view.byteLength);
+
+        for (auto& attrib : primitive.attributes)
+        {
+          tinygltf::Accessor accessor = model.accessors[attrib.second];
+          int byteStride = accessor.ByteStride(model.bufferViews[accessor.bufferView]);
+
+          int size = 1;
+          if (accessor.type != TINYGLTF_TYPE_SCALAR)
+          {
+            size = accessor.type;
+          }
+
+          const tinygltf::BufferView& buffer_view = model.bufferViews[accessor.bufferView];
+          const tinygltf::Buffer& buffer = model.buffers[buffer_view.buffer];
+
+          if (attrib.first == "POSITION")
+          {
+            vertex_data = std::vector<unsigned char>(buffer.data.begin() + buffer_view.byteOffset, buffer.data.begin() + buffer_view.byteOffset + buffer_view.byteLength);
+            vertex_stride = byteStride;
+          }
+          else if (attrib.first == "NORMAL")
+          {
+            normal_data = std::vector<unsigned char>(buffer.data.begin() + buffer_view.byteOffset, buffer.data.begin() + buffer_view.byteOffset + buffer_view.byteLength);
+            normal_stride = byteStride;
+          }
+          else if (attrib.first == "TEXCOORD_0")
+          {
+            texture_data = std::vector<unsigned char>(buffer.data.begin() + buffer_view.byteOffset, buffer.data.begin() + buffer_view.byteOffset + buffer_view.byteLength);
+            texture_stride = byteStride;
+          }
+        }
+
+        //now make vertices
+        std::vector<Vertex> vertices;
+        for (int i = 0; i < vertex_data.size() / vertex_stride; i++)
+        {
+          Vertex v;
+          float x = *((float *)&vertex_data[i * vertex_stride]);
+          float y = *((float *)&vertex_data[i * vertex_stride + 4]);
+          float z = *((float *)&vertex_data[i * vertex_stride + 8]);
+          v.position = {x, y, z};
+          //memcpy(&v.position, &vertex_data[i * vertex_stride], vertex_stride);
+          if (texture_stride != 0 && i * texture_stride < texture_data.size())
+          {
+            memcpy(&v.texCoord, &texture_data[i * texture_stride], texture_stride);
+          }
+          if (normal_stride != 0)
+          {
+            memcpy(&v.normal, &normal_data[i * normal_stride], normal_stride);
+          }
+
+          vertices.emplace_back(std::move(v));
+        }
+
+        std::vector<Index> indices;
+        for (int i = 0; i < indices_data.size() / indices_stride; i++)
+        {
+          Index index{};
+          memcpy(&index, &indices_data[i * indices_stride], indices_stride);
+          indices.emplace_back(index);
+        }
+
+        //allocate model
+        ModelLoading::Model new_model;
+        new_model.id = model_id;
+        new_model.indicesCount = indices.size();
+        new_model.verticesCount = vertices.size();
+
+        AllocateBufferOnGpu(indices.data(), indices.size() * sizeof(Index), &new_model.indices.resource, utilityCore::stringAndId(L"Vertices", model_id));
+        AllocateBufferOnGpu(vertices.data(), vertices.size() * sizeof(Vertex), &new_model.vertices.resource, utilityCore::stringAndId(L"Indices", model_id));
+        modelMap.insert({model_id++, std::move(new_model)});
+
+        //allocate object as well
+        ModelLoading::SceneObject new_object{};
+        new_object.id = object_id++;
+        new_object.info_resource.info.model_offset = model_id - 1;
+        new_object.info_resource.info.texture_offset = -1;
+        new_object.info_resource.info.texture_normal_offset = -1;
+        new_object.info_resource.info.material_offset = -1;
+        new_object.model = &modelMap[new_object.info_resource.info.model_offset];
+
+        //default scale to 1.0...
+        new_object.scale = glm::vec3(1.0f);
+
+        if (!node.translation.empty())
+        {
+          new_object.translation = { node.translation[0], node.translation[1], node.translation[2] };
+        }
+        if (!node.rotation.empty())
+        {
+          new_object.rotation = { node.rotation[0], node.rotation[1], node.rotation[2] };
+          new_object.rotation = glm::degrees(new_object.rotation);
+        }
+        if (!node.scale.empty())
+        {
+          new_object.scale = { node.scale[0], node.scale[1], node.scale[2] };
+        }
+        if (!node.matrix.empty())
+        {
+          //TODO decompose to trans, rot, scale
+          //std::vector<float> matrix_data = std::vector<float>(std::begin(node.matrix), std::end(node.matrix));
+          //memcpy(new_object.getTransform3x4(), matrix_data.data(), 12 * sizeof(float));
+        }
+
+        //parse material TODO parse rest, for now, only get emittance
+        ModelLoading::MaterialResource material_resource{};
+        material_resource.id = material_id;
+
+        tinygltf::Accessor material_accessor = model.accessors[primitive.material];
+        const tinygltf::Material material = model.materials[primitive.material];
+        for (const auto& value : material.values)
+        {
+          //diffuse texture
+          if (value.first == "baseColorTexture")
+          {
+            //iterating through gltf...
+            const tinygltf::Parameter& parameter = value.second;
+            int texture_index = parameter.TextureIndex();
+            
+            const tinygltf::Texture& texture = model.textures[texture_index];
+            const tinygltf::Image& image = model.images[texture.source];
+
+            //get path to image
+            std::string base_directory = filename;
+            base_directory.erase(base_directory.find_last_of("\\") + 1);
+            std::wstring image_path = utilityCore::string2wstring(base_directory + image.uri);
+
+            //allocate texture
+            ModelLoading::Texture new_texture;
+            new_texture.id = diffuse_texture_id;
+
+            // Load the image from file
+	    D3D12_RESOURCE_DESC& textureDesc = new_texture.textureDesc;
+	    int imageBytesPerRow;
+	    BYTE* imageData;
+
+	    int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, image_path.c_str(), imageBytesPerRow);
+
+	    // make sure we have data
+	    if (imageSize <= 0)
+	    {
+		    return false;
+	    }
+
+            AllocateBufferOnGpu(imageData, imageBytesPerRow, &(new_texture.texBuffer.resource), utilityCore::stringAndId(L"Diffuse Texture", diffuse_texture_id), &CD3DX12_RESOURCE_DESC(textureDesc));
+            ::free(imageData);
+
+            diffuseTextureMap.insert({diffuse_texture_id++, std::move(new_texture)});
+
+            //make sure object points to this
+            new_object.textures.albedoTex = &diffuseTextureMap[diffuse_texture_id - 1];
+          }
+        }
+
+        for (const auto& value : material.additionalValues)
+        {
+          //diffuse texture
+          if (value.first == "normalTexture")
+          {
+            //iterating through gltf...
+            const tinygltf::Parameter& parameter = value.second;
+            int texture_index = parameter.TextureIndex();
+            
+            const tinygltf::Texture& texture = model.textures[texture_index];
+            const tinygltf::Image& image = model.images[texture.source];
+
+            //get path to image
+            std::string base_directory = filename;
+            base_directory.erase(base_directory.find_last_of("\\") + 1);
+            std::wstring image_path = utilityCore::string2wstring(base_directory + image.uri);
+
+            //allocate texture
+            ModelLoading::Texture new_texture;
+            new_texture.id = normal_texture_id;
+
+            // Load the image from file
+	    D3D12_RESOURCE_DESC& textureDesc = new_texture.textureDesc;
+	    int imageBytesPerRow;
+	    BYTE* imageData;
+
+	    int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, image_path.c_str(), imageBytesPerRow);
+
+	    // make sure we have data
+	    if (imageSize <= 0)
+	    {
+		    return false;
+	    }
+
+            AllocateBufferOnGpu(imageData, imageBytesPerRow, &(new_texture.texBuffer.resource), utilityCore::stringAndId(L"Diffuse Texture", normal_texture_id), &CD3DX12_RESOURCE_DESC(textureDesc));
+            ::free(imageData);
+
+            normalTextureMap.insert({normal_texture_id++, std::move(new_texture)});
+
+            //make sure object points to this
+            new_object.textures.normalTex = &normalTextureMap[normal_texture_id - 1];
+          } 
+          else if (value.first == "emissiveFactor")
+          {
+            if (!value.second.number_array.empty())
+            {
+              material_resource.material.emittance = 1.0f;
+            }
+          }
+        }
+
+        //material_resource.material.emittance = 1.0f;
+
+        //add material to map
+        materialMap.insert({material_id++, std::move(material_resource)});
+
+        //make object point to material
+        new_object.material = &materialMap[material_id - 1];
+
+        //add object
+        objects.emplace_back(std::move(new_object));
+      }
+    });
+  }
+
+  //make sure that textures, normals have at least one entry
+  if (diffuseTextureMap.empty())
+  {
+    ModelLoading::Texture useless_texture;
+
+    std::vector<char> useless(256);
+
+    D3D12_RESOURCE_DESC& texture_desc = useless_texture.textureDesc;
+    texture_desc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R32G32B32A32_FLOAT, useless.size(), 1);
+
+    AllocateBufferOnGpu(useless.data(), useless.size(), &useless_texture.texBuffer.resource, L"Null Diffuse Texture", &CD3DX12_RESOURCE_DESC(texture_desc));
+
+    diffuseTextureMap.insert({0, std::move(useless_texture)});
+  }
+  if (normalTextureMap.empty())
+  {
+    ModelLoading::Texture useless_texture;
+
+    std::vector<char> useless(256);
+
+    D3D12_RESOURCE_DESC& texture_desc = useless_texture.textureDesc;
+    texture_desc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R32G32B32A32_FLOAT, useless.size(), 1);
+
+    AllocateBufferOnGpu(useless.data(), useless.size(), &useless_texture.texBuffer.resource, L"Null Normal Texture", &CD3DX12_RESOURCE_DESC(texture_desc));
+
+    normalTextureMap.insert({0, std::move(useless_texture)});
+  }
+
+  //make a light
+  // std::vector<Index> indices =
+  // {
+  //   0, 1, 2,
+  //   0, 2, 3
+  // };
+  //
+  //
+  // std::vector<Vertex> vertices =
+  // {
+  //   {XMFLOAT3(-1.0f, 0.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(0.0f, 0.0f)},
+  //   {XMFLOAT3(-1.0f, 0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(0.0f, 1.0f)},
+  //   {XMFLOAT3(1.0f, 0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 0.0f)},
+  //   {XMFLOAT3(1.0f, 0.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 1.0f)}
+  // };
+
+  // Cube indices.
+  std::vector<Index> indices =
+  {
+    3, 1, 0,
+    2, 1, 3,
+
+    6, 4, 5,
+    7, 4, 6,
+
+    11, 9, 8,
+    10, 9, 11,
+
+    14, 12, 13,
+    15, 12, 14,
+
+    19, 17, 16,
+    18, 17, 19,
+
+    22, 20, 21,
+    23, 20, 22
+  };
+
+  // Cube vertices positions and corresponding triangle normals.
+  std::vector<Vertex> vertices =
+  {
+    {XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f)},
+    {XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f)},
+    {XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f)},
+    {XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f)},
+
+    {XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f)},
+    {XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f)},
+    {XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f)},
+    {XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f)},
+
+    {XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f)},
+    {XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f)},
+    {XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f)},
+    {XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f)},
+
+    {XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f)},
+    {XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f)},
+    {XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f)},
+    {XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f)},
+
+    {XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f)},
+    {XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f)},
+    {XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f)},
+    {XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f)},
+
+    {XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f)},
+    {XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f)},
+    {XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f)},
+    {XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f)},
+  };
+
+  //allocate model
+  ModelLoading::Model new_model;
+  new_model.id = model_id;
+  new_model.indicesCount = indices.size();
+  new_model.verticesCount = vertices.size();
+
+  AllocateBufferOnGpu(indices.data(), indices.size() * sizeof(Index), &new_model.indices.resource, utilityCore::stringAndId(L"Vertices", model_id));
+  AllocateBufferOnGpu(vertices.data(), vertices.size() * sizeof(Vertex), &new_model.vertices.resource, utilityCore::stringAndId(L"Indices", model_id));
+  modelMap.insert({model_id++, std::move(new_model)});
+
+  //allocate object as well
+  ModelLoading::SceneObject new_object{};
+  new_object.id = object_id++;
+  new_object.info_resource.info.model_offset = model_id - 1;
+  new_object.info_resource.info.texture_offset = -1;
+  new_object.info_resource.info.texture_normal_offset = -1;
+  new_object.info_resource.info.material_offset = -1;
+  new_object.model = &modelMap[new_object.info_resource.info.model_offset];
+
+  //default scale to 1.0...
+  new_object.translation = glm::vec3(0.0f, -5.0f, 2.0f) + objects[0].translation;
+  new_object.scale = glm::vec3(7.5f, 0.25f, 7.5f);
+
+  ModelLoading::MaterialResource material_resource{};
+  material_resource.id = material_id;
+
+  material_resource.material.diffuse = XMFLOAT3(1.0f, 1.0f, 1.0f);
+  material_resource.material.emittance = 1.0f;
+
+  //add material to map
+  materialMap.insert({material_id++, std::move(material_resource)});
+
+  //make object point to material
+  new_object.material = &materialMap[material_id - 1];
+
+  //add object
+  objects.emplace_back(std::move(new_object));
 }
 
 int Scene::loadObject(string objectid) {
@@ -260,8 +773,12 @@ int Scene::loadModel(string modelid) {
 			Vertex* vPtr = vertices.data();
 			Index* iPtr = indices.data();
 			auto device = programState->GetDeviceResources()->GetD3DDevice();
-			AllocateUploadBuffer(device, iPtr, indices.size() * sizeof(Index), &newModel.indices.resource);
-			AllocateUploadBuffer(device, vPtr, vertices.size() * sizeof(Vertex), &newModel.vertices.resource);
+
+                        //now on gpu
+                        AllocateBufferOnGpu(iPtr, indices.size() * sizeof(Index), &newModel.indices.resource, utilityCore::stringAndId(L"Vertices", id));
+                        AllocateBufferOnGpu(vPtr, vertices.size() * sizeof(Vertex), &newModel.vertices.resource, utilityCore::stringAndId(L"Indices", id));
+		        //AllocateUploadBuffer(device, iPtr, indices.size() * sizeof(Index), &newModel.indices.resource);
+			//AllocateUploadBuffer(device, vPtr, vertices.size() * sizeof(Vertex), &newModel.vertices.resource);
 
 			// Vertex buffer is passed to the shader along with index buffer as a descriptor table.
 			// Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
@@ -315,60 +832,8 @@ int Scene::loadDiffuseTexture(string texid) {
 			return false;
 		}
 
-		auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-		auto device = programState->GetDeviceResources()->GetD3DDevice();
-		ThrowIfFailed(device->CreateCommittedResource(
-			&defaultHeapProperties,
-			D3D12_HEAP_FLAG_NONE,
-			&textureDesc,
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			nullptr,
-			IID_PPV_ARGS(&newTexture.texBuffer.resource)));
-
-		newTexture.texBuffer.resource->SetName(utilityCore::stringAndId(L"Diffuse Texture Default Heap ", id).c_str());
-
-         	UINT64 textureUploadBufferSize;
-		// this function gets the size an upload buffer needs to be to upload a texture to the gpu.
-		// each row must be 256 byte aligned except for the last row, which can just be the size in bytes of the row
-		// eg. textureUploadBufferSize = ((((width * numBytesPerPixel) + 255) & ~255) * (height - 1)) + (width * numBytesPerPixel);
-		//textureUploadBufferSize = (((imageBytesPerRow + 255) & ~255) * (textureDesc.Height - 1)) + imageBytesPerRow;
-		device->GetCopyableFootprints(&textureDesc, 0, 1, 0, nullptr, nullptr, nullptr, &textureUploadBufferSize);
-
-		ID3D12Resource* textureBufferUploadHeap = programState->GetTextureBufferUploadHeap();
-		// now we create an upload heap to upload our texture to the GPU
-		ThrowIfFailed(device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // upload heap
-			D3D12_HEAP_FLAG_NONE, // no flags
-			&CD3DX12_RESOURCE_DESC::Buffer(textureUploadBufferSize), // resource description for a buffer (storing the image data in this heap just to copy to the default heap)
-			D3D12_RESOURCE_STATE_GENERIC_READ, // We will copy the contents from this heap to the default heap above
-			nullptr,
-			IID_PPV_ARGS(&textureBufferUploadHeap)));
-
-		textureBufferUploadHeap->SetName(utilityCore::stringAndId(L"Diffuse Texture Upload Heap ", id).c_str());
-
-		// store vertex buffer in upload heap
-		D3D12_SUBRESOURCE_DATA textureData = {};
-		textureData.pData = &imageData[0]; // pointer to our image data
-		textureData.RowPitch = imageBytesPerRow; // size of all our triangle vertex data
-		textureData.SlicePitch = imageBytesPerRow * textureDesc.Height; // also the size of our triangle vertex data
-
-
-		auto commandList = programState->GetDeviceResources()->GetCommandList();
-		auto commandAllocator = programState->GetDeviceResources()->GetCommandAllocator();
-
-		commandList->Reset(commandAllocator, nullptr);
-
-		// Reset the command list for the acceleration structure construction.
-		UpdateSubresources(commandList, newTexture.texBuffer.resource.Get(), textureBufferUploadHeap, 0, 0, 1, &textureData);
-
-		// transition the texture default heap to a pixel shader resource (we will be sampling from this heap in the pixel shader to get the color of pixels)
-		commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(newTexture.texBuffer.resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-
-		// Kick off texture uploading
-		programState->GetDeviceResources()->ExecuteCommandList();
-
-		// Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
-		programState->GetDeviceResources()->WaitForGpu();
+                AllocateBufferOnGpu(imageData, imageBytesPerRow, &(newTexture.texBuffer.resource), utilityCore::stringAndId(L"Diffuse Texture", id), &CD3DX12_RESOURCE_DESC(textureDesc));
+                ::free(imageData);
 	}
 
 	newTexture.id = id;
@@ -385,7 +850,7 @@ int Scene::loadNormalTexture(string texid) {
 	int id = atoi(texid.c_str());
 
 	std::wstringstream wstr;
-	wstr << L"Loading TEXTURE " << id << L"\n";
+	wstr << L"Loading NORMAL TEXTURE " << id << L"\n";
 	wstr << L"----------------------------------------\n";
 	OuputAndReset(wstr);
 
@@ -412,67 +877,15 @@ int Scene::loadNormalTexture(string texid) {
 			return false;
 		}
 
-		auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-		auto device = programState->GetDeviceResources()->GetD3DDevice();
-		ThrowIfFailed(device->CreateCommittedResource(
-			&defaultHeapProperties,
-			D3D12_HEAP_FLAG_NONE,
-			&textureDesc,
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			nullptr,
-			IID_PPV_ARGS(&newTexture.texBuffer.resource)));
-
-		newTexture.texBuffer.resource->SetName(utilityCore::stringAndId(L"Normal Texture Default Heap ", id).c_str());
-	        
-	        UINT64 textureUploadBufferSize;
-		// this function gets the size an upload buffer needs to be to upload a texture to the gpu.
-		// each row must be 256 byte aligned except for the last row, which can just be the size in bytes of the row
-		// eg. textureUploadBufferSize = ((((width * numBytesPerPixel) + 255) & ~255) * (height - 1)) + (width * numBytesPerPixel);
-		//textureUploadBufferSize = (((imageBytesPerRow + 255) & ~255) * (textureDesc.Height - 1)) + imageBytesPerRow;
-		device->GetCopyableFootprints(&textureDesc, 0, 1, 0, nullptr, nullptr, nullptr, &textureUploadBufferSize);
-
-		ID3D12Resource* textureBufferUploadHeap = programState->GetTextureBufferUploadHeap();
-		// now we create an upload heap to upload our texture to the GPU
-		ThrowIfFailed(device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // upload heap
-			D3D12_HEAP_FLAG_NONE, // no flags
-			&CD3DX12_RESOURCE_DESC::Buffer(textureUploadBufferSize), // resource description for a buffer (storing the image data in this heap just to copy to the default heap)
-			D3D12_RESOURCE_STATE_GENERIC_READ, // We will copy the contents from this heap to the default heap above
-			nullptr,
-			IID_PPV_ARGS(&textureBufferUploadHeap)));
-
-		textureBufferUploadHeap->SetName(utilityCore::stringAndId(L"Normal Texture Upload Heap ", id).c_str());
-
-		// store vertex buffer in upload heap
-		D3D12_SUBRESOURCE_DATA textureData = {};
-		textureData.pData = &imageData[0]; // pointer to our image data
-		textureData.RowPitch = imageBytesPerRow; // size of all our triangle vertex data
-		textureData.SlicePitch = imageBytesPerRow * textureDesc.Height; // also the size of our triangle vertex data
-
-
-		auto commandList = programState->GetDeviceResources()->GetCommandList();
-		auto commandAllocator = programState->GetDeviceResources()->GetCommandAllocator();
-
-		commandList->Reset(commandAllocator, nullptr);
-
-		// Reset the command list for the acceleration structure construction.
-		UpdateSubresources(commandList, newTexture.texBuffer.resource.Get(), textureBufferUploadHeap, 0, 0, 1, &textureData);
-
-		// transition the texture default heap to a pixel shader resource (we will be sampling from this heap in the pixel shader to get the color of pixels)
-		commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(newTexture.texBuffer.resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-
-		// Kick off texture uploading
-		programState->GetDeviceResources()->ExecuteCommandList();
-
-		// Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
-		programState->GetDeviceResources()->WaitForGpu();
+                AllocateBufferOnGpu(imageData, imageBytesPerRow, &(newTexture.texBuffer.resource), utilityCore::stringAndId(L"Normal Texture", id), &CD3DX12_RESOURCE_DESC(textureDesc));
+                ::free(imageData);
 	}
 
 	newTexture.id = id;
         std::pair<int, ModelLoading::Texture> pair(id, newTexture);
 	normalTextureMap.insert(pair);
 
-	wstr << L"Done loading TEXTURE " << id << L" !\n";
+	wstr << L"Done loading NORMAL TEXTURE " << id << L" !\n";
 	wstr << L"------------------------------------------------------------------------------\n";
 	OuputAndReset(wstr);
 	return 1;
@@ -884,8 +1297,10 @@ void Scene::AllocateResourcesInDescriptorHeap()
       info_resource.info.material_offset = object.material->id;
     }
 
-	XMVECTOR v = XMLoadFloat3(&XMFLOAT3((object.rotation.z), (object.rotation.y), (object.rotation.x)));
-	info_resource.info.rotation_matrix = XMMatrixRotationRollPitchYawFromVector(v);
+    XMVECTOR rotation_vector = XMLoadFloat3(&XMFLOAT3((object.rotation.z), (object.rotation.y), (object.rotation.x)));
+    XMMATRIX rotation = XMMatrixRotationRollPitchYawFromVector(rotation_vector);
+    XMMATRIX scale = XMMatrixScaling(object.scale.x, object.scale.y, object.scale.z);
+    info_resource.info.rotation_scale_matrix = rotation * scale;
 
     // Create the constant buffer memory and map the CPU and GPU addresses
     const D3D12_HEAP_PROPERTIES uploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);

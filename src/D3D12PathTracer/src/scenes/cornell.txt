@@ -145,22 +145,22 @@ scale       2 .3 2
 
 // Chromie
 OBJECT 6
-model 1
-albedo_tex 0
-normal_tex -1
-material -1
-trans       0 2 100
-rotat       0 180 0
-scale       0.2 0.2 0.2
-
-// Wa boi
-OBJECT 7
 model 3
 albedo_tex 2
 normal_tex 0
 material -1
+trans       0 0 0
+rotat       0 180 0
+scale       1 1 1
+
+// Wa boi
+OBJECT 7
+model 2
+albedo_tex 1
+normal_tex -1
+material 2
 trans       0 0 3
-rotat       0 00 0
+rotat       0 180 0
 scale       1 1 1
 
 CAMERA
