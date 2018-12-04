@@ -212,6 +212,14 @@ private:
 
     int current_imgui_heap_descriptor = 0;
 
+    void RebuildScene();
+    void LoadModel();
+    void LoadMaterial();
+    void LoadDiffuseTexture();
+    void LoadNormalTexture();
+    void LoadObject();
+
+
 #define VERTEX_HEAP_OFFSET (1000)
 #define INDICIES_HEAP_OFFSET (2000)
 #define OBJECTS_HEAP_OFFSET (3000)

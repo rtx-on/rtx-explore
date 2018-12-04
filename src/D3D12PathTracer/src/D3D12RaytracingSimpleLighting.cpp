@@ -1292,88 +1292,6 @@ void D3D12RaytracingSimpleLighting::InitImGUI()
 
 void D3D12RaytracingSimpleLighting::StartFrameImGUI()
 {
-  auto ShowMainMenuBar = [&]()
-  {
-    if (ImGui::BeginMainMenuBar())
-    {
-      if (ImGui::BeginMenu("File"))
-      {
-        ImGui::MenuItem("(dummy menu)", NULL, false, false);
-        if (ImGui::MenuItem("New")) {}
-        if (ImGui::MenuItem("Open", "Ctrl+O")) {}
-        if (ImGui::BeginMenu("Open Recent"))
-        {
-          ImGui::MenuItem("fish_hat.c");
-          ImGui::MenuItem("fish_hat.inl");
-          ImGui::MenuItem("fish_hat.h");
-          if (ImGui::BeginMenu("More.."))
-          {
-            ImGui::MenuItem("Hello");
-            ImGui::MenuItem("Sailor");
-            if (ImGui::BeginMenu("Recurse.."))
-            {
-              ImGui::EndMenu();
-            }
-            ImGui::EndMenu();
-          }
-          ImGui::EndMenu();
-        }
-        if (ImGui::MenuItem("Save", "Ctrl+S")) {}
-        if (ImGui::MenuItem("Save As..")) {}
-        ImGui::Separator();
-        if (ImGui::BeginMenu("Options"))
-        {
-          static bool enabled = true;
-          ImGui::MenuItem("Enabled", "", &enabled);
-          ImGui::BeginChild("child", ImVec2(0, 60), true);
-          for (int i = 0; i < 10; i++)
-            ImGui::Text("Scrolling Text %d", i);
-          ImGui::EndChild();
-          static float f = 0.5f;
-          static int n = 0;
-          static bool b = true;
-          ImGui::SliderFloat("Value", &f, 0.0f, 1.0f);
-          ImGui::InputFloat("Input", &f, 0.1f);
-          ImGui::Combo("Combo", &n, "Yes\0No\0Maybe\0\0");
-          ImGui::Checkbox("Check", &b);
-          ImGui::EndMenu();
-        }
-        if (ImGui::BeginMenu("Colors"))
-        {
-          float sz = ImGui::GetTextLineHeight();
-          for (int i = 0; i < ImGuiCol_COUNT; i++)
-          {
-            const char* name = ImGui::GetStyleColorName((ImGuiCol)i);
-            ImVec2 p = ImGui::GetCursorScreenPos();
-            ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + sz, p.y + sz), ImGui::GetColorU32((ImGuiCol)i));
-            ImGui::Dummy(ImVec2(sz, sz));
-            ImGui::SameLine();
-            ImGui::MenuItem(name);
-          }
-          ImGui::EndMenu();
-        }
-        if (ImGui::BeginMenu("Disabled", false)) // Disabled
-        {
-          IM_ASSERT(0);
-        }
-        if (ImGui::MenuItem("Checked", NULL, true)) {}
-        if (ImGui::MenuItem("Quit", "Alt+F4")) {}
-        ImGui::EndMenu();
-      }
-      if (ImGui::BeginMenu("Edit"))
-      {
-        if (ImGui::MenuItem("Undo", "CTRL+Z")) {}
-        if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
-        ImGui::Separator();
-        if (ImGui::MenuItem("Cut", "CTRL+X")) {}
-        if (ImGui::MenuItem("Copy", "CTRL+C")) {}
-        if (ImGui::MenuItem("Paste", "CTRL+V")) {}
-        ImGui::EndMenu();
-      }
-      ImGui::EndMainMenuBar();
-    }
-  };
-
   auto FormatIdAndName = [&](std::string type, auto& object)
   {
     return std::string(utilityCore::stringAndId(type, object.id) + " | " + object.name);
@@ -1422,13 +1340,13 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
     return std::make_pair(cpu_handle, gpu_handle);
   };
 
-#define NAME_LIMIT (256)
+#define NAME_LIMIT (512)
 
   auto ShowModel = [&](ModelLoading::Model& model)
   {
-    if (ImGui::TreeNode(FormatIdAndName("Material", model).c_str()))
+    if (ImGui::TreeNode(FormatIdAndName("Model", model).c_str()))
     {
-      std::vector<char> model_name(NAME_LIMIT);
+      std::vector<char> model_name(model.name.length());
       std::copy(std::begin(model.name), std::end(model.name), std::begin(model_name));
       ImGui::InputText("Model name", model_name.data(), NAME_LIMIT);
 
@@ -1551,7 +1469,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
   {
     if (ImGui::TreeNode(FormatIdAndName("Material", material_resource).c_str()))
     {
-      std::vector<char> material_name(NAME_LIMIT);
+      std::vector<char> material_name(material_resource.name.length());
       std::copy(std::begin(material_resource.name), std::end(material_resource.name), std::begin(material_name));
       ImGui::InputText("Material name", material_name.data(), NAME_LIMIT);
 
@@ -1590,7 +1508,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
   {
     if (ImGui::TreeNode(FormatIdAndName("Diffuse Texture", diffuse_texture).c_str()))
     {
-      std::vector<char> diffuse_texture_name(NAME_LIMIT);
+      std::vector<char> diffuse_texture_name(diffuse_texture.name.length());
       std::copy(std::begin(diffuse_texture.name), std::end(diffuse_texture.name), std::begin(diffuse_texture_name));
       ImGui::InputText("Texture name", diffuse_texture_name.data(), NAME_LIMIT);
 
@@ -1649,7 +1567,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
   {
     if (ImGui::TreeNode(FormatIdAndName("Normal Texture", normal_texture).c_str()))
     {
-      std::vector<char> normal_texture_name(NAME_LIMIT);
+      std::vector<char> normal_texture_name(normal_texture.name.length());
       std::copy(std::begin(normal_texture.name), std::end(normal_texture.name), std::begin(normal_texture_name));
       ImGui::InputText("Texture name", normal_texture_name.data(), NAME_LIMIT);
 
@@ -1712,6 +1630,10 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       {
         if (ImGui::TreeNode(FormatIdAndName("Object", object).c_str()))
         {
+          ImGui::DragFloat3("Translation", &object.translation.x, 0.01f, 0.0f, 1.0f);
+          ImGui::DragFloat3("Rotation", &object.rotation.x, 0.01f, 0.0f, 1.0f);
+          ImGui::DragFloat3("Scale", &object.scale.x, 0.01f, 0.0f, 1.0f);
+
           //materials
           std::vector<std::pair<std::string, ModelLoading::MaterialResource*>> material_names;
           material_names.reserve(m_sceneLoaded->materialMap.size() + 1);
@@ -1859,8 +1781,71 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
             ShowNormalTexture(*object.textures.normalTex);
           }
 
+          if (ImGui::TreeNode("Update"))
+          {
+            object.transformBuilt = false;
+            //TODO update acceleration structure
+
+            ImGui::TreePop();
+          }
+
           ImGui::TreePop();
         }
+      }
+    }
+  };
+
+  auto ShowHelpHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Help"))
+    {
+      ImGui::BulletText("Double-click on title bar to collapse window.");
+      ImGui::BulletText("Click and drag on lower right corner to resize window\n(double-click to auto fit window to its contents).");
+      ImGui::BulletText("Click and drag on any empty space to move window.");
+      ImGui::BulletText("TAB/SHIFT+TAB to cycle through keyboard editable fields.");
+      ImGui::BulletText("CTRL+Click on a slider or drag box to input value as text.");
+      if (ImGui::GetIO().FontAllowUserScaling)
+          ImGui::BulletText("CTRL+Mouse Wheel to zoom window contents.");
+      ImGui::BulletText("Mouse Wheel to scroll.");
+      ImGui::BulletText("While editing text:\n");
+      ImGui::Indent();
+      ImGui::BulletText("Hold SHIFT or use mouse to select text.");
+      ImGui::BulletText("CTRL+Left/Right to word jump.");
+      ImGui::BulletText("CTRL+A or double-click to select all.");
+      ImGui::BulletText("CTRL+X,CTRL+C,CTRL+V to use clipboard.");
+      ImGui::BulletText("CTRL+Z,CTRL+Y to undo/redo.");
+      ImGui::BulletText("ESCAPE to revert.");
+      ImGui::BulletText("You can apply arithmetic operators +,*,/ on numerical values.\nUse +- to subtract.");
+      ImGui::Unindent();
+    }
+  };
+
+  auto ShowFeaturesHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Features"))
+    {
+      auto frame_index = m_deviceResources->GetCurrentFrameIndex();
+      auto &current_scene = m_sceneCB[frame_index];
+      bool enable_anti_aliasing = current_scene.features & AntiAliasing;
+      bool enable_depth_of_field = current_scene.features & DepthOfField;
+
+      ImGui::Checkbox("Anti-Aliasing", &enable_anti_aliasing);
+      ImGui::Checkbox("Depth Of Field", &enable_depth_of_field);
+
+      current_scene.features = 0;
+      current_scene.features |= enable_anti_aliasing ? AntiAliasing : 0;
+      current_scene.features |= enable_depth_of_field ? DepthOfField : 0;
+
+      ImGui::DragInt("Iteration depth", reinterpret_cast<int*>(&current_scene.depth));
+
+      for (int i = 0; i < FrameCount; i++)
+      {
+        m_sceneCB[i] = current_scene;
+      }
+
+      if (ImGui::Button("Update"))
+      {
+        ResetPathTracing();
       }
     }
   };
@@ -1928,8 +1913,11 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       }
     }
   };
+
   auto ShowHeaders = [&]()
   {
+    ShowHelpHeader();
+    ShowFeaturesHeader();
     ShowModelHeader();
     ShowMaterialHeader();
     ShowDiffuseTextureHeader();

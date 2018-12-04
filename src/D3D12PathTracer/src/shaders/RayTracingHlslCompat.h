@@ -21,16 +21,23 @@ using namespace DirectX;
 typedef UINT32 Index;
 #endif
 
+enum Feature
+{
+  AntiAliasing = 1,
+  DepthOfField = 2,
+};
+
 struct SceneConstantBuffer
 {
-	XMMATRIX projectionToWorld;
-	XMMATRIX view_matrix;
-	XMVECTOR cameraPosition;
-    XMVECTOR lightPosition;
-    XMVECTOR lightAmbientColor;
-    XMVECTOR lightDiffuseColor;
-	UINT iteration;
-	UINT depth;
+  XMMATRIX projectionToWorld;
+  XMMATRIX view_matrix;
+  XMVECTOR cameraPosition;
+  XMVECTOR lightPosition;
+  XMVECTOR lightAmbientColor;
+  XMVECTOR lightDiffuseColor;
+  UINT iteration;
+  UINT depth;
+  UINT features;
 };
 
 struct CubeConstantBuffer

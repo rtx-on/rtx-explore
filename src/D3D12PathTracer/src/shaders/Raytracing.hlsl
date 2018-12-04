@@ -18,9 +18,6 @@
 //NULL OFFSET IF INDEX OFFSET IS -1
 #define NULL_OFFSET (-1)
 
-#define AA 1
-#define DOF 0
-
 RaytracingAccelerationStructure Scene : register(t0, space0);
 RWTexture2D<float4> RenderTarget : register(u0);
 RWTexture2D<float4> RenderTarget2 : register(u1);
@@ -167,15 +164,17 @@ inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 directi
 {
     float2 xy = index + 0.5f; // center in the middle of the pixel.
 
-#if AA
-	// Anti - aliasing
-	float epsilonX = 0;
-	float epsilonY = 0;
-	epsilonX = Uniform01();
-	epsilonY = Uniform01();
-	xy.x += epsilonX;
-	xy.y += epsilonY;
-#endif
+    UINT features = g_sceneCB.features;
+    if (features & AntiAliasing)
+    {
+      // Anti - aliasing
+      float epsilonX = 0;
+      float epsilonY = 0;
+      epsilonX = Uniform01();
+      epsilonY = Uniform01();
+      xy.x += epsilonX;
+      xy.y += epsilonY;
+    }
 
     float2 screenPos = xy / DispatchRaysDimensions().xy * 2.0 - 1.0;
 
@@ -189,8 +188,9 @@ inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 directi
     origin = g_sceneCB.cameraPosition.xyz;
     direction = normalize(world.xyz - origin);
 
-#if DOF
-	// Depth of Field
+    if (features & DepthOfField)
+    {
+      	// Depth of Field
 	float lensRad = 0.5f;
 	float focalDist = 20.0f;
 	float3 pLens = float3(lensRad * CalculateConcentricSampleDisk(Uniform01(), Uniform01()), 0.0f);
@@ -198,7 +198,7 @@ inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 directi
 	float3 pFocus = direction * ft;
 	origin += pLens;
 	direction = normalize(pFocus - pLens);
-#endif
+    }
 }
 
 // Diffuse lighting calculation.

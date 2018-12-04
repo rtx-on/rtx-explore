@@ -114,9 +114,10 @@ public:
   glm::vec3 rotation;
   glm::vec3 scale;
 
+  bool transformBuilt = false;
+
 private:
   FLOAT transform[3][4]; // instance desc transform
-  bool transformBuilt = false;
 };
 
 struct Camera {
