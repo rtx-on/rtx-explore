@@ -1373,15 +1373,13 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
 
   static ImGuiFs::Dialog dlg; // one per dialog (and must be static)
 
-#define NAME_LIMIT (512)
+#define NAME_LIMIT (256)
 
   auto ShowModel = [&](ModelLoading::Model& model)
   {
     if (ImGui::TreeNode(FormatIdAndName("Model", model).c_str()))
     {
-      std::vector<char> model_name(model.name.length());
-      std::copy(std::begin(model.name), std::end(model.name), std::begin(model_name));
-      ImGui::InputText("Model name", model_name.data(), NAME_LIMIT);
+      ImGui::Text("Model name", model.name, NAME_LIMIT);
 
       if (ImGui::TreeNode("Vertices"))
       {
@@ -1502,9 +1500,10 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
   {
     if (ImGui::TreeNode(FormatIdAndName("Material", material_resource).c_str()))
     {
-      std::vector<char> material_name(material_resource.name.length());
+      std::vector<char> material_name(NAME_LIMIT, '\0');
       std::copy(std::begin(material_resource.name), std::end(material_resource.name), std::begin(material_name));
-      ImGui::InputText("Material name", material_name.data(), NAME_LIMIT);
+
+      bool input_text_update = ImGui::InputText("Material name", &material_name[0], NAME_LIMIT, ImGuiInputTextFlags_EnterReturnsTrue);
 
       ImGui::ColorEdit3("Diffuse", &material_resource.material.diffuse.x);
       ImGui::SameLine(); ShowHelpMarker("Click on the colored square to open a color picker.\nRight-click on the colored square to show options.\nCTRL+click on individual component to input value.\n");
@@ -1522,9 +1521,9 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
         ImGui::TreePop();
       }
 
-      if(ImGui::Button("Update"))
+      if(ImGui::Button("Update") || input_text_update)
       {
-        material_resource.name = std::string(std::begin(material_name), std::end(material_name));
+        material_resource.name = std::string(std::begin(material_name), std::begin(material_name) + ::strlen(&material_name[0]));
 
         void* data;
         material_resource.d3d12_material_resource.resource->Map(0, nullptr, &data);
@@ -1542,9 +1541,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
   {
     if (ImGui::TreeNode(FormatIdAndName("Diffuse Texture", diffuse_texture).c_str()))
     {
-      std::vector<char> diffuse_texture_name(diffuse_texture.name.length());
-      std::copy(std::begin(diffuse_texture.name), std::end(diffuse_texture.name), std::begin(diffuse_texture_name));
-      ImGui::InputText("Texture name", diffuse_texture_name.data(), NAME_LIMIT);
+      ImGui::Text("Texture name %s", diffuse_texture.name.c_str());
 
       if (object != nullptr)
       {
@@ -1632,9 +1629,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
   {
     if (ImGui::TreeNode(FormatIdAndName("Normal Texture", normal_texture).c_str()))
     {
-      std::vector<char> normal_texture_name(normal_texture.name.length());
-      std::copy(std::begin(normal_texture.name), std::end(normal_texture.name), std::begin(normal_texture_name));
-      ImGui::InputText("Texture name", normal_texture_name.data(), NAME_LIMIT);
+      ImGui::Text("Texture name %s", normal_texture.name.c_str());
 
       if (object != nullptr)
       {
