@@ -211,6 +211,11 @@ private:
     void ShutdownImGUI();
 
     int current_imgui_heap_descriptor = 0;
+
+    //reload all resources
+    bool rebuild_all_resources = false;
+
+    //cache the resources still
     bool rebuild_scene = false;
 
     void RebuildScene();
@@ -219,7 +224,7 @@ private:
     bool LoadNormalTexture(std::string normal_texture_path);
     bool MakeEmptyMaterial();
     bool MakeEmptyObject();
-    void SerializeToObj();
+    void SerializeToTxt(std::string path);
 
 
 #define VERTEX_HEAP_OFFSET (1000)

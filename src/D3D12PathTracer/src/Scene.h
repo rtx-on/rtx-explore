@@ -22,7 +22,7 @@ public:
   void AllocateBufferOnGpu(void *pData, UINT64 width, ID3D12Resource **ppResource, std::wstring resource_name, CD3DX12_RESOURCE_DESC* resource_desc_ptr = nullptr);
 
   template<typename Callback>
-  void recurse_gltf(tinygltf::Model &model, tinygltf::Node &node, Callback callback);
+  void RecurseGLTF(tinygltf::Model &model, tinygltf::Node &node, Callback callback);
   void ParseGLTF(std::string filename, bool make_light = true);
 
   int loadMaterial(string materialid, std::string name = "");

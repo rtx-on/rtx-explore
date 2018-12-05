@@ -15,6 +15,8 @@ struct Texture {
   std::string name{};
   UINT sampler_offset = 0;
 
+  bool was_loaded_from_gltf = false;
+
   D3DBuffer texBuffer;
   ID3D12Resource *textureBufferUploadHeap;
   D3D12_RESOURCE_DESC textureDesc;
@@ -31,6 +33,9 @@ struct MaterialResource
   Material material;
   int id;
   std::string name{};
+
+  bool was_loaded_from_gltf = false;
+
   D3DBuffer d3d12_material_resource;
 };
 

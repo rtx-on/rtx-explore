@@ -167,7 +167,7 @@ Scene::Scene(string filename, D3D12RaytracingSimpleLighting* programState) : pro
 }
 
 template <typename Callback>
-void Scene::recurse_gltf(tinygltf::Model& model, tinygltf::Node& node, Callback callback)
+void Scene::RecurseGLTF(tinygltf::Model& model, tinygltf::Node& node, Callback callback)
 {
   if (node.mesh != -1)
   {
@@ -175,7 +175,7 @@ void Scene::recurse_gltf(tinygltf::Model& model, tinygltf::Node& node, Callback 
   }
   for (size_t i = 0; i < node.children.size(); i++)
   {
-    recurse_gltf(model, model.nodes[node.children[i]], callback);
+    RecurseGLTF(model, model.nodes[node.children[i]], callback);
   }
 }
 
@@ -234,7 +234,7 @@ void Scene::ParseGLTF(std::string filename, bool make_light)
   const tinygltf::Scene &scene = model.scenes[model.defaultScene];
   for (size_t i = 0; i < scene.nodes.size(); ++i) 
   {
-    recurse_gltf(model, model.nodes[scene.nodes[i]], [&](tinygltf::Model &model, tinygltf::Node& node)
+    RecurseGLTF(model, model.nodes[scene.nodes[i]], [&](tinygltf::Model &model, tinygltf::Node& node)
     {
       const tinygltf::Mesh &mesh = model.meshes[node.mesh];
       
@@ -323,7 +323,7 @@ void Scene::ParseGLTF(std::string filename, bool make_light)
         //allocate model
         ModelLoading::Model new_model;
         new_model.id = model_id;
-        new_model.name = mesh.name;
+        new_model.name = filename;
         new_model.indicesCount = indices.size();
         new_model.verticesCount = vertices.size();
 
@@ -334,7 +334,7 @@ void Scene::ParseGLTF(std::string filename, bool make_light)
         //allocate object as well
         ModelLoading::SceneObject new_object{};
         new_object.id = object_id++;
-        new_object.name = mesh.name;
+        new_object.name = mesh.name + ":" + filename;
         new_object.info_resource.info.model_offset = model_id - 1;
         new_object.info_resource.info.texture_offset = -1;
         new_object.info_resource.info.texture_normal_offset = -1;
@@ -367,6 +367,7 @@ void Scene::ParseGLTF(std::string filename, bool make_light)
         //parse material TODO parse rest, for now, only get emittance
         tinygltf::Accessor& material_accessor = model.accessors[primitive.material];
         ModelLoading::MaterialResource material_resource{};
+        material_resource.was_loaded_from_gltf = true;
         material_resource.id = material_id;
         material_resource.name = material_accessor.name;
         
@@ -393,6 +394,7 @@ void Scene::ParseGLTF(std::string filename, bool make_light)
             ModelLoading::Texture new_texture;
             new_texture.id = diffuse_texture_id;
             new_texture.name = image_path;
+            new_texture.was_loaded_from_gltf = true;
 
             LoadDiffuseTextureHelper(image_path, diffuse_texture_id++, new_texture);
 
@@ -422,6 +424,7 @@ void Scene::ParseGLTF(std::string filename, bool make_light)
             ModelLoading::Texture new_texture;
             new_texture.id = normal_texture_id;
             new_texture.name = image_path;
+            new_texture.was_loaded_from_gltf = true;
 
             LoadNormalTextureHelper(image_path, normal_texture_id++, new_texture);
 
