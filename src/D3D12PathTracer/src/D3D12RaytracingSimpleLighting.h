@@ -211,13 +211,15 @@ private:
     void ShutdownImGUI();
 
     int current_imgui_heap_descriptor = 0;
+    bool rebuild_scene = false;
 
     void RebuildScene();
-    void LoadModel();
-    void LoadMaterial();
-    void LoadDiffuseTexture();
-    void LoadNormalTexture();
-    void LoadObject();
+    bool LoadModel(std::string model_path);
+    bool LoadMaterial();
+    bool LoadDiffuseTexture();
+    bool LoadNormalTexture();
+    bool MakeEmptyObject();
+    void SerializeToObj();
 
 
 #define VERTEX_HEAP_OFFSET (1000)

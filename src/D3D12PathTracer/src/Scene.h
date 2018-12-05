@@ -23,11 +23,12 @@ public:
 
   template<typename Callback>
   void recurse_gltf(tinygltf::Model &model, tinygltf::Node &node, Callback callback);
-  void parse_gltf(std::string filename);
+  void ParseGLTF(std::string filename, bool make_light = true);
 
   int loadMaterial(string materialid, std::string name = "");
   int loadDiffuseTexture(string texid);
   int loadNormalTexture(string texid);
+  void LoadModelHelper(std::string path, int id, ModelLoading::Model& model);
   int loadModel(string modelid);
   int loadObject(string objectid, std::string name = "");
   int loadCamera();

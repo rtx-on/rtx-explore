@@ -105,10 +105,10 @@ public:
   int id;
   std::string name{};
 
-  Model *model;
-  TextureBundle textures;
-  MaterialResource *material;
-  InfoResource info_resource;
+  Model *model = nullptr;
+  TextureBundle textures{};
+  MaterialResource *material = nullptr;
+  InfoResource info_resource{};
 
   glm::vec3 translation; // parsed transform values
   glm::vec3 rotation;

@@ -915,6 +915,13 @@ void D3D12RaytracingSimpleLighting::OnRender()
     //Draw ImGUI
     StartFrameImGUI();
 
+    //if rebuild scene
+    if (rebuild_scene)
+    {
+      RebuildScene();
+      rebuild_scene = false;
+    }
+
     m_deviceResources->Prepare();
 
     commandList->RSSetViewports(1, &m_deviceResources->GetScreenViewport());
@@ -1792,6 +1799,12 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
           ImGui::TreePop();
         }
       }
+
+      //add object
+      if (ImGui::TreeNode("Add Object (Contains nothing)"))
+      {
+        MakeEmptyObject();
+      }
     }
   };
 
@@ -1857,11 +1870,20 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       for (auto& model_pair : m_sceneLoaded->modelMap)
       {
         auto& model = model_pair.second;
-        if (ImGui::TreeNode(FormatIdAndName("Model", model).c_str()))
-        {
-          ShowModel(model);
-          ImGui::TreePop();
-        }
+        ShowModel(model);
+      }
+
+      const bool browseButtonPressed = ImGui::Button("Add model");
+      static ImGuiFs::Dialog dlg; // one per dialog (and must be static)
+      const char* chosen_path = dlg.chooseFileDialog(browseButtonPressed);
+
+      if (strlen(chosen_path) > 0)
+      {
+        LoadModel(chosen_path);
+      }
+      else if(browseButtonPressed)
+      {
+        ImGui::Text("Invalid path");
       }
     }
   };
@@ -1873,11 +1895,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       for (auto& material_pair : m_sceneLoaded->materialMap)
       {
         auto& material = material_pair.second;
-        if (ImGui::TreeNode(FormatIdAndName("Material", material).c_str()))
-        {
-          ShowMaterial(material);
-          ImGui::TreePop();
-        }
+        ShowMaterial(material);
       }
     }
   };
@@ -1889,11 +1907,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       for (auto& diffuse_texture_pair : m_sceneLoaded->diffuseTextureMap)
       {
         auto& diffuse_texture = diffuse_texture_pair.second;
-        if (ImGui::TreeNode(FormatIdAndName("Diffuse Texture", diffuse_texture).c_str()))
-        {
-          ShowDiffuseTexture(diffuse_texture);
-          ImGui::TreePop();
-        }
+        ShowDiffuseTexture(diffuse_texture);
       }
     }
   };
@@ -1905,11 +1919,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       for (auto& normal_texture_pair : m_sceneLoaded->normalTextureMap)
       {
         auto& normal_texture = normal_texture_pair.second;
-        if (ImGui::TreeNode(FormatIdAndName("Normal Texture", normal_texture).c_str()))
-        {
-          ShowNormalTexture(normal_texture);
-          ImGui::TreePop();
-        }
+        ShowNormalTexture(normal_texture);
       }
     }
   };
@@ -1934,22 +1944,8 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
   bool resize = true;
   ImGui::Begin("DXR Path Tracer", &resize, ImGuiWindowFlags_AlwaysAutoResize);
 
-  ImGui::Text("dear imgui says hello. (%s)", IMGUI_VERSION);
-  const bool browseButtonPressed = ImGui::Button("...");                          // we need a trigger boolean variable
-  static ImGuiFs::Dialog dlg;                                                     // one per dialog (and must be static)
-  const char* chosenPath = dlg.chooseFileDialog(browseButtonPressed);             // see other dialog types and the full list of arguments for advanced usage
-  if (strlen(chosenPath) > 0) {
-    // A path (chosenPath) has been chosen RIGHT NOW. However we can retrieve it later more comfortably using: dlg.getChosenPath()
-  }
-  if (strlen(dlg.getChosenPath()) > 0) {
-    ImGui::Text("Chosen file: \"%s\"", dlg.getChosenPath());
-  }
+  ImGui::Text("ImGUI version: (%s)", IMGUI_VERSION);
 
-  // If you want to copy the (valid) returned path somewhere, you can use something like:
-  static char myPath[ImGuiFs::MAX_PATH_BYTES];
-  if (strlen(dlg.getChosenPath()) > 0) {
-    strcpy(myPath, dlg.getChosenPath());
-  }
   ShowHeaders();
 
   ImGui::End();
@@ -1972,6 +1968,86 @@ void D3D12RaytracingSimpleLighting::ShutdownImGUI()
   g_pd3dSrvDescHeap.Reset();
   ImGui_ImplDX12_Shutdown();
   ImGui::DestroyContext();
+}
+
+void D3D12RaytracingSimpleLighting::RebuildScene()
+{
+  // Create raytracing interfaces: raytracing device and commandlist.
+  m_raytracingGlobalRootSignature.Reset();
+  m_raytracingLocalRootSignature.Reset();
+
+  m_descriptorsAllocated = 0;
+  m_raytracingOutputResourceUAVDescriptorHeapIndex = UINT_MAX;
+  m_indexBuffer.resource.Reset();
+  m_vertexBuffer.resource.Reset();
+  m_textureBuffer.resource.Reset();
+  m_normalTextureBuffer.resource.Reset();
+  m_perFrameConstants.Reset();
+  m_rayGenShaderTable.Reset();
+  m_missShaderTable.Reset();
+  m_hitGroupShaderTable.Reset();
+
+  m_bottomLevelAccelerationStructure.Reset();
+  m_topLevelAccelerationStructure.Reset();
+
+  // Create root signatures for the shaders.
+  CreateRootSignatures();
+
+  for (auto& model : m_sceneLoaded->modelMap)
+  {
+    model.second.is_gpu_ptr_allocated = false;
+    model.second.is_m_bottomLevelAccelerationStructure_allocated = false;
+    model.second.is_scratchResource_allocated = false;
+  }
+
+  for (auto& object : m_sceneLoaded->objects)
+  {
+    object.transformBuilt = false;
+  }
+
+  // Create a raytracing pipeline state object which defines the binding of shaders, state and resources to be used during raytracing.
+  CreateRaytracingPipelineStateObject();
+
+  // Create a heap for descriptors.
+  CreateDescriptorHeap();
+
+  // Build geometry to be used in the sample.
+  m_sceneLoaded->AllocateResourcesInDescriptorHeap();
+
+  // Build raytracing acceleration structures from the generated geometry.
+  BuildAccelerationStructures();
+
+  // Create constant buffers for the geometry and the scene.
+  CreateConstantBuffers();
+
+  // Build shader tables, which define shaders and their local root arguments.
+  BuildShaderTables();
+
+  // Create an output 2D texture to store the raytracing result to.
+  CreateRaytracingOutputResource();
+}
+
+bool D3D12RaytracingSimpleLighting::LoadModel(std::string model_path) {
+  std::fstream model_file(model_path);
+  if (model_file)
+  {
+    ModelLoading::Model model;
+    model.name = model_path;
+    int new_id = (--std::end(m_sceneLoaded->modelMap))->first + 1;
+    m_sceneLoaded->LoadModelHelper(model_path, new_id, model);
+    rebuild_scene = true;
+  }
+  return false;
+}
+
+bool D3D12RaytracingSimpleLighting::MakeEmptyObject()
+{
+  ModelLoading::SceneObject object{};
+  object.id = m_sceneLoaded->objects.size() - 1;
+  object.name = "Empty Object";
+  object.scale = glm::vec3(1.0f);
+  m_sceneLoaded->objects.emplace_back(std::move(object));
+  return true;
 }
 
 int D3D12RaytracingSimpleLighting::GetHeapOffsetForVertices()
