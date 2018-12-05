@@ -69,6 +69,8 @@ struct Info
   UINT texture_offset;
   UINT texture_normal_offset;
   UINT material_offset;
+  UINT diffuse_sampler_offset;
+  UINT normal_sampler_offset;
   XMMATRIX rotation_scale_matrix;
 };
 

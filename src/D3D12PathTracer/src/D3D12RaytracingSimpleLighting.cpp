@@ -150,11 +150,12 @@ void D3D12RaytracingSimpleLighting::InitializeScene()
         m_sceneCB[frameIndex].lightDiffuseColor = XMLoadFloat4(&lightDiffuseColor);
     }
 
-	// Setup path tracing state
-	{
-		m_sceneCB[frameIndex].iteration = 1;
-		m_sceneCB[frameIndex].depth = 5;
-	}
+    // Setup path tracing state
+    {
+	    m_sceneCB[frameIndex].iteration = 1;
+	    m_sceneCB[frameIndex].depth = 5;
+	    m_sceneCB[frameIndex].features = AntiAliasing;
+    }
 
     // Apply the initial values to all frames' buffer instances.
     for (auto& sceneCB : m_sceneCB)
@@ -302,8 +303,19 @@ void D3D12RaytracingSimpleLighting::CreateRootSignatures()
 	sampler[0].RegisterSpace = 0;
 	sampler[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-	memcpy(&sampler[1], &sampler[0], sizeof(D3D12_STATIC_SAMPLER_DESC));
-	sampler[1].ShaderRegister = 1;
+        sampler[1].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+        sampler[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+        sampler[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+        sampler[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+        sampler[1].MipLODBias = 0;
+        sampler[1].MaxAnisotropy = 0;
+        sampler[1].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+        sampler[1].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+        sampler[1].MinLOD = 0.0f;
+        sampler[1].MaxLOD = 1.0f;
+        sampler[1].ShaderRegister = 1;
+        sampler[1].RegisterSpace = 0;
+        sampler[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
         CD3DX12_ROOT_SIGNATURE_DESC globalRootSignatureDesc(ARRAYSIZE(rootParameters), rootParameters, 2, &sampler[0]);
         SerializeAndCreateRaytracingRootSignature(globalRootSignatureDesc, &m_raytracingGlobalRootSignature);
@@ -918,6 +930,7 @@ void D3D12RaytracingSimpleLighting::OnRender()
     //if rebuild scene
     if (rebuild_scene)
     {
+      m_deviceResources->WaitForGpu();
       RebuildScene();
       rebuild_scene = false;
     }
@@ -1347,6 +1360,17 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
     return std::make_pair(cpu_handle, gpu_handle);
   };
 
+  auto UpdateObject = [&](const ModelLoading::SceneObject& object)
+  {
+    //update the resource info
+    void* mapped_data;
+    object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
+    memcpy(mapped_data, &object.info_resource.info, sizeof(Info));
+    object.info_resource.d3d12_resource.resource->Unmap(0, nullptr);
+
+    ResetPathTracing();
+  };
+
 #define NAME_LIMIT (512)
 
   auto ShowModel = [&](ModelLoading::Model& model)
@@ -1495,9 +1519,10 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
         ImGui::Text("GPU handle: %p", material_resource.d3d12_material_resource.gpuDescriptorHandle.ptr);
         ImGui::TreePop();
       }
+
       if(ImGui::Button("Update"))
       {
-        material_resource.name = material_name.data();
+        material_resource.name = std::string(std::begin(material_name), std::end(material_name));
 
         void* data;
         material_resource.d3d12_material_resource.resource->Map(0, nullptr, &data);
@@ -1511,13 +1536,44 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
     }
   };
 
-  auto ShowDiffuseTexture = [&](ModelLoading::Texture& diffuse_texture)
+  auto ShowDiffuseTexture = [&](ModelLoading::Texture& diffuse_texture, ModelLoading::SceneObject* object = nullptr)
   {
     if (ImGui::TreeNode(FormatIdAndName("Diffuse Texture", diffuse_texture).c_str()))
     {
       std::vector<char> diffuse_texture_name(diffuse_texture.name.length());
       std::copy(std::begin(diffuse_texture.name), std::end(diffuse_texture.name), std::begin(diffuse_texture_name));
       ImGui::InputText("Texture name", diffuse_texture_name.data(), NAME_LIMIT);
+
+      if (object != nullptr)
+      {
+        std::vector<std::string> samplers(2);
+        samplers[0] = "Wrap";
+        samplers[1] = "Mirror";
+
+        if (ImGui::Button("Select sampler"))
+          ImGui::OpenPopup("sampler_select");
+
+        if (ImGui::BeginPopup("sampler_select"))
+        {
+          ImGui::Text("Sampler");
+          ImGui::Separator();
+
+          for (std::size_t i = 0; i < samplers.size(); i++)
+          {
+            if (ImGui::Selectable(samplers[i].data()))
+            {
+              diffuse_texture.sampler_offset = i;
+              object->info_resource.info.diffuse_sampler_offset = diffuse_texture.sampler_offset;
+              UpdateObject(*object);
+            }
+          }
+
+          ImGui::EndPopup();
+        }
+
+        ImGui::SameLine();
+        ImGui::Text("Sampler: %s", samplers[diffuse_texture.sampler_offset].c_str());
+      }
 
       if (ImGui::TreeNode("Raw Texture"))
       {
@@ -1570,13 +1626,43 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
     }
   };
 
-  auto ShowNormalTexture = [&](ModelLoading::Texture& normal_texture)
+  auto ShowNormalTexture = [&](ModelLoading::Texture& normal_texture, ModelLoading::SceneObject* object = nullptr)
   {
     if (ImGui::TreeNode(FormatIdAndName("Normal Texture", normal_texture).c_str()))
     {
       std::vector<char> normal_texture_name(normal_texture.name.length());
       std::copy(std::begin(normal_texture.name), std::end(normal_texture.name), std::begin(normal_texture_name));
       ImGui::InputText("Texture name", normal_texture_name.data(), NAME_LIMIT);
+
+      if (object != nullptr)
+      {
+        std::vector<std::string> samplers(2);
+        samplers[0] = "Wrap";
+        samplers[1] = "Mirror";
+
+        if (ImGui::Button("Select sampler"))
+          ImGui::OpenPopup("sampler_select");
+
+        if (ImGui::BeginPopup("sampler_select"))
+        {
+          ImGui::Text("Sampler");
+          ImGui::Separator();
+          for (std::size_t i = 0; i < samplers.size(); i++)
+          {
+            if (ImGui::Selectable(samplers[i].data()))
+            {
+              normal_texture.sampler_offset = i;
+              object->info_resource.info.texture_normal_offset = normal_texture.sampler_offset;
+              UpdateObject(*object);
+            }
+          }
+
+          ImGui::EndPopup();
+        }
+
+        ImGui::SameLine();
+        ImGui::Text("Sampler: %s", samplers[normal_texture.sampler_offset].c_str());
+      }
 
       if (ImGui::TreeNode("Raw Texture"))
       {
@@ -1637,15 +1723,75 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       {
         if (ImGui::TreeNode(FormatIdAndName("Object", object).c_str()))
         {
-          ImGui::DragFloat3("Translation", &object.translation.x, 0.01f, 0.0f, 1.0f);
-          ImGui::DragFloat3("Rotation", &object.rotation.x, 0.01f, 0.0f, 1.0f);
-          ImGui::DragFloat3("Scale", &object.scale.x, 0.01f, 0.0f, 1.0f);
+          ImGui::DragFloat3("Translation", &object.translation.x, 0.01f, 0, 0, "%.3f", 20.0f);
+          ImGui::DragFloat3("Rotation", &object.rotation.x, 0.05f, 0, 0, "%.3f", 200.0f);
+          ImGui::DragFloat3("Scale", &object.scale.x, 0.01f, 0, 0, "%.3f", 20.0f);
+
+          if (object.model != nullptr)
+          {
+            ShowModel(*object.model);
+          }
+
+          if (object.material != nullptr)
+          {
+            ShowMaterial(*object.material);
+          }
+
+          if (object.textures.albedoTex != nullptr)
+          {
+            ShowDiffuseTexture(*object.textures.albedoTex, &object);
+          }
+
+          if (object.textures.normalTex != nullptr)
+          {
+            ShowNormalTexture(*object.textures.normalTex, &object);
+          }
+
+          //model
+          std::vector<std::pair<std::string, ModelLoading::Model*>> model_names;
+          model_names.reserve(m_sceneLoaded->modelMap.size() + 1);
+          model_names.emplace_back(std::make_pair("None", nullptr));
+          for (auto& material_pair : m_sceneLoaded->modelMap)
+          {
+            auto& model = material_pair.second;
+            model_names.emplace_back(FormatIdAndName("Model", model), &model);
+          }
+
+          if (ImGui::Button("Select model"))
+            ImGui::OpenPopup("model_select");
+
+          if (ImGui::BeginPopup("model_select"))
+          {
+            ImGui::Text("Model");
+            ImGui::Separator();
+            for (std::size_t i = 0; i < model_names.size(); i++)
+            {
+              if (ImGui::Selectable(model_names[i].first.data()))
+              {
+                if (i != 0)
+                {
+                  object.model = model_names[i].second;
+                  object.info_resource.info.model_offset = object.model->id;
+                }
+                else
+                {
+                  object.model = nullptr;
+                  object.info_resource.info.model_offset = -1;
+                }
+
+                //update the model
+                rebuild_scene = true;
+              }
+            }
+
+            ImGui::EndPopup();
+          }
 
           //materials
           std::vector<std::pair<std::string, ModelLoading::MaterialResource*>> material_names;
           material_names.reserve(m_sceneLoaded->materialMap.size() + 1);
           material_names.emplace_back(std::make_pair("None", nullptr));
-          for(auto& material_pair : m_sceneLoaded->materialMap)
+          for (auto& material_pair : m_sceneLoaded->materialMap)
           {
             auto& material = material_pair.second;
             material_names.emplace_back(FormatIdAndName("Material", material), &material);
@@ -1684,10 +1830,6 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
             }
 
             ImGui::EndPopup();
-          }
-          if (object.material != nullptr)
-          {
-            ShowMaterial(*object.material);
           }
 
           //diffuse textures
@@ -1734,10 +1876,6 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
 
             ImGui::EndPopup();
           }
-          if (object.textures.albedoTex != nullptr)
-          {
-            ShowDiffuseTexture(*object.textures.albedoTex);
-          }
 
           //normal textures
           std::vector<std::pair<std::string, ModelLoading::Texture*>> normal_texture_names;
@@ -1783,17 +1921,10 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
 
             ImGui::EndPopup();
           }
-          if (object.textures.normalTex != nullptr)
-          {
-            ShowNormalTexture(*object.textures.normalTex);
-          }
 
-          if (ImGui::TreeNode("Update"))
+          if (ImGui::Button("Update"))
           {
-            object.transformBuilt = false;
-            //TODO update acceleration structure
-
-            ImGui::TreePop();
+            rebuild_scene = true;
           }
 
           ImGui::TreePop();
@@ -1801,7 +1932,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       }
 
       //add object
-      if (ImGui::TreeNode("Add Object (Contains nothing)"))
+      if (ImGui::Button("Add Empty Object"))
       {
         MakeEmptyObject();
       }
@@ -1875,7 +2006,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
 
       const bool browseButtonPressed = ImGui::Button("Add model");
       static ImGuiFs::Dialog dlg; // one per dialog (and must be static)
-      const char* chosen_path = dlg.chooseFileDialog(browseButtonPressed);
+      const char* chosen_path = dlg.chooseFileDialog(browseButtonPressed, nullptr, ".obj");
 
       if (strlen(chosen_path) > 0)
       {
@@ -1897,8 +2028,15 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
         auto& material = material_pair.second;
         ShowMaterial(material);
       }
+
+      if(ImGui::Button("Make Empty Material"))
+      {
+        MakeEmptyMaterial();
+      }
     }
   };
+
+  std::string possible_image_extensions = ".tiff;.gif;.bmp;.png;.jpg;.jpeg;.tga";
 
   auto ShowDiffuseTextureHeader = [&]()
   {
@@ -1908,6 +2046,19 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       {
         auto& diffuse_texture = diffuse_texture_pair.second;
         ShowDiffuseTexture(diffuse_texture);
+      }
+
+      const bool browseButtonPressed = ImGui::Button("Add Texture");
+      static ImGuiFs::Dialog dlg; // one per dialog (and must be static)
+      const char* chosen_path = dlg.chooseFileDialog(browseButtonPressed, nullptr, possible_image_extensions.c_str());
+
+      if (strlen(chosen_path) > 0)
+      {
+        LoadDiffuseTexture(chosen_path);
+      }
+      else if (browseButtonPressed)
+      {
+        ImGui::Text("Invalid path");
       }
     }
   };
@@ -1921,6 +2072,39 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
         auto& normal_texture = normal_texture_pair.second;
         ShowNormalTexture(normal_texture);
       }
+
+      const bool browseButtonPressed = ImGui::Button("Add Texture");
+      static ImGuiFs::Dialog dlg; // one per dialog (and must be static)
+      const char* chosen_path = dlg.chooseFileDialog(browseButtonPressed, nullptr, possible_image_extensions.c_str());
+
+      if (strlen(chosen_path) > 0)
+      {
+        LoadNormalTexture(chosen_path);
+      }
+      else if (browseButtonPressed)
+      {
+        ImGui::Text("Invalid path");
+      }
+    }
+  };
+
+  auto ShowGLTFHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("GLTF"))
+    {
+      const bool browseButtonPressed = ImGui::Button("Upload GLTF file");
+      static ImGuiFs::Dialog dlg; // one per dialog (and must be static)
+      const char* chosen_path = dlg.chooseFileDialog(browseButtonPressed, nullptr, ".gltf");
+
+      if (strlen(chosen_path) > 0)
+      {
+        m_sceneLoaded->ParseGLTF(chosen_path, false);
+        rebuild_scene = true;
+      }
+      else if (browseButtonPressed)
+      {
+        ImGui::Text("Invalid path");
+      }
     }
   };
 
@@ -1933,6 +2117,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
     ShowDiffuseTextureHeader();
     ShowNormalTextureHeader();
     ShowObjectHeader();
+    ShowGLTFHeader();
   };
 
   auto commandList = m_deviceResources->GetCommandList();
@@ -1990,20 +2175,31 @@ void D3D12RaytracingSimpleLighting::RebuildScene()
   m_bottomLevelAccelerationStructure.Reset();
   m_topLevelAccelerationStructure.Reset();
 
-  // Create root signatures for the shaders.
-  CreateRootSignatures();
+  m_camChanged = true;
 
   for (auto& model : m_sceneLoaded->modelMap)
   {
     model.second.is_gpu_ptr_allocated = false;
     model.second.is_m_bottomLevelAccelerationStructure_allocated = false;
     model.second.is_scratchResource_allocated = false;
+    model.second.bottom_level_build_desc_allocated = false;
+    model.second.m_bottomLevelAccelerationStructure.Reset();
+    model.second.scratchResource.Reset();
   }
+
+  m_sceneLoaded->top_level_build_desc_allocated = false;
+  m_sceneLoaded->top_level_prebuild_info_allocated = false;
+  m_sceneLoaded->scratchResource.Reset();
+  m_sceneLoaded->m_topLevelAccelerationStructure.Reset();
+  m_sceneLoaded->instanceDescs.Reset();
 
   for (auto& object : m_sceneLoaded->objects)
   {
     object.transformBuilt = false;
   }
+  
+  // Create root signatures for the shaders.
+  CreateRootSignatures();
 
   // Create a raytracing pipeline state object which defines the binding of shaders, state and resources to be used during raytracing.
   CreateRaytracingPipelineStateObject();
@@ -2040,13 +2236,55 @@ bool D3D12RaytracingSimpleLighting::LoadModel(std::string model_path) {
   return false;
 }
 
+bool D3D12RaytracingSimpleLighting::LoadDiffuseTexture(std::string diffuse_texture_path)
+{
+  std::fstream file(diffuse_texture_path);
+  if (file)
+  {
+    file.close();
+    ModelLoading::Texture new_texture;
+    new_texture.name = diffuse_texture_path;
+    int new_id = (--std::end(m_sceneLoaded->diffuseTextureMap))->first + 1;
+    m_sceneLoaded->LoadDiffuseTextureHelper(diffuse_texture_path, new_id, new_texture);
+    rebuild_scene = true;
+  }
+  return false;
+}
+
+bool D3D12RaytracingSimpleLighting::LoadNormalTexture(std::string normal_texture_path)
+{
+  std::fstream file(normal_texture_path);
+  if (file)
+  {
+    file.close();
+    ModelLoading::Texture new_texture;
+    new_texture.name = normal_texture_path;
+    int new_id = (--std::end(m_sceneLoaded->normalTextureMap))->first + 1;
+    m_sceneLoaded->LoadNormalTextureHelper(normal_texture_path, new_id, new_texture);
+    rebuild_scene = true;
+  }
+  return false;
+}
+
+bool D3D12RaytracingSimpleLighting::MakeEmptyMaterial()
+{
+  ModelLoading::MaterialResource material_resource{};
+  int new_id = (--std::end(m_sceneLoaded->materialMap))->first + 1;
+  material_resource.id = new_id;
+  material_resource.name = "Empty Material";
+  m_sceneLoaded->materialMap.insert({ new_id, std::move(material_resource)});
+  rebuild_scene = true;
+  return true;
+}
+
 bool D3D12RaytracingSimpleLighting::MakeEmptyObject()
 {
   ModelLoading::SceneObject object{};
-  object.id = m_sceneLoaded->objects.size() - 1;
+  object.id = m_sceneLoaded->objects.size();
   object.name = "Empty Object";
   object.scale = glm::vec3(1.0f);
   m_sceneLoaded->objects.emplace_back(std::move(object));
+  rebuild_scene = true;
   return true;
 }
 

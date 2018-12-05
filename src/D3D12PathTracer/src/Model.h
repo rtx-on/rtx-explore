@@ -13,6 +13,7 @@ namespace ModelLoading {
 struct Texture {
   int id;
   std::string name{};
+  UINT sampler_offset = 0;
 
   D3DBuffer texBuffer;
   ID3D12Resource *textureBufferUploadHeap;

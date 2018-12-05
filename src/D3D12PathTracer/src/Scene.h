@@ -28,10 +28,13 @@ public:
   int loadMaterial(string materialid, std::string name = "");
   int loadDiffuseTexture(string texid);
   int loadNormalTexture(string texid);
-  void LoadModelHelper(std::string path, int id, ModelLoading::Model& model);
   int loadModel(string modelid);
   int loadObject(string objectid, std::string name = "");
   int loadCamera();
+
+  void LoadModelHelper(std::string path, int id, ModelLoading::Model& model);
+  void LoadDiffuseTextureHelper(std::string path, int id, ModelLoading::Texture& newTexture);
+  void LoadNormalTextureHelper(std::string path, int id, ModelLoading::Texture& newTexture);
 
   D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC &GetTopLevelDesc();
 

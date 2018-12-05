@@ -215,9 +215,9 @@ private:
 
     void RebuildScene();
     bool LoadModel(std::string model_path);
-    bool LoadMaterial();
-    bool LoadDiffuseTexture();
-    bool LoadNormalTexture();
+    bool LoadDiffuseTexture(std::string diffuse_texture_path);
+    bool LoadNormalTexture(std::string normal_texture_path);
+    bool MakeEmptyMaterial();
     bool MakeEmptyObject();
     void SerializeToObj();
 

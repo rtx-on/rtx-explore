@@ -37,6 +37,7 @@
 #include <unordered_map>
 #include <vector>
 #include <wrl.h>
+#include <filesystem>
 
 #include "D3D12RaytracingFallback.h"
 #include "D3D12RaytracingHelpers.hpp"

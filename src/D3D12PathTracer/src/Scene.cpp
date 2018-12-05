@@ -210,6 +210,27 @@ void Scene::ParseGLTF(std::string filename, bool make_light)
   int material_id = 0;
   int object_id = 0;
 
+  if(!modelMap.empty())
+  {
+    model_id = (--std::end(modelMap))->first + 1;
+  }
+  if (!diffuseTextureMap.empty())
+  {
+    diffuse_texture_id = (--std::end(diffuseTextureMap))->first + 1;
+  }
+  if (!normalTextureMap.empty())
+  {
+    normal_texture_id = (--std::end(normalTextureMap))->first + 1;
+  }
+  if (!materialMap.empty())
+  {
+    material_id = (--std::end(materialMap))->first + 1;
+  }
+  if (!objects.empty())
+  {
+    object_id = objects.size();
+  }
+
   const tinygltf::Scene &scene = model.scenes[model.defaultScene];
   for (size_t i = 0; i < scene.nodes.size(); ++i) 
   {
@@ -362,34 +383,18 @@ void Scene::ParseGLTF(std::string filename, bool make_light)
             const tinygltf::Texture& texture = model.textures[texture_index];
             const tinygltf::Image& image = model.images[texture.source];
 
-            //get path to image
-            std::string base_directory = filename;
-            base_directory.erase(base_directory.find_last_of("\\") + 1);
-            std::string full_path = base_directory + image.uri;
-            std::wstring image_path = utilityCore::string2wstring(full_path);
+            std::experimental::filesystem::path file_path(filename);
+            std::experimental::filesystem::path parent_path = file_path.parent_path();
+            auto image_path = parent_path.append(image.uri).string();
+
+            std::wstring wimage_path = utilityCore::string2wstring(image_path);
 
             //allocate texture
             ModelLoading::Texture new_texture;
             new_texture.id = diffuse_texture_id;
-            new_texture.name = full_path;
+            new_texture.name = image_path;
 
-            // Load the image from file
-	    D3D12_RESOURCE_DESC& textureDesc = new_texture.textureDesc;
-	    int imageBytesPerRow;
-	    BYTE* imageData;
-
-	    int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, image_path.c_str(), imageBytesPerRow);
-
-	    // make sure we have data
-	    if (imageSize <= 0)
-	    {
-		    return false;
-	    }
-
-            AllocateBufferOnGpu(imageData, imageBytesPerRow, &(new_texture.texBuffer.resource), utilityCore::stringAndId(L"Diffuse Texture", diffuse_texture_id), &CD3DX12_RESOURCE_DESC(textureDesc));
-            ::free(imageData);
-
-            diffuseTextureMap.insert({diffuse_texture_id++, std::move(new_texture)});
+            LoadDiffuseTextureHelper(image_path, diffuse_texture_id++, new_texture);
 
             //make sure object points to this
             new_object.textures.albedoTex = &diffuseTextureMap[diffuse_texture_id - 1];
@@ -409,33 +414,16 @@ void Scene::ParseGLTF(std::string filename, bool make_light)
             const tinygltf::Image& image = model.images[texture.source];
 
             //get path to image
-            std::string base_directory = filename;
-            base_directory.erase(base_directory.find_last_of("\\") + 1);
-            std::string full_path = base_directory + image.uri;
-            std::wstring image_path = utilityCore::string2wstring(full_path);
+            std::experimental::filesystem::path file_path(filename);
+            std::experimental::filesystem::path parent_path = file_path.parent_path();
+            auto image_path = parent_path.append(image.uri).string();
 
             //allocate texture
             ModelLoading::Texture new_texture;
             new_texture.id = normal_texture_id;
-            new_texture.name = full_path;
+            new_texture.name = image_path;
 
-            // Load the image from file
-	    D3D12_RESOURCE_DESC& textureDesc = new_texture.textureDesc;
-	    int imageBytesPerRow;
-	    BYTE* imageData;
-
-	    int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, image_path.c_str(), imageBytesPerRow);
-
-	    // make sure we have data
-	    if (imageSize <= 0)
-	    {
-		    return false;
-	    }
-
-            AllocateBufferOnGpu(imageData, imageBytesPerRow, &(new_texture.texBuffer.resource), utilityCore::stringAndId(L"Diffuse Texture", normal_texture_id), &CD3DX12_RESOURCE_DESC(textureDesc));
-            ::free(imageData);
-
-            normalTextureMap.insert({normal_texture_id++, std::move(new_texture)});
+            LoadNormalTextureHelper(image_path, normal_texture_id++, new_texture);
 
             //make sure object points to this
             new_object.textures.normalTex = &normalTextureMap[normal_texture_id - 1];
@@ -798,6 +786,54 @@ void Scene::LoadModelHelper(std::string path, int id, ModelLoading::Model& model
   }
 }
 
+void Scene::LoadDiffuseTextureHelper(std::string path, int id, ModelLoading::Texture& newTexture)
+{
+  // Load the image from file
+  D3D12_RESOURCE_DESC& textureDesc = newTexture.textureDesc;
+  int imageBytesPerRow;
+  BYTE* imageData;
+
+  wstring wpath = utilityCore::string2wstring(path);
+  int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, wpath.c_str(), imageBytesPerRow);
+
+  // make sure we have data
+  if (imageSize <= 0)
+  {
+    return throw std::exception("Image size < 0");
+  }
+
+  AllocateBufferOnGpu(imageData, imageBytesPerRow, &(newTexture.texBuffer.resource), utilityCore::stringAndId(L"Diffuse Texture", id), &CD3DX12_RESOURCE_DESC(textureDesc));
+  ::free(imageData);
+
+  newTexture.id = id;
+  std::pair<int, ModelLoading::Texture> pair(id, newTexture);
+  diffuseTextureMap.insert(pair);
+}
+
+void Scene::LoadNormalTextureHelper(std::string path, int id, ModelLoading::Texture& newTexture)
+{
+  // Load the image from file
+  D3D12_RESOURCE_DESC& textureDesc = newTexture.textureDesc;
+  int imageBytesPerRow;
+  BYTE* imageData;
+
+  wstring wpath = utilityCore::string2wstring(path);
+  int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, wpath.c_str(), imageBytesPerRow);
+
+  // make sure we have data
+  if (imageSize <= 0)
+  {
+    return throw std::exception("Image size < 0");
+  }
+
+  AllocateBufferOnGpu(imageData, imageBytesPerRow, &(newTexture.texBuffer.resource), utilityCore::stringAndId(L"Normal Texture", id), &CD3DX12_RESOURCE_DESC(textureDesc));
+  ::free(imageData);
+
+  newTexture.id = id;
+  std::pair<int, ModelLoading::Texture> pair(id, newTexture);
+  normalTextureMap.insert(pair);
+}
+
 int Scene::loadModel(string modelid) {
 	int id = atoi(modelid.c_str());
 
@@ -843,27 +879,8 @@ int Scene::loadDiffuseTexture(string texid) {
 		vector<string> tokens = utilityCore::tokenizeString(line);
                 newTexture.name = tokens[1];
 
-		// Load the image from file
-		D3D12_RESOURCE_DESC& textureDesc = newTexture.textureDesc;
-		int imageBytesPerRow;
-		BYTE* imageData;
-
-		wstring path = utilityCore::string2wstring(tokens[1]);
-		int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, path.c_str(), imageBytesPerRow);
-
-		// make sure we have data
-		if (imageSize <= 0)
-		{
-			return false;
-		}
-
-                AllocateBufferOnGpu(imageData, imageBytesPerRow, &(newTexture.texBuffer.resource), utilityCore::stringAndId(L"Diffuse Texture", id), &CD3DX12_RESOURCE_DESC(textureDesc));
-                ::free(imageData);
+                LoadDiffuseTextureHelper(tokens[1], id, newTexture);
 	}
-
-	newTexture.id = id;
-        std::pair<int, ModelLoading::Texture> pair(id, newTexture);
-	diffuseTextureMap.insert(pair);
 
 	wstr << L"Done loading TEXTURE " << id << L" !\n";
 	wstr << L"------------------------------------------------------------------------------\n";
@@ -889,27 +906,8 @@ int Scene::loadNormalTexture(string texid) {
 		vector<string> tokens = utilityCore::tokenizeString(line);
                 newTexture.name = tokens[1];
 
-		// Load the image from file
-		D3D12_RESOURCE_DESC& textureDesc = newTexture.textureDesc;
-		int imageBytesPerRow;
-		BYTE* imageData;
-
-		wstring path = utilityCore::string2wstring(tokens[1]);
-		int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, path.c_str(), imageBytesPerRow);
-
-		// make sure we have data
-		if (imageSize <= 0)
-		{
-			return false;
-		}
-
-                AllocateBufferOnGpu(imageData, imageBytesPerRow, &(newTexture.texBuffer.resource), utilityCore::stringAndId(L"Normal Texture", id), &CD3DX12_RESOURCE_DESC(textureDesc));
-                ::free(imageData);
+                LoadNormalTextureHelper(tokens[1], id, newTexture);
 	}
-
-	newTexture.id = id;
-        std::pair<int, ModelLoading::Texture> pair(id, newTexture);
-	normalTextureMap.insert(pair);
 
 	wstr << L"Done loading NORMAL TEXTURE " << id << L" !\n";
 	wstr << L"------------------------------------------------------------------------------\n";
@@ -1177,14 +1175,14 @@ ComPtr<ID3D12Resource> Scene::GetInstanceDescriptors(
         instanceDesc.InstanceID = i; // TODO MAKE SURE THIS MATCHES THE ONE BELOW (FOR ACTUAL RAYTRACING)
         //instanceDesc.InstanceContributionToHitGroupIndex = 0;
 
+        if (model != nullptr)
+        {
+          UINT numBufferElements = static_cast<UINT>(model->GetPreBuild(is_fallback, m_fallbackDevice, m_dxrDevice).ResultDataMaxSizeInBytes) / sizeof(UINT32);
 
-        UINT numBufferElements = static_cast<UINT>(model->GetPreBuild(is_fallback, m_fallbackDevice, m_dxrDevice).ResultDataMaxSizeInBytes) / sizeof(UINT32);
-     
-        instanceDesc.AccelerationStructure = model->GetFallBackWrappedPoint(programState, is_fallback, m_fallbackDevice, m_dxrDevice, numBufferElements);
+          instanceDesc.AccelerationStructure = model->GetFallBackWrappedPoint(programState, is_fallback, m_fallbackDevice, m_dxrDevice, numBufferElements);
 
-      
-        // figure out a way to do textures & materials TODO
-        instanceDescArray.push_back(instanceDesc);
+          instanceDescArray.push_back(instanceDesc);
+        }
       }
 
       AllocateUploadBuffer(device, instanceDescArray.data(),
@@ -1207,16 +1205,17 @@ ComPtr<ID3D12Resource> Scene::GetInstanceDescriptors(
         instanceDesc.InstanceMask = 0xFF;
         instanceDesc.InstanceID = i; // TODO MAKE SURE THIS MATCHES THE ONE BELOW (FOR ACTUAL RAYTRACING)
         //instanceDesc.InstanceContributionToHitGroupIndex = 0;
+        if (model != nullptr)
+        {
+          UINT numBufferElements =
+              static_cast<UINT>(model->GetPreBuild(is_fallback, m_fallbackDevice, m_dxrDevice).ResultDataMaxSizeInBytes) / sizeof(UINT32);
+       
+          instanceDesc.AccelerationStructure =
+              model->GetBottomAS(is_fallback, device, m_fallbackDevice, m_dxrDevice)->GetGPUVirtualAddress();
 
-        UINT numBufferElements =
-            static_cast<UINT>(model->GetPreBuild(is_fallback, m_fallbackDevice, m_dxrDevice).ResultDataMaxSizeInBytes) / sizeof(UINT32);
-     
-        instanceDesc.AccelerationStructure =
-            model->GetBottomAS(is_fallback, device, m_fallbackDevice, m_dxrDevice)->GetGPUVirtualAddress();
-
-      
-        // figure out a way to do textures & materials TODO
-        instanceDescArray.push_back(instanceDesc);
+        
+          instanceDescArray.push_back(instanceDesc);
+        }
       }
 
       AllocateUploadBuffer(device, instanceDescArray.data(),
@@ -1306,17 +1305,24 @@ void Scene::AllocateResourcesInDescriptorHeap()
 
     //DEFAULT TO NEGATIVE
     memset(&info_resource.info, -1, sizeof(info_resource.info));
+    info_resource.info.diffuse_sampler_offset = 0;
+    info_resource.info.normal_sampler_offset = 0;
 
-    info_resource.info.model_offset = object.model->id;
+    if(object.model != nullptr)
+    {
+      info_resource.info.model_offset = object.model->id;
+    }
 
     if (object.textures.albedoTex != nullptr)
     {
       info_resource.info.texture_offset = object.textures.albedoTex->id;
+      info_resource.info.diffuse_sampler_offset = object.textures.albedoTex->sampler_offset;
     }
     
     if (object.textures.normalTex != nullptr)
     {
       info_resource.info.texture_normal_offset = object.textures.normalTex->id;
+      info_resource.info.normal_sampler_offset = object.textures.normalTex->sampler_offset;
     }
 
     if (object.material != nullptr)
