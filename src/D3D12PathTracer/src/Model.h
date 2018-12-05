@@ -12,6 +12,10 @@ namespace ModelLoading {
 // Holds the buffer that contains the texture data
 struct Texture {
   int id;
+  std::string name{};
+  UINT sampler_offset = 0;
+
+  bool was_loaded_from_gltf = false;
 
   D3DBuffer texBuffer;
   ID3D12Resource *textureBufferUploadHeap;
@@ -28,6 +32,10 @@ struct MaterialResource
 {
   Material material;
   int id;
+  std::string name{};
+
+  bool was_loaded_from_gltf = false;
+
   D3DBuffer d3d12_material_resource;
 };
 
@@ -40,9 +48,17 @@ struct InfoResource
 // Holds the vertex and index buffer (triangulated) for a loaded model
 struct Model {
   int id;
+  std::string name{};
 
   D3DBuffer indices;
   D3DBuffer vertices;
+
+  //ImGUI stuff
+  std::vector<Vertex> vertices_vec;
+  std::vector<Index> indices_vec;
+  //line vertex buffer is on
+  int vertex_line = 0;
+  int indices_line = 0;
 
   D3D12_RAYTRACING_GEOMETRY_DESC& GetGeomDesc();
   D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC &GetBottomLevelBuildDesc();
@@ -93,19 +109,21 @@ public:
   FLOAT *getTransform3x4();
 
   int id;
+  std::string name{};
 
-  Model *model;
-  TextureBundle textures;
-  MaterialResource *material;
-  InfoResource info_resource;
+  Model *model = nullptr;
+  TextureBundle textures{};
+  MaterialResource *material = nullptr;
+  InfoResource info_resource{};
 
   glm::vec3 translation; // parsed transform values
   glm::vec3 rotation;
   glm::vec3 scale;
 
+  bool transformBuilt = false;
+
 private:
   FLOAT transform[3][4]; // instance desc transform
-  bool transformBuilt = false;
 };
 
 struct Camera {

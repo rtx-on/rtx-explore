@@ -28,4 +28,8 @@ namespace utilityCore {
         {
           return std::wstring(s + L" " + std::to_wstring(id));          
         }
+        inline std::string stringAndId(std::string s, int id)
+        {
+          return std::string(s + " " + std::to_string(id));
+        }
 }

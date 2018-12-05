@@ -18,9 +18,6 @@
 //NULL OFFSET IF INDEX OFFSET IS -1
 #define NULL_OFFSET (-1)
 
-#define AA 1
-#define DOF 0
-
 RaytracingAccelerationStructure Scene : register(t0, space0);
 RWTexture2D<float4> RenderTarget : register(u0);
 RWTexture2D<float4> RenderTarget2 : register(u1);
@@ -30,8 +27,7 @@ ConstantBuffer<Info> infos[] : register(b0, space3);
 ConstantBuffer<Material> materials[] : register(b0, space4);
 Texture2D text[] : register(t0, space5);
 Texture2D normal_text[] : register(t0, space6);
-SamplerState s1 : register(s0);
-SamplerState s2 : register(s1);
+SamplerState samplers[] : register(s0);
 
 ConstantBuffer<SceneConstantBuffer> g_sceneCB : register(b0);
 ConstantBuffer<CubeConstantBuffer> g_cubeCB : register(b1);
@@ -167,15 +163,17 @@ inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 directi
 {
     float2 xy = index + 0.5f; // center in the middle of the pixel.
 
-#if AA
-	// Anti - aliasing
-	float epsilonX = 0;
-	float epsilonY = 0;
-	epsilonX = Uniform01();
-	epsilonY = Uniform01();
-	xy.x += epsilonX;
-	xy.y += epsilonY;
-#endif
+    UINT features = g_sceneCB.features;
+    if (features & AntiAliasing)
+    {
+      // Anti - aliasing
+      float epsilonX = 0;
+      float epsilonY = 0;
+      epsilonX = Uniform01();
+      epsilonY = Uniform01();
+      xy.x += epsilonX;
+      xy.y += epsilonY;
+    }
 
     float2 screenPos = xy / DispatchRaysDimensions().xy * 2.0 - 1.0;
 
@@ -189,8 +187,9 @@ inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 directi
     origin = g_sceneCB.cameraPosition.xyz;
     direction = normalize(world.xyz - origin);
 
-#if DOF
-	// Depth of Field
+    if (features & DepthOfField)
+    {
+      	// Depth of Field
 	float lensRad = 0.5f;
 	float focalDist = 20.0f;
 	float3 pLens = float3(lensRad * CalculateConcentricSampleDisk(Uniform01(), Uniform01()), 0.0f);
@@ -198,7 +197,7 @@ inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 directi
 	float3 pFocus = direction * ft;
 	origin += pLens;
 	direction = normalize(pFocus - pLens);
-#endif
+    }
 }
 
 // Diffuse lighting calculation.
@@ -366,7 +365,7 @@ void RefractiveBounce(float3 triangleNormal, float3 hitPosition, float hitType, 
 	payload.color = float4(color, hitType);
 }
 
-void DiffuseBounce(uint texture_offset, uint material_offset, float emittance, float3 triangleNormal, float3 hitPosition, float hitType, float2 triangleUV, RayPayload payload)
+void DiffuseBounce(uint texture_offset, uint material_offset, uint sampler_offset, float emittance, float3 triangleNormal, float3 hitPosition, float hitType, float2 triangleUV, RayPayload payload)
 {
 	float3 newDir = CalculateRandomDirectionInHemisphere(triangleNormal);
 	payload.rayDir = newDir;
@@ -375,7 +374,7 @@ void DiffuseBounce(uint texture_offset, uint material_offset, float emittance, f
 	float3 color = BACKGROUND_COLOR.xyz;
 	if (texture_offset != NULL_OFFSET)
 	{
-		float3 tex = text[texture_offset].SampleLevel(s1, triangleUV, 0);
+		float3 tex = text[texture_offset].SampleLevel(samplers[sampler_offset], triangleUV, 0);
 		color = payload.color.rgb * tex.rgb;
 	}
 	else if (material_offset != NULL_OFFSET)
@@ -470,7 +469,9 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	uint texture_offset = infos[instanceId].texture_offset;
 	uint texture_normal_offset = infos[instanceId].texture_normal_offset;
 	uint material_offset = infos[instanceId].material_offset;
-	float4x4 rotation_scale_matrix = infos[instanceId].rotation_scale_matrix;
+        uint diffuse_sampler_offset = infos[instanceId].diffuse_sampler_offset;
+        uint normal_sampler_offset = infos[instanceId].normal_sampler_offset;
+        float4x4 rotation_scale_matrix = infos[instanceId].rotation_scale_matrix;
 
 	float eta = 0;
 	float reflectiveness = 0;
@@ -528,7 +529,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
         //if texture map, then sample that instead
         if (texture_normal_offset != NULL_OFFSET)
         {
-          triangleNormal = normal_text[texture_normal_offset].SampleLevel(s1, triangleUV, 0);
+          triangleNormal = normal_text[texture_normal_offset].SampleLevel(samplers[normal_sampler_offset], triangleUV, 0);
           triangleNormal.z = -triangleNormal.z;
           triangleNormal = (triangleNormal * 2.0) - 1.0;
           triangleNormal = mul(rotation_scale_matrix, float4(triangleNormal, 0.0f));
@@ -597,7 +598,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 		float3 color = BACKGROUND_COLOR.xyz;
 		if (texture_offset != NULL_OFFSET)
 		{
-			float3 tex = text[texture_offset].SampleLevel(s1, triangleUV, 0);
+			float3 tex = text[texture_offset].SampleLevel(samplers[diffuse_sampler_offset], triangleUV, 0);
 			color = payload.color.rgb * tex.rgb;
 		}
 		else if (material_offset != NULL_OFFSET)
@@ -610,7 +611,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	else // Do a diffuse bounce
 	{
                 //payload.color = float4(abs(triangleNormal), 1.0f);
-		DiffuseBounce(texture_offset, material_offset, emittance, triangleNormal, hitPosition, hitType, triangleUV, payload);
+		DiffuseBounce(texture_offset, material_offset, diffuse_sampler_offset, emittance, triangleNormal, hitPosition, hitType, triangleUV, payload);
 	}
 }
 

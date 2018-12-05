@@ -22,15 +22,19 @@ public:
   void AllocateBufferOnGpu(void *pData, UINT64 width, ID3D12Resource **ppResource, std::wstring resource_name, CD3DX12_RESOURCE_DESC* resource_desc_ptr = nullptr);
 
   template<typename Callback>
-  void recurse_gltf(tinygltf::Model &model, tinygltf::Node &node, Callback callback);
-  void parse_gltf(std::string filename);
+  void RecurseGLTF(tinygltf::Model &model, tinygltf::Node &node, Callback callback);
+  void ParseGLTF(std::string filename, bool make_light = true);
 
-  int loadMaterial(string materialid);
+  int loadMaterial(string materialid, std::string name = "");
   int loadDiffuseTexture(string texid);
   int loadNormalTexture(string texid);
   int loadModel(string modelid);
-  int loadObject(string objectid);
+  int loadObject(string objectid, std::string name = "");
   int loadCamera();
+
+  void LoadModelHelper(std::string path, int id, ModelLoading::Model& model);
+  void LoadDiffuseTextureHelper(std::string path, int id, ModelLoading::Texture& newTexture);
+  void LoadNormalTextureHelper(std::string path, int id, ModelLoading::Texture& newTexture);
 
   D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC &GetTopLevelDesc();
 

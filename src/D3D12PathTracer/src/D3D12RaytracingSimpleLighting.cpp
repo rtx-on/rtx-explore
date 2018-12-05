@@ -150,11 +150,12 @@ void D3D12RaytracingSimpleLighting::InitializeScene()
         m_sceneCB[frameIndex].lightDiffuseColor = XMLoadFloat4(&lightDiffuseColor);
     }
 
-	// Setup path tracing state
-	{
-		m_sceneCB[frameIndex].iteration = 1;
-		m_sceneCB[frameIndex].depth = 5;
-	}
+    // Setup path tracing state
+    {
+	    m_sceneCB[frameIndex].iteration = 1;
+	    m_sceneCB[frameIndex].depth = 5;
+	    m_sceneCB[frameIndex].features = AntiAliasing;
+    }
 
     // Apply the initial values to all frames' buffer instances.
     for (auto& sceneCB : m_sceneCB)
@@ -212,186 +213,19 @@ void D3D12RaytracingSimpleLighting::CreateDeviceDependentResources()
     // Build geometry to be used in the sample.
     m_sceneLoaded->AllocateResourcesInDescriptorHeap();
 
-
-	//BuildMesh("src/objects/wahoo.obj");
-
     // Build raytracing acceleration structures from the generated geometry.
     BuildAccelerationStructures();
 
     // Create constant buffers for the geometry and the scene.
     CreateConstantBuffers();
 
-	// LOOKAT
-	//CreateTexture();
-	//CreateNormalTexture();
-
     // Build shader tables, which define shaders and their local root arguments.
     BuildShaderTables();
 
     // Create an output 2D texture to store the raytracing result to.
     CreateRaytracingOutputResource();
-}
 
-bool D3D12RaytracingSimpleLighting::CreateTexture() {
-	
-	// Load the image from file
-	D3D12_RESOURCE_DESC textureDesc;
-	int imageBytesPerRow;
-	BYTE* imageData;
-	int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, L"src/textures/wahoo.bmp", imageBytesPerRow);
-
-	// make sure we have data
-	if (imageSize <= 0)
-	{
-		return false;
-	}
-
-	auto device = m_deviceResources->GetD3DDevice();
-
-	auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-
-	ThrowIfFailed(device->CreateCommittedResource(
-		&defaultHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&textureDesc,
-		D3D12_RESOURCE_STATE_COPY_DEST,
-		nullptr,
-		IID_PPV_ARGS(&m_textureBuffer.resource)));
-
-	UINT64 textureUploadBufferSize;
-	// this function gets the size an upload buffer needs to be to upload a texture to the gpu.
-	// each row must be 256 byte aligned except for the last row, which can just be the size in bytes of the row
-	// eg. textureUploadBufferSize = ((((width * numBytesPerPixel) + 255) & ~255) * (height - 1)) + (width * numBytesPerPixel);
-	//textureUploadBufferSize = (((imageBytesPerRow + 255) & ~255) * (textureDesc.Height - 1)) + imageBytesPerRow;
-	device->GetCopyableFootprints(&textureDesc, 0, 1, 0, nullptr, nullptr, nullptr, &textureUploadBufferSize);
-
-	// now we create an upload heap to upload our texture to the GPU
-	ThrowIfFailed(device->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // upload heap
-		D3D12_HEAP_FLAG_NONE, // no flags
-		&CD3DX12_RESOURCE_DESC::Buffer(textureUploadBufferSize), // resource description for a buffer (storing the image data in this heap just to copy to the default heap)
-		D3D12_RESOURCE_STATE_GENERIC_READ, // We will copy the contents from this heap to the default heap above
-		nullptr,
-		IID_PPV_ARGS(&textureBufferUploadHeap)));
-	
-	textureBufferUploadHeap->SetName(L"Texture Buffer Upload Resource Heap");
-
-	// store vertex buffer in upload heap
-	D3D12_SUBRESOURCE_DATA textureData = {};
-	textureData.pData = &imageData[0]; // pointer to our image data
-	textureData.RowPitch = imageBytesPerRow; // size of all our triangle vertex data
-	textureData.SlicePitch = imageBytesPerRow * textureDesc.Height; // also the size of our triangle vertex data
-
-	auto commandList = m_deviceResources->GetCommandList();
-	auto commandAllocator = m_deviceResources->GetCommandAllocator();
-
-	commandList->Reset(commandAllocator, nullptr);
-
-	// Reset the command list for the acceleration structure construction.
-	UpdateSubresources(commandList, m_textureBuffer.resource.Get(), textureBufferUploadHeap, 0, 0, 1, &textureData);
-
-	// transition the texture default heap to a pixel shader resource (we will be sampling from this heap in the pixel shader to get the color of pixels)
-	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_textureBuffer.resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-	
-	UINT descriptorIndex = AllocateDescriptor(&m_textureBuffer.cpuDescriptorHandle);
-
-	// create SRV descriptor
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = textureDesc.Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = 1;
-	device->CreateShaderResourceView(m_textureBuffer.resource.Get(), &srvDesc, m_textureBuffer.cpuDescriptorHandle);
-
-	// used to bind to the root signature
-	m_textureBuffer.gpuDescriptorHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_descriptorHeap->GetGPUDescriptorHandleForHeapStart(), descriptorIndex, m_descriptorSize);
-
-	// Kick off texture uploading
-	m_deviceResources->ExecuteCommandList();
-
-	// Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
-	m_deviceResources->WaitForGpu();
-}
-
-bool D3D12RaytracingSimpleLighting::CreateNormalTexture() {
-
-	// Load the image from file
-	D3D12_RESOURCE_DESC textureDesc;
-	int imageBytesPerRow;
-	BYTE* imageData;
-	int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, L"src/textures/Cerberus/Cerberus_N.png", imageBytesPerRow);
-
-	// make sure we have data
-	if (imageSize <= 0)
-	{
-		return false;
-	}
-
-	auto device = m_deviceResources->GetD3DDevice();
-
-	auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-
-	ThrowIfFailed(device->CreateCommittedResource(
-		&defaultHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&textureDesc,
-		D3D12_RESOURCE_STATE_COPY_DEST,
-		nullptr,
-		IID_PPV_ARGS(&m_normalTextureBuffer.resource)));
-
-	UINT64 textureUploadBufferSize;
-	// this function gets the size an upload buffer needs to be to upload a texture to the gpu.
-	// each row must be 256 byte aligned except for the last row, which can just be the size in bytes of the row
-	// eg. textureUploadBufferSize = ((((width * numBytesPerPixel) + 255) & ~255) * (height - 1)) + (width * numBytesPerPixel);
-	//textureUploadBufferSize = (((imageBytesPerRow + 255) & ~255) * (textureDesc.Height - 1)) + imageBytesPerRow;
-	device->GetCopyableFootprints(&textureDesc, 0, 1, 0, nullptr, nullptr, nullptr, &textureUploadBufferSize);
-
-	// now we create an upload heap to upload our texture to the GPU
-	ThrowIfFailed(device->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // upload heap
-		D3D12_HEAP_FLAG_NONE, // no flags
-		&CD3DX12_RESOURCE_DESC::Buffer(textureUploadBufferSize), // resource description for a buffer (storing the image data in this heap just to copy to the default heap)
-		D3D12_RESOURCE_STATE_GENERIC_READ, // We will copy the contents from this heap to the default heap above
-		nullptr,
-		IID_PPV_ARGS(&textureBufferUploadHeap)));
-
-	textureBufferUploadHeap->SetName(L"Texture Buffer Upload Resource Heap");
-
-	// store vertex buffer in upload heap
-	D3D12_SUBRESOURCE_DATA textureData = {};
-	textureData.pData = &imageData[0]; // pointer to our image data
-	textureData.RowPitch = imageBytesPerRow; // size of all our triangle vertex data
-	textureData.SlicePitch = imageBytesPerRow * textureDesc.Height; // also the size of our triangle vertex data
-
-	auto commandList = m_deviceResources->GetCommandList();
-	auto commandAllocator = m_deviceResources->GetCommandAllocator();
-
-	commandList->Reset(commandAllocator, nullptr);
-
-	// Reset the command list for the acceleration structure construction.
-	UpdateSubresources(commandList, m_normalTextureBuffer.resource.Get(), textureBufferUploadHeap, 0, 0, 1, &textureData);
-
-	// transition the texture default heap to a pixel shader resource (we will be sampling from this heap in the pixel shader to get the color of pixels)
-	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_normalTextureBuffer.resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-
-	UINT descriptorIndex = AllocateDescriptor(&m_normalTextureBuffer.cpuDescriptorHandle);
-
-	// create SRV descriptor
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = textureDesc.Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = 1;
-	device->CreateShaderResourceView(m_normalTextureBuffer.resource.Get(), &srvDesc, m_normalTextureBuffer.cpuDescriptorHandle);
-
-	// used to bind to the root signature
-	m_normalTextureBuffer.gpuDescriptorHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_descriptorHeap->GetGPUDescriptorHandleForHeapStart(), descriptorIndex, m_descriptorSize);
-
-	// Kick off texture uploading
-	m_deviceResources->ExecuteCommandList();
-
-	// Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
-	m_deviceResources->WaitForGpu();
+    InitImGUI();
 }
 
 void D3D12RaytracingSimpleLighting::SerializeAndCreateRaytracingRootSignature(D3D12_ROOT_SIGNATURE_DESC& desc, ComPtr<ID3D12RootSignature>* rootSig)
@@ -469,8 +303,19 @@ void D3D12RaytracingSimpleLighting::CreateRootSignatures()
 	sampler[0].RegisterSpace = 0;
 	sampler[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-	memcpy(&sampler[1], &sampler[0], sizeof(D3D12_STATIC_SAMPLER_DESC));
-	sampler[1].ShaderRegister = 1;
+        sampler[1].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+        sampler[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+        sampler[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+        sampler[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+        sampler[1].MipLODBias = 0;
+        sampler[1].MaxAnisotropy = 0;
+        sampler[1].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+        sampler[1].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+        sampler[1].MinLOD = 0.0f;
+        sampler[1].MaxLOD = 1.0f;
+        sampler[1].ShaderRegister = 1;
+        sampler[1].RegisterSpace = 0;
+        sampler[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
         CD3DX12_ROOT_SIGNATURE_DESC globalRootSignatureDesc(ARRAYSIZE(rootParameters), rootParameters, 2, &sampler[0]);
         SerializeAndCreateRaytracingRootSignature(globalRootSignatureDesc, &m_raytracingGlobalRootSignature);
@@ -656,7 +501,7 @@ void D3D12RaytracingSimpleLighting::CreateDescriptorHeap()
 	// 1 - norm tex
     // 1 - raytracing output texture SRV
     // 2 - bottom and top level acceleration structure fallback wrapped pointer UAVs
-    descriptorHeapDesc.NumDescriptors = 10000; 
+    descriptorHeapDesc.NumDescriptors = HEAP_DESCRIPTOR_SIZE; 
     descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     descriptorHeapDesc.NodeMask = 0;
@@ -665,74 +510,6 @@ void D3D12RaytracingSimpleLighting::CreateDescriptorHeap()
 
     m_descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
-
-void D3D12RaytracingSimpleLighting::BuildMesh(std::string path) {
-	// load mesh here
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
-
-	tinyobj::attrib_t attrib;
-	std::string err;
-	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path.c_str());
-
-	std::vector<Index> indices;
-	std::vector<Vertex> vertices;
-
-	if (!ret)
-	{
-		throw std::runtime_error("failed to load Object!");
-	}
-	else
-	{
-		// loop over shapes
-		int finalIdx = 0;
-		for (unsigned int s = 0; s < shapes.size(); s++)
-		{
-			size_t index_offset = 0;
-			// loop over  faces
-			for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
-				int fv = shapes[s].mesh.num_face_vertices[f];
-				std::vector<float> &positions = attrib.vertices;
-				std::vector<float> &normals = attrib.normals;
-				std::vector<float> &texcoords = attrib.texcoords;
-				
-				// loop over vertices in face, might be > 3
-				for (size_t v = 0; v < fv; v++) {
-					tinyobj::index_t index = shapes[s].mesh.indices[v + index_offset];
-
-					Vertex vert;
-					vert.position = XMFLOAT3(positions[index.vertex_index * 3], positions[index.vertex_index * 3 + 1], positions[index.vertex_index * 3 + 2]);
-					if (index.normal_index != -1)
-					{
-						vert.normal = XMFLOAT3(normals[index.normal_index * 3], normals[index.normal_index * 3 + 1], normals[index.normal_index * 3 + 2]);
-					}
-
-					if (index.texcoord_index != -1)
-					{
-						vert.texCoord = XMFLOAT2(texcoords[index.texcoord_index * 2], 1- texcoords[index.texcoord_index * 2 + 1]);
-					}
-					vertices.push_back(vert);
-					indices.push_back((Index)(finalIdx + index_offset + v));
-				}
-
-				index_offset += fv;
-			}
-			finalIdx += index_offset;
-		}
-		auto device = m_deviceResources->GetD3DDevice();
-		Vertex* vPtr = vertices.data();
-		Index* iPtr = indices.data();
-		AllocateUploadBuffer(device, iPtr, indices.size() * sizeof(Index), &m_indexBuffer.resource);
-		AllocateUploadBuffer(device, vPtr, vertices.size() * sizeof(Vertex), &m_vertexBuffer.resource);
-
-		// Vertex buffer is passed to the shader along with index buffer as a descriptor table.
-		// Vertex buffer descriptor must follow index buffer descriptor in the descriptor heap.
-		UINT descriptorIndexIB = CreateBufferSRV(&m_indexBuffer, indices.size() * sizeof(Index) / 4, 0);
-		UINT descriptorIndexVB = CreateBufferSRV(&m_vertexBuffer, vertices.size(), sizeof(Vertex));
-		ThrowIfFalse(descriptorIndexVB == descriptorIndexIB + 1, L"Vertex Buffer descriptor index must follow that of Index Buffer descriptor index!");
-	}
-}
-
 
 // Build geometry used in the sample.
 void D3D12RaytracingSimpleLighting::BuildGeometry()
@@ -955,17 +732,7 @@ void D3D12RaytracingSimpleLighting::OnUpdate()
   }
 
   {
-    if (m_camChanged)
-    {
-      m_sceneCB[frameIndex].iteration = 1;
-    }
-    else
-    {
-      if (m_sceneCB[frameIndex].iteration)
-      {
-        m_sceneCB[frameIndex].iteration += 1;
-      }
-    }
+    m_sceneCB[frameIndex].iteration += 1;
   }
 }
 
@@ -1063,9 +830,9 @@ void D3D12RaytracingSimpleLighting::UpdateForSizeChange(UINT width, UINT height)
 // Copy the raytracing output to the backbuffer.
 void D3D12RaytracingSimpleLighting::CopyRaytracingOutputToBackbuffer()
 {
-    auto commandList= m_deviceResources->GetCommandList();
+    auto commandList = m_deviceResources->GetCommandList();
     auto renderTarget = m_deviceResources->GetRenderTarget();
-
+    
     D3D12_RESOURCE_BARRIER preCopyBarriers[2];
     preCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST);
     preCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_raytracingOutput.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
@@ -1074,10 +841,18 @@ void D3D12RaytracingSimpleLighting::CopyRaytracingOutputToBackbuffer()
     commandList->CopyResource(renderTarget, m_raytracingOutput.Get());
 
     D3D12_RESOURCE_BARRIER postCopyBarriers[2];
-    postCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT);
+    postCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
     postCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_raytracingOutput.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
     commandList->ResourceBarrier(ARRAYSIZE(postCopyBarriers), postCopyBarriers);
+
+    //Render IMGUI to screen
+    RenderImGUI();
+
+    D3D12_RESOURCE_BARRIER ImGUIBarriers[1];
+    ImGUIBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+
+    commandList->ResourceBarrier(ARRAYSIZE(ImGUIBarriers), ImGUIBarriers);
 }
 
 // Create resources that are dependent on the size of the main window.
@@ -1120,6 +895,8 @@ void D3D12RaytracingSimpleLighting::ReleaseDeviceDependentResources()
 
     m_bottomLevelAccelerationStructure.Reset();
     m_topLevelAccelerationStructure.Reset();
+
+    ShutdownImGUI();
 }
 
 void D3D12RaytracingSimpleLighting::RecreateD3D()
@@ -1144,21 +921,40 @@ void D3D12RaytracingSimpleLighting::OnRender()
         return;
     }
 
+    auto device = m_deviceResources->GetD3DDevice();
+    auto commandList = m_deviceResources->GetCommandList();
+
+    //Draw ImGUI
+    StartFrameImGUI();
+
+    //if rebuild scene
+    if (rebuild_scene)
+    {
+      m_deviceResources->WaitForGpu();
+      RebuildScene();
+      rebuild_scene = false;
+    }
+
     m_deviceResources->Prepare();
+
+    commandList->RSSetViewports(1, &m_deviceResources->GetScreenViewport());
+    commandList->RSSetScissorRects(1, &m_deviceResources->GetScissorRect());
+    commandList->OMSetRenderTargets(1, &m_deviceResources->GetRenderTargetView(), FALSE, nullptr);
+
     DoRaytracing();
     CopyRaytracingOutputToBackbuffer();
 
-    //TODO fix this better
     if (m_camChanged)
     {
-      auto device = m_deviceResources->GetD3DDevice();
-      auto commandList = m_deviceResources->GetCommandList();
+      //reset iterations
+      for (int i = 0; i < FrameCount; i++)
+      {
+        m_sceneCB[i].iteration = 1;
+      }
 
       static bool give_epilepsy = true;
       if (give_epilepsy)
       {
-        // std::vector<float> epilepsy_cure_pill(m_width * m_height);
-        // AllocateUploadBuffer(device, epilepsy_cure_pill.data(), epilepsy_cure_pill.size(), &cure_epilepsy, L"Cure Epilepsy");
         auto uavDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R32G32B32A32_FLOAT, m_width, m_height, 1, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
         
         auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
@@ -1181,6 +977,8 @@ void D3D12RaytracingSimpleLighting::OnRender()
 
       commandList->ResourceBarrier(ARRAYSIZE(postCopyBarriers), postCopyBarriers);
       m_camChanged = false;
+
+      m_deviceResources->WaitForGpu();
     }
 
     m_deviceResources->Present(D3D12_RESOURCE_STATE_PRESENT);
@@ -1330,6 +1128,10 @@ UINT D3D12RaytracingSimpleLighting::CreateBufferSRV(D3DBuffer* buffer, UINT numE
 
 void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 {
+  if(ImGui::GetIO().WantCaptureMouse || ImGui::GetIO().WantCaptureKeyboard || ImGui::GetIO().WantTextInput)
+  {
+    return;
+  }
 	// Store previous values.
 	RaytracingAPI previousRaytracingAPI = m_raytracingAPI;
 	bool previousForceComputeFallback = m_forceComputeFallback;
@@ -1480,3 +1282,1608 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		RecreateD3D();
 	}
 }
+
+void D3D12RaytracingSimpleLighting::InitImGUI()
+{
+  auto device = m_deviceResources->GetD3DDevice();
+  // #IMGUI Setup ImGui binding
+  {
+    {
+      D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+      desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+      desc.NumDescriptors = HEAP_DESCRIPTOR_SIZE;
+      desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+      ThrowIfFailed(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&g_pd3dSrvDescHeap)));
+    }
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
+    ImGui_ImplDX12_Init(Win32Application::GetHwnd(), FrameCount, device, DXGI_FORMAT_R8G8B8A8_UNORM,
+      g_pd3dSrvDescHeap->GetCPUDescriptorHandleForHeapStart(),
+      g_pd3dSrvDescHeap->GetGPUDescriptorHandleForHeapStart());
+
+    // Setup style
+    ImGui::StyleColorsDark();
+    ImGui_ImplDX12_CreateDeviceObjects();
+  }
+}
+
+void D3D12RaytracingSimpleLighting::StartFrameImGUI()
+{
+  auto FormatIdAndName = [&](std::string type, auto& object)
+  {
+    return std::string(utilityCore::stringAndId(type, object.id) + " | " + object.name);
+  };
+
+  auto FindIdFromFormat = [&](std::string format)
+  {
+    auto found_first_space = format.find(" ");
+    found_first_space++;
+    auto found_second_space = format.find(" ", found_first_space);
+    int id = 0;
+    try
+    {
+      id = std::stol(format.substr(found_first_space, found_second_space - found_first_space));
+    }
+    catch(std::exception& e)
+    {
+      return 0;
+    }
+    return id;
+  };
+
+  auto ShowHelpMarker = [&](const char* desc)
+  {
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered())
+    {
+      ImGui::BeginTooltip();
+      ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+      ImGui::TextUnformatted(desc);
+      ImGui::PopTextWrapPos();
+      ImGui::EndTooltip();
+    }
+  };
+
+  auto ResetPathTracing = [&]()
+  {
+    m_camChanged = true;
+  };
+
+  auto GetNewCPUGPUHandles = [&]
+  {
+    current_imgui_heap_descriptor++;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(g_pd3dSrvDescHeap->GetCPUDescriptorHandleForHeapStart(), current_imgui_heap_descriptor, m_descriptorSize);
+    CD3DX12_GPU_DESCRIPTOR_HANDLE gpu_handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(g_pd3dSrvDescHeap->GetGPUDescriptorHandleForHeapStart(), current_imgui_heap_descriptor, m_descriptorSize);
+    return std::make_pair(cpu_handle, gpu_handle);
+  };
+
+  auto UpdateObject = [&](const ModelLoading::SceneObject& object)
+  {
+    //update the resource info
+    void* mapped_data;
+    object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
+    memcpy(mapped_data, &object.info_resource.info, sizeof(Info));
+    object.info_resource.d3d12_resource.resource->Unmap(0, nullptr);
+
+    ResetPathTracing();
+  };
+
+  static ImGuiFs::Dialog dlg; // one per dialog (and must be static)
+
+#define NAME_LIMIT (256)
+
+  auto ShowModel = [&](ModelLoading::Model& model)
+  {
+    if (ImGui::TreeNode(FormatIdAndName("Model", model).c_str()))
+    {
+      ImGui::Text("Model name", model.name, NAME_LIMIT);
+
+      if (ImGui::TreeNode("Vertices"))
+      {
+        int line_offset = 10;
+        ImGui::PushItemWidth(100);
+        ImGui::InputInt("##Line", &model.vertex_line, 0, 0, 0);
+        ImGui::SameLine();
+        ImGui::SliderInt("##Line2", &model.vertex_line, 0, model.vertices_vec.size());
+        ImGui::PopItemWidth();
+
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
+        ImGui::BeginChild("Child2", ImVec2(600, 0), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar);
+        ImGui::Columns(9);
+
+        int begin = model.vertex_line - line_offset;
+        begin = begin >= 0 ? begin : 0;
+
+        int end = model.vertex_line + line_offset;
+        end = end >= model.vertices_vec.size() ? model.vertices_vec.size() - 1 : end;
+
+        //header
+        ImGui::Text("Index");
+        ImGui::NextColumn();
+        ImGui::Text("Vertex");
+        ImGui::NextColumn();
+        ImGui::NextColumn();
+        ImGui::NextColumn();
+        ImGui::Text("Normal");
+        ImGui::NextColumn();
+        ImGui::NextColumn();
+        ImGui::NextColumn();
+        ImGui::Text("UV");
+        ImGui::NextColumn();
+        ImGui::NextColumn();
+        ImGui::Separator();
+
+        //contents
+        for (std::size_t i = begin; i < end; i++)
+        {
+          ImGui::Text("%d", i);
+          ImGui::NextColumn();
+          const auto& vertex = model.vertices_vec[i];
+          ImGui::Text("%.2f", vertex.position.x);
+          ImGui::NextColumn();
+          ImGui::Text("%.2f", vertex.position.y);
+          ImGui::NextColumn();
+          ImGui::Text("%.2f", vertex.position.z);
+          ImGui::NextColumn();
+          ImGui::Text("%.2f", vertex.normal.x);
+          ImGui::NextColumn();
+          ImGui::Text("%.2f", vertex.normal.y);
+          ImGui::NextColumn();
+          ImGui::Text("%.2f", vertex.normal.z);
+          ImGui::NextColumn();
+          ImGui::Text("%.2f", vertex.texCoord.x);
+          ImGui::NextColumn();
+          ImGui::Text("%.2f", vertex.texCoord.y);
+          ImGui::NextColumn();
+        }
+
+        ImGui::EndChild();
+        ImGui::PopStyleVar();
+        ImGui::TreePop();
+      }
+
+      if (ImGui::TreeNode("Indices"))
+      {
+        int line_offset = 10;
+        ImGui::PushItemWidth(100);
+        ImGui::InputInt("##Line", &model.indices_line, 0, 0, 0);
+        ImGui::SameLine();
+        ImGui::SliderInt("##Line2", &model.indices_line, 0, model.indices_vec.size());
+        ImGui::PopItemWidth();
+
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
+        ImGui::BeginChild("Child2", ImVec2(600, 0), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar);
+        ImGui::Columns(2);
+
+        int begin = model.indices_line - line_offset;
+        begin = begin >= 0 ? begin : 0;
+
+        int end = model.indices_line + line_offset;
+        end = end >= model.indices_vec.size() ? model.indices_vec.size() - 1 : end;
+
+        //header
+        ImGui::Text("Index");
+        ImGui::NextColumn();
+        ImGui::Text("Index Value");
+        ImGui::NextColumn();
+        ImGui::Separator();
+
+        //contents
+        for (std::size_t i = begin; i < end; i++)
+        {
+          ImGui::Text("%d", i);
+          ImGui::NextColumn();
+          const auto& index = model.indices_vec[i];
+          ImGui::Text("%d", index);
+          ImGui::NextColumn();
+        }
+
+        ImGui::EndChild();
+        ImGui::PopStyleVar();
+        ImGui::TreePop();
+      }
+
+      if (ImGui::TreeNode("Resource"))
+      {
+        ImGui::Text("Resource Pointer: %p", model.m_bottomLevelAccelerationStructure.GetAddressOf());
+        ImGui::TreePop();
+      }
+
+      ImGui::TreePop();
+    }
+  };
+
+  auto ShowMaterial = [&](ModelLoading::MaterialResource& material_resource)
+  {
+    if (ImGui::TreeNode(FormatIdAndName("Material", material_resource).c_str()))
+    {
+      std::vector<char> material_name(NAME_LIMIT, '\0');
+      std::copy(std::begin(material_resource.name), std::end(material_resource.name), std::begin(material_name));
+
+      bool input_text_update = ImGui::InputText("Material name", &material_name[0], NAME_LIMIT, ImGuiInputTextFlags_EnterReturnsTrue);
+
+      ImGui::ColorEdit3("Diffuse", &material_resource.material.diffuse.x);
+      ImGui::SameLine(); ShowHelpMarker("Click on the colored square to open a color picker.\nRight-click on the colored square to show options.\nCTRL+click on individual component to input value.\n");
+      ImGui::ColorEdit3("Specular", &material_resource.material.specular.x);
+      ImGui::SliderFloat("Specular Exponent", &material_resource.material.specularExp, 0.0f, 10.0f);
+      ImGui::SliderFloat("Reflectiveness", &material_resource.material.reflectiveness, 0.0f, 10.0f);
+      ImGui::SliderFloat("Refractiveness", &material_resource.material.refractiveness, 0.0f, 10.0f);
+      ImGui::SliderFloat("Index of Refraction", &material_resource.material.eta, 0.0f, 10.0f);
+      ImGui::SliderFloat("Emittance", &material_resource.material.emittance, 0.0f, 10.0f);
+      if(ImGui::TreeNode("Resource"))
+      {
+        ImGui::Text("Resource Pointer: %p", material_resource.d3d12_material_resource.resource.GetAddressOf());
+        ImGui::Text("CPU handle: %p", material_resource.d3d12_material_resource.cpuDescriptorHandle.ptr);
+        ImGui::Text("GPU handle: %p", material_resource.d3d12_material_resource.gpuDescriptorHandle.ptr);
+        ImGui::TreePop();
+      }
+
+      if(ImGui::Button("Update") || input_text_update)
+      {
+        material_resource.name = std::string(std::begin(material_name), std::begin(material_name) + ::strlen(&material_name[0]));
+
+        void* data;
+        material_resource.d3d12_material_resource.resource->Map(0, nullptr, &data);
+        memcpy(data, &material_resource.material, sizeof(Material));
+        material_resource.d3d12_material_resource.resource->Unmap(0, nullptr);
+
+        ResetPathTracing();
+      }
+
+      ImGui::TreePop();
+    }
+  };
+
+  auto ShowDiffuseTexture = [&](ModelLoading::Texture& diffuse_texture, ModelLoading::SceneObject* object = nullptr)
+  {
+    if (ImGui::TreeNode(FormatIdAndName("Diffuse Texture", diffuse_texture).c_str()))
+    {
+      ImGui::Text("Texture name %s", diffuse_texture.name.c_str());
+
+      if (object != nullptr)
+      {
+        std::vector<std::string> samplers(2);
+        samplers[0] = "Wrap";
+        samplers[1] = "Mirror";
+
+        if (ImGui::Button("Select sampler"))
+          ImGui::OpenPopup("sampler_select");
+
+        if (ImGui::BeginPopup("sampler_select"))
+        {
+          ImGui::Text("Sampler");
+          ImGui::Separator();
+
+          for (std::size_t i = 0; i < samplers.size(); i++)
+          {
+            if (ImGui::Selectable(samplers[i].data()))
+            {
+              diffuse_texture.sampler_offset = i;
+              object->info_resource.info.diffuse_sampler_offset = diffuse_texture.sampler_offset;
+              UpdateObject(*object);
+            }
+          }
+
+          ImGui::EndPopup();
+        }
+
+        ImGui::SameLine();
+        ImGui::Text("Sampler: %s", samplers[diffuse_texture.sampler_offset].c_str());
+      }
+
+      if (ImGui::TreeNode("Raw Texture"))
+      {
+        ImGuiIO& io = ImGui::GetIO();
+
+        auto device = m_deviceResources->GetD3DDevice();
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srvDesc.Format = diffuse_texture.textureDesc.Format;
+        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srvDesc.Texture2D.MipLevels = 1;
+
+        const auto cpu_gpu_handles = GetNewCPUGPUHandles();
+        device->CreateShaderResourceView(diffuse_texture.texBuffer.resource.Get(), &srvDesc, cpu_gpu_handles.first);
+        ImTextureID my_tex_id = (ImTextureID)cpu_gpu_handles.second.ptr;
+        float my_tex_w = (float)diffuse_texture.textureDesc.Width;
+        float my_tex_h = (float)diffuse_texture.textureDesc.Height;
+
+        ImGui::Text("%.0fx%.0f", my_tex_w, my_tex_h);
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImGui::Image(my_tex_id, ImVec2(my_tex_w, my_tex_h), ImVec2(0, 0), ImVec2(1, 1), ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
+        if (ImGui::IsItemHovered())
+        {
+          ImGui::BeginTooltip();
+          float region_sz = 32.0f;
+          float region_x = io.MousePos.x - pos.x - region_sz * 0.5f; if (region_x < 0.0f) region_x = 0.0f; else if (region_x > my_tex_w - region_sz) region_x = my_tex_w - region_sz;
+          float region_y = io.MousePos.y - pos.y - region_sz * 0.5f; if (region_y < 0.0f) region_y = 0.0f; else if (region_y > my_tex_h - region_sz) region_y = my_tex_h - region_sz;
+          float zoom = 4.0f;
+          ImGui::Text("Min: (%.2f, %.2f)", region_x, region_y);
+          ImGui::Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz);
+          ImVec2 uv0 = ImVec2((region_x) / my_tex_w, (region_y) / my_tex_h);
+          ImVec2 uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h);
+          ImGui::Image(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
+          ImGui::EndTooltip();
+        }
+
+        ImGui::TreePop();
+      }
+
+      if (ImGui::TreeNode("Resource"))
+      {
+        ImGui::Text("Resource Pointer: %p", diffuse_texture.texBuffer.resource.GetAddressOf());
+        ImGui::Text("CPU handle: %p", diffuse_texture.texBuffer.cpuDescriptorHandle.ptr);
+        ImGui::Text("GPU handle: %p", diffuse_texture.texBuffer.gpuDescriptorHandle.ptr);
+        ImGui::TreePop();
+      }
+
+      ImGui::TreePop();
+    }
+  };
+
+  auto ShowNormalTexture = [&](ModelLoading::Texture& normal_texture, ModelLoading::SceneObject* object = nullptr)
+  {
+    if (ImGui::TreeNode(FormatIdAndName("Normal Texture", normal_texture).c_str()))
+    {
+      ImGui::Text("Texture name %s", normal_texture.name.c_str());
+
+      if (object != nullptr)
+      {
+        std::vector<std::string> samplers(2);
+        samplers[0] = "Wrap";
+        samplers[1] = "Mirror";
+
+        if (ImGui::Button("Select sampler"))
+          ImGui::OpenPopup("sampler_select");
+
+        if (ImGui::BeginPopup("sampler_select"))
+        {
+          ImGui::Text("Sampler");
+          ImGui::Separator();
+          for (std::size_t i = 0; i < samplers.size(); i++)
+          {
+            if (ImGui::Selectable(samplers[i].data()))
+            {
+              normal_texture.sampler_offset = i;
+              object->info_resource.info.texture_normal_offset = normal_texture.sampler_offset;
+              UpdateObject(*object);
+            }
+          }
+
+          ImGui::EndPopup();
+        }
+
+        ImGui::SameLine();
+        ImGui::Text("Sampler: %s", samplers[normal_texture.sampler_offset].c_str());
+      }
+
+      if (ImGui::TreeNode("Raw Texture"))
+      {
+        ImGuiIO& io = ImGui::GetIO();
+
+        auto device = m_deviceResources->GetD3DDevice();
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srvDesc.Format = normal_texture.textureDesc.Format;
+        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srvDesc.Texture2D.MipLevels = 1;
+
+        const auto cpu_gpu_handles = GetNewCPUGPUHandles();
+        device->CreateShaderResourceView(normal_texture.texBuffer.resource.Get(), &srvDesc, cpu_gpu_handles.first);
+        ImTextureID my_tex_id = (ImTextureID)cpu_gpu_handles.second.ptr;
+        float my_tex_w = (float)normal_texture.textureDesc.Width;
+        float my_tex_h = (float)normal_texture.textureDesc.Height;
+
+        ImGui::Text("%.0fx%.0f", my_tex_w, my_tex_h);
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImGui::Image(my_tex_id, ImVec2(my_tex_w, my_tex_h), ImVec2(0, 0), ImVec2(1, 1), ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
+        if (ImGui::IsItemHovered())
+        {
+          ImGui::BeginTooltip();
+          float region_sz = 32.0f;
+          float region_x = io.MousePos.x - pos.x - region_sz * 0.5f; if (region_x < 0.0f) region_x = 0.0f; else if (region_x > my_tex_w - region_sz) region_x = my_tex_w - region_sz;
+          float region_y = io.MousePos.y - pos.y - region_sz * 0.5f; if (region_y < 0.0f) region_y = 0.0f; else if (region_y > my_tex_h - region_sz) region_y = my_tex_h - region_sz;
+          float zoom = 4.0f;
+          ImGui::Text("Min: (%.2f, %.2f)", region_x, region_y);
+          ImGui::Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz);
+          ImVec2 uv0 = ImVec2((region_x) / my_tex_w, (region_y) / my_tex_h);
+          ImVec2 uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h);
+          ImGui::Image(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 128));
+          ImGui::EndTooltip();
+        }
+
+        ImGui::TreePop();
+      }
+      
+      if (ImGui::TreeNode("Resource"))
+      {
+        ImGui::Text("Resource Pointer: %p", normal_texture.texBuffer.resource.GetAddressOf());
+        ImGui::Text("CPU handle: %p", normal_texture.texBuffer.cpuDescriptorHandle.ptr);
+        ImGui::Text("GPU handle: %p", normal_texture.texBuffer.gpuDescriptorHandle.ptr);
+        ImGui::TreePop();
+      }
+
+      ImGui::TreePop();
+    }
+  };
+
+  auto ShowObjectHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Objects"))
+    {
+      for(auto& object : m_sceneLoaded->objects)
+      {
+        if (ImGui::TreeNode(FormatIdAndName("Object", object).c_str()))
+        {
+          ImGui::DragFloat3("Translation", &object.translation.x, 0.01f, 0, 0, "%.3f", 20.0f);
+          ImGui::DragFloat3("Rotation", &object.rotation.x, 0.05f, 0, 0, "%.3f", 200.0f);
+          ImGui::DragFloat3("Scale", &object.scale.x, 0.01f, 0, 0, "%.3f", 20.0f);
+
+          if (object.model != nullptr)
+          {
+            ShowModel(*object.model);
+          }
+
+          if (object.material != nullptr)
+          {
+            ShowMaterial(*object.material);
+          }
+
+          if (object.textures.albedoTex != nullptr)
+          {
+            ShowDiffuseTexture(*object.textures.albedoTex, &object);
+          }
+
+          if (object.textures.normalTex != nullptr)
+          {
+            ShowNormalTexture(*object.textures.normalTex, &object);
+          }
+
+          //model
+          std::vector<std::pair<std::string, ModelLoading::Model*>> model_names;
+          model_names.reserve(m_sceneLoaded->modelMap.size() + 1);
+          model_names.emplace_back(std::make_pair("None", nullptr));
+          for (auto& material_pair : m_sceneLoaded->modelMap)
+          {
+            auto& model = material_pair.second;
+            model_names.emplace_back(FormatIdAndName("Model", model), &model);
+          }
+
+          if (ImGui::Button("Select model"))
+            ImGui::OpenPopup("model_select");
+
+          if (ImGui::BeginPopup("model_select"))
+          {
+            ImGui::Text("Model");
+            ImGui::Separator();
+            for (std::size_t i = 0; i < model_names.size(); i++)
+            {
+              if (ImGui::Selectable(model_names[i].first.data()))
+              {
+                if (i != 0)
+                {
+                  object.model = model_names[i].second;
+                  object.info_resource.info.model_offset = object.model->id;
+                }
+                else
+                {
+                  object.model = nullptr;
+                  object.info_resource.info.model_offset = -1;
+                }
+
+                //update the model
+                rebuild_scene = true;
+              }
+            }
+
+            ImGui::EndPopup();
+          }
+
+          //materials
+          std::vector<std::pair<std::string, ModelLoading::MaterialResource*>> material_names;
+          material_names.reserve(m_sceneLoaded->materialMap.size() + 1);
+          material_names.emplace_back(std::make_pair("None", nullptr));
+          for (auto& material_pair : m_sceneLoaded->materialMap)
+          {
+            auto& material = material_pair.second;
+            material_names.emplace_back(FormatIdAndName("Material", material), &material);
+          }
+
+          if (ImGui::Button("Select material"))
+            ImGui::OpenPopup("material_select");
+
+          if (ImGui::BeginPopup("material_select"))
+          {
+            ImGui::Text("Material");
+            ImGui::Separator();
+            for (std::size_t i = 0; i < material_names.size(); i++)
+            {
+              if (ImGui::Selectable(material_names[i].first.data()))
+              {
+                if (i != 0)
+                {
+                  if (!m_sceneLoaded->materialMap[i - 1].was_loaded_from_gltf)
+                  {
+                    object.material = material_names[i].second;
+                    object.info_resource.info.material_offset = object.material->id;
+                  }
+                  else
+                  {
+                    ImGui::BeginPopup("Cannot set to this item since this item is from a GLTF file");
+                    ImGui::EndPopup();
+                  }
+                }
+                else
+                {
+                  object.material = nullptr;
+                  object.info_resource.info.material_offset = -1;
+                }
+
+                //update the resource info
+                void* mapped_data;
+                object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
+                memcpy(mapped_data, &object.info_resource.info, sizeof(Info));
+                object.info_resource.d3d12_resource.resource->Unmap(0, nullptr);
+
+                ResetPathTracing();
+              }
+            }
+
+            ImGui::EndPopup();
+          }
+
+          //diffuse textures
+          std::vector<std::pair<std::string, ModelLoading::Texture*>> diffuse_texture_names;
+          diffuse_texture_names.reserve(m_sceneLoaded->diffuseTextureMap.size() + 1);
+          diffuse_texture_names.emplace_back(std::make_pair("None", nullptr));
+          for (auto& diffuse_texture_pair : m_sceneLoaded->diffuseTextureMap)
+          {
+            auto& diffuse_texture = diffuse_texture_pair.second;
+            diffuse_texture_names.emplace_back(FormatIdAndName("Diffuse Texture", diffuse_texture), &diffuse_texture);
+          }
+
+          if (ImGui::Button("Select diffuse texture"))
+            ImGui::OpenPopup("diffuse_texture_select");
+
+          if (ImGui::BeginPopup("diffuse_texture_select"))
+          {
+            ImGui::Text("Diffuse");
+            ImGui::Separator();
+            for (std::size_t i = 0; i < diffuse_texture_names.size(); i++)
+            {
+              if (ImGui::Selectable(diffuse_texture_names[i].first.data()))
+              {
+                if (i != 0)
+                {
+                  if (!m_sceneLoaded->diffuseTextureMap[i - 1].was_loaded_from_gltf)
+                  {
+                    object.textures.albedoTex = diffuse_texture_names[i].second;
+                    object.info_resource.info.texture_offset = object.textures.albedoTex->id;
+                  }
+                  else
+                  {
+                    ImGui::BeginPopup("Cannot set to this item since this item is from a GLTF file");
+                    ImGui::EndPopup();
+                  }
+                }
+                else
+                {
+                  object.textures.albedoTex = nullptr;
+                  object.info_resource.info.texture_offset = -1;
+                }
+
+                //update the resource info
+                void* mapped_data;
+                object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
+                memcpy(mapped_data, &object.info_resource.info, sizeof(Info));
+                object.info_resource.d3d12_resource.resource->Unmap(0, nullptr);
+
+                ResetPathTracing();
+              }
+            }
+
+            ImGui::EndPopup();
+          }
+
+          //normal textures
+          std::vector<std::pair<std::string, ModelLoading::Texture*>> normal_texture_names;
+          normal_texture_names.reserve(m_sceneLoaded->normalTextureMap.size() + 1);
+          normal_texture_names.emplace_back(std::make_pair("None", nullptr));
+          for (auto& normal_texture_pair : m_sceneLoaded->normalTextureMap)
+          {
+            auto& normal_texture = normal_texture_pair.second;
+            normal_texture_names.emplace_back(FormatIdAndName("Normal Texture", normal_texture), &normal_texture);
+          }
+
+          if (ImGui::Button("Select normal texture"))
+            ImGui::OpenPopup("normal_texture_select");
+
+          if (ImGui::BeginPopup("normal_texture_select"))
+          {
+            ImGui::Text("Normal");
+            ImGui::Separator();
+            for (std::size_t i = 0; i < normal_texture_names.size(); i++)
+            {
+              if (ImGui::Selectable(normal_texture_names[i].first.data()))
+              {
+                if (i != 0)
+                {
+                  if (!m_sceneLoaded->normalTextureMap[i - 1].was_loaded_from_gltf)
+                  {
+                    object.textures.normalTex = normal_texture_names[i].second;
+                    object.info_resource.info.texture_normal_offset = object.textures.normalTex->id;
+                  }
+                  else
+                  {
+                    ImGui::BeginPopup("Cannot set to this item since this item is from a GLTF file");
+                    ImGui::EndPopup();
+                  }
+                }
+                else
+                {
+                  object.textures.normalTex = nullptr;
+                  object.info_resource.info.texture_normal_offset = -1;
+                }
+              }
+
+              //update the resource info
+              void* mapped_data;
+              object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
+              memcpy(mapped_data, &object.info_resource.info, sizeof(Info));
+              object.info_resource.d3d12_resource.resource->Unmap(0, nullptr);
+
+              ResetPathTracing();
+            }
+
+            ImGui::EndPopup();
+          }
+
+          if (ImGui::Button("Update"))
+          {
+            rebuild_scene = true;
+          }
+
+          ImGui::TreePop();
+        }
+      }
+
+      //add object
+      if (ImGui::Button("Add Empty Object"))
+      {
+        MakeEmptyObject();
+      }
+    }
+  };
+
+  auto ShowHelpHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Help"))
+    {
+      ImGui::BulletText("Double-click on title bar to collapse window.");
+      ImGui::BulletText("Click and drag on lower right corner to resize window\n(double-click to auto fit window to its contents).");
+      ImGui::BulletText("Click and drag on any empty space to move window.");
+      ImGui::BulletText("TAB/SHIFT+TAB to cycle through keyboard editable fields.");
+      ImGui::BulletText("CTRL+Click on a slider or drag box to input value as text.");
+      if (ImGui::GetIO().FontAllowUserScaling)
+          ImGui::BulletText("CTRL+Mouse Wheel to zoom window contents.");
+      ImGui::BulletText("Mouse Wheel to scroll.");
+      ImGui::BulletText("While editing text:\n");
+      ImGui::Indent();
+      ImGui::BulletText("Hold SHIFT or use mouse to select text.");
+      ImGui::BulletText("CTRL+Left/Right to word jump.");
+      ImGui::BulletText("CTRL+A or double-click to select all.");
+      ImGui::BulletText("CTRL+X,CTRL+C,CTRL+V to use clipboard.");
+      ImGui::BulletText("CTRL+Z,CTRL+Y to undo/redo.");
+      ImGui::BulletText("ESCAPE to revert.");
+      ImGui::BulletText("You can apply arithmetic operators +,*,/ on numerical values.\nUse +- to subtract.");
+      ImGui::Unindent();
+    }
+  };
+
+  auto ShowFeaturesHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Features"))
+    {
+      auto frame_index = m_deviceResources->GetCurrentFrameIndex();
+      auto &current_scene = m_sceneCB[frame_index];
+      bool enable_anti_aliasing = current_scene.features & AntiAliasing;
+      bool enable_depth_of_field = current_scene.features & DepthOfField;
+
+      ImGui::Checkbox("Anti-Aliasing", &enable_anti_aliasing);
+      ImGui::Checkbox("Depth Of Field", &enable_depth_of_field);
+
+      current_scene.features = 0;
+      current_scene.features |= enable_anti_aliasing ? AntiAliasing : 0;
+      current_scene.features |= enable_depth_of_field ? DepthOfField : 0;
+
+      ImGui::DragInt("Iteration depth", reinterpret_cast<int*>(&current_scene.depth));
+
+      for (int i = 0; i < FrameCount; i++)
+      {
+        m_sceneCB[i] = current_scene;
+      }
+
+      if (ImGui::Button("Update"))
+      {
+        ResetPathTracing();
+      }
+    }
+  };
+
+  auto ShowModelHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Models"))
+    {
+      for (auto& model_pair : m_sceneLoaded->modelMap)
+      {
+        auto& model = model_pair.second;
+        ShowModel(model);
+      }
+
+      const bool browseButtonPressed = ImGui::Button("Add model");
+      const char* chosen_path = dlg.chooseFileDialog(browseButtonPressed, nullptr, ".obj");
+
+      if (strlen(chosen_path) > 0)
+      {
+        LoadModel(chosen_path);
+      }
+      else if(browseButtonPressed)
+      {
+        ImGui::Text("Invalid path");
+      }
+    }
+  };
+
+  auto ShowMaterialHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Materials"))
+    {
+      for (auto& material_pair : m_sceneLoaded->materialMap)
+      {
+        auto& material = material_pair.second;
+        ShowMaterial(material);
+      }
+
+      if(ImGui::Button("Make Empty Material"))
+      {
+        MakeEmptyMaterial();
+      }
+    }
+  };
+
+  std::string possible_image_extensions = ".tiff;.gif;.bmp;.png;.jpg;.jpeg;.tga";
+
+  auto ShowDiffuseTextureHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Diffuse Textures"))
+    {
+      for (auto& diffuse_texture_pair : m_sceneLoaded->diffuseTextureMap)
+      {
+        auto& diffuse_texture = diffuse_texture_pair.second;
+        ShowDiffuseTexture(diffuse_texture);
+      }
+
+      const bool browseButtonPressed = ImGui::Button("Add Texture");
+      const char* chosen_path = dlg.chooseFileDialog(browseButtonPressed, nullptr, possible_image_extensions.c_str());
+
+      if (strlen(chosen_path) > 0)
+      {
+        LoadDiffuseTexture(chosen_path);
+      }
+      else if (browseButtonPressed)
+      {
+        ImGui::Text("Invalid path");
+      }
+    }
+  };
+
+  auto ShowNormalTextureHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Normal Textures"))
+    {
+      for (auto& normal_texture_pair : m_sceneLoaded->normalTextureMap)
+      {
+        auto& normal_texture = normal_texture_pair.second;
+        ShowNormalTexture(normal_texture);
+      }
+
+      const bool browseButtonPressed = ImGui::Button("Add Texture");
+      const char* chosen_path = dlg.chooseFileDialog(browseButtonPressed, nullptr, possible_image_extensions.c_str());
+
+      if (strlen(chosen_path) > 0)
+      {
+        LoadNormalTexture(chosen_path);
+      }
+      else if (browseButtonPressed)
+      {
+        ImGui::Text("Invalid path");
+      }
+    }
+  };
+
+  auto ShowGLTFHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("GLTF"))
+    {
+      const bool browseButtonPressed = ImGui::Button("Upload GLTF file");
+      static ImGuiFs::Dialog dlg; // one per dialog (and must be static)
+      const char* chosen_path = dlg.chooseFileDialog(browseButtonPressed, nullptr, ".gltf");
+
+      if (strlen(chosen_path) > 0)
+      {
+        m_sceneLoaded->ParseGLTF(chosen_path, false);
+        rebuild_scene = true;
+      }
+      else if (browseButtonPressed)
+      {
+        ImGui::Text("Invalid path");
+      }
+    }
+  };
+
+  auto SaveSceneToDiskHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Save/Load Scene File"))
+    {
+      bool save_button_pressed = ImGui::Button("Save scene");
+      const char* save_path = dlg.saveFileDialog(save_button_pressed, nullptr, "scene.txt");
+      if (strlen(save_path) > 0)
+      {
+        SerializeToTxt(save_path);
+      }
+      else if (save_button_pressed)
+      {
+        ImGui::Text("Invalid path");
+      }
+
+      bool load_button_pressed = ImGui::Button("Load scene");
+      static ImGuiFs::Dialog dlg; // one per dialog (and must be static)
+      const char* load_path = dlg.chooseFileDialog(load_button_pressed, nullptr, ".txt");
+      if (strlen(load_path) > 0)
+      {
+        p_sceneFileName = load_path;
+        //load scene, basically restart
+        rebuild_all_resources = true;
+        rebuild_scene = true;
+      }
+      else if (load_button_pressed)
+      {
+        ImGui::Text("Invalid path");
+      }
+    }
+  };
+
+  auto ImageFunctionsHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("Kewl RTX Image Comparison Thing"))
+    {
+    }
+  };
+
+  auto ShowHeaders = [&]()
+  {
+    ShowHelpHeader();
+    ShowFeaturesHeader();
+    ShowModelHeader();
+    ShowMaterialHeader();
+    ShowDiffuseTextureHeader();
+    ShowNormalTextureHeader();
+    ShowObjectHeader();
+    ShowGLTFHeader();
+    SaveSceneToDiskHeader();
+    ImageFunctionsHeader();
+  };
+
+  auto commandList = m_deviceResources->GetCommandList();
+  ImGui_ImplDX12_NewFrame(commandList);
+  
+  //make sure to reset the heap descriptor
+  current_imgui_heap_descriptor = 0;
+
+  bool resize = true;
+  ImGui::Begin("DXR Path Tracer", &resize, ImGuiWindowFlags_AlwaysAutoResize);
+
+  ImGui::Text("ImGUI version: (%s)", IMGUI_VERSION);
+
+  ShowHeaders();
+
+  ImGui::End();
+  bool a = true;
+  ImGui::ShowDemoWindow(&a);
+}
+
+void D3D12RaytracingSimpleLighting::RenderImGUI()
+{
+  auto commandList = m_deviceResources->GetCommandList();
+
+  std::vector<ID3D12DescriptorHeap*> heaps = { g_pd3dSrvDescHeap.Get() };
+  commandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
+  ImGui::Render();
+  ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData());
+}
+
+void D3D12RaytracingSimpleLighting::ShutdownImGUI()
+{
+  g_pd3dSrvDescHeap.Reset();
+  ImGui_ImplDX12_Shutdown();
+  ImGui::DestroyContext();
+}
+
+void D3D12RaytracingSimpleLighting::RebuildScene()
+{
+  // Create raytracing interfaces: raytracing device and commandlist.
+  m_raytracingGlobalRootSignature.Reset();
+  m_raytracingLocalRootSignature.Reset();
+
+  m_descriptorsAllocated = 0;
+  m_raytracingOutputResourceUAVDescriptorHeapIndex = UINT_MAX;
+  m_indexBuffer.resource.Reset();
+  m_vertexBuffer.resource.Reset();
+  m_textureBuffer.resource.Reset();
+  m_normalTextureBuffer.resource.Reset();
+  m_perFrameConstants.Reset();
+  m_rayGenShaderTable.Reset();
+  m_missShaderTable.Reset();
+  m_hitGroupShaderTable.Reset();
+
+  m_bottomLevelAccelerationStructure.Reset();
+  m_topLevelAccelerationStructure.Reset();
+
+  m_camChanged = true;
+
+  if (rebuild_all_resources)
+  {
+    free(m_sceneLoaded);
+    m_sceneLoaded = new Scene(p_sceneFileName, this); // this will load everything in the argument text file
+    rebuild_all_resources = false;
+  }
+
+  for (auto& model : m_sceneLoaded->modelMap)
+  {
+    model.second.is_gpu_ptr_allocated = false;
+    model.second.is_m_bottomLevelAccelerationStructure_allocated = false;
+    model.second.is_scratchResource_allocated = false;
+    model.second.bottom_level_build_desc_allocated = false;
+    model.second.m_bottomLevelAccelerationStructure.Reset();
+    model.second.scratchResource.Reset();
+  }
+
+  m_sceneLoaded->top_level_build_desc_allocated = false;
+  m_sceneLoaded->top_level_prebuild_info_allocated = false;
+  m_sceneLoaded->scratchResource.Reset();
+  m_sceneLoaded->m_topLevelAccelerationStructure.Reset();
+  m_sceneLoaded->instanceDescs.Reset();
+
+  for (auto& object : m_sceneLoaded->objects)
+  {
+    object.transformBuilt = false;
+  }
+
+  // Create root signatures for the shaders.
+  CreateRootSignatures();
+
+  // Create a raytracing pipeline state object which defines the binding of shaders, state and resources to be used during raytracing.
+  CreateRaytracingPipelineStateObject();
+
+  // Create a heap for descriptors.
+  CreateDescriptorHeap();
+
+  // Build geometry to be used in the sample.
+  m_sceneLoaded->AllocateResourcesInDescriptorHeap();
+
+  // Build raytracing acceleration structures from the generated geometry.
+  BuildAccelerationStructures();
+
+  // Create constant buffers for the geometry and the scene.
+  CreateConstantBuffers();
+
+  // Build shader tables, which define shaders and their local root arguments.
+  BuildShaderTables();
+
+  // Create an output 2D texture to store the raytracing result to.
+  CreateRaytracingOutputResource();
+}
+
+bool D3D12RaytracingSimpleLighting::LoadModel(std::string model_path) {
+  std::fstream model_file(model_path);
+  if (model_file)
+  {
+    ModelLoading::Model model;
+    model.name = model_path;
+    int new_id = (--std::end(m_sceneLoaded->modelMap))->first + 1;
+    m_sceneLoaded->LoadModelHelper(model_path, new_id, model);
+    rebuild_scene = true;
+  }
+  return false;
+}
+
+bool D3D12RaytracingSimpleLighting::LoadDiffuseTexture(std::string diffuse_texture_path)
+{
+  std::fstream file(diffuse_texture_path);
+  if (file)
+  {
+    file.close();
+    ModelLoading::Texture new_texture;
+    new_texture.name = diffuse_texture_path;
+    int new_id = (--std::end(m_sceneLoaded->diffuseTextureMap))->first + 1;
+    m_sceneLoaded->LoadDiffuseTextureHelper(diffuse_texture_path, new_id, new_texture);
+    rebuild_scene = true;
+  }
+  return false;
+}
+
+bool D3D12RaytracingSimpleLighting::LoadNormalTexture(std::string normal_texture_path)
+{
+  std::fstream file(normal_texture_path);
+  if (file)
+  {
+    file.close();
+    ModelLoading::Texture new_texture;
+    new_texture.name = normal_texture_path;
+    int new_id = (--std::end(m_sceneLoaded->normalTextureMap))->first + 1;
+    m_sceneLoaded->LoadNormalTextureHelper(normal_texture_path, new_id, new_texture);
+    rebuild_scene = true;
+  }
+  return false;
+}
+
+bool D3D12RaytracingSimpleLighting::MakeEmptyMaterial()
+{
+  ModelLoading::MaterialResource material_resource{};
+  int new_id = (--std::end(m_sceneLoaded->materialMap))->first + 1;
+  material_resource.id = new_id;
+  material_resource.name = "Empty Material";
+  m_sceneLoaded->materialMap.insert({ new_id, std::move(material_resource)});
+  rebuild_scene = true;
+  return true;
+}
+
+bool D3D12RaytracingSimpleLighting::MakeEmptyObject()
+{
+  ModelLoading::SceneObject object{};
+  object.id = m_sceneLoaded->objects.size();
+  object.name = "Empty Object";
+  object.scale = glm::vec3(1.0f);
+  m_sceneLoaded->objects.emplace_back(std::move(object));
+  rebuild_scene = true;
+  return true;
+}
+
+void D3D12RaytracingSimpleLighting::SerializeToTxt(std::string path)
+{
+  std::string ma_boi_pat =
+"################################################################+++++++++++++###+#################################################\r\n"
+"################################################################++++++++++++++####################################################\r\n"
+"#################################################################++++++++++#+#####################################################\r\n"
+"#################################################################+++++#+##########################################################\r\n"
+"################################################################+#++++############################################################\r\n"
+"###############################@##################################################################################################\r\n"
+"############################@@@##@@@@###########################################################################################@#\r\n"
+"#####################@@@@@@@@@@@@@@@@@#########################################################################################@@#\r\n"
+"###################@@@@@@@@@@@@@@@@###############################################################################################\r\n"
+"################@@@@@@@@@@@@@@@@@@@###############################################################################################\r\n"
+"##############@@@#@@@@@@@@@@@@@@@@@################################################@@@@##################+#+++####################\r\n"
+"########@##@@@@@@@@@@@@@@@@@@@@@@@@@##########################################@#####@##################+#++++#####################\r\n"
+"##@##@#####@@@@@@@@@@@@@@@@@@@@@@########################################@@##@@####@@################+++++++######################\r\n"
+"@@@@#@@#@#@@@@@@@@@@@@@@@@@@@@@@############################################@#@@########@#############+++++++#####################\r\n"
+"#####@@@@@@@@@@@@@@@@@@@@@@@##@###########################################@##@######################+++++++++#####################\r\n"
+"######@@@@@@@@@@@@@@@@@@@@@#@@##################################@#########@########################++++++++++#####################\r\n"
+"#######@@@@@@@@@@@@######################################@@@########@@#########################+#++++++++++#+#####################\r\n"
+"########@@@@@@@@@@#########################################@@@#@##@#@####################+#####++++++++++++++#####################\r\n"
+"#######@@@@@@@@@@@#@##################################@#@@##+##########################++###++++++++++++++++++####################\r\n"
+"######@@@@@@@@@@@#@#############################++'+;''.::,'';'''#'++#############+++++++++++++++++++++++++++#####################\r\n"
+"#####@@@@@@@@#@@################################;:..;:.'.,:+:'';'''+'+'++####+##+++++++++++++++++++++++++++++#####################\r\n"
+"######@@@@@#@#@##############################+'+.:,.:,,::,;;`:::++:;'',';#++#+##++++++++++++++++++++++++++++######################\r\n"
+"##@###@@@@@#@@#@#########################+##+;::..::::'+;::',':''++''+;;;,':++#++++++++++++++++++++++++++++++#####################\r\n"
+"######@@@##@#@##@@######################+#+,:,;':,',+:;':''';;''':';#+;';,,,;:+++++++++++++++++++++++++++++++#####################\r\n"
+"#@##@#@@@@@#@@#@#@#####################+#',,';,',;':;.;;'':+;'';'++++++';;;,,,;'+'++++++++++++++++++++++++++######################\r\n"
+"#####@@@#@#@#@@@@####################++;:.,;:'',::;;:::;;;'+::;:;;;''++++;;:'.,:+++++++++++++++++++++++++++#######################\r\n"
+"###@@@@#@@@#@@#@@####################+;:.:,.;+',,,:,.::,,:::::;:::;:;''''++::;:.::+++++###+++++++++++++++#########################\r\n"
+"###@#@###########@#@@##############+#+,,:.:,::.,':;;':;;;;,,:,:,,:,,::;'++;'';:,,;:#+#+#+#+++++++++++++###########################\r\n"
+"##@####@@@@#####@@@@@@#############+;,.,,+,;',':;;';;;':::::,,,..,,,,,,:'++';;:,.,:;++++#####+####++++############################\r\n"
+"##@##########@##@###@####@#########+;,,''+;::+:,;+':':;;;,:,,,.,.,,.,,,,:;'++'::.:,:++++###########+++############################\r\n"
+"########@####@###########@@########+,:::;::;';'+''''';'::,,.,:..,,,.,,,,,:+++';;+';;;#+###########################################\r\n"
+"#######################@##@######+,.:';;+';;';;;;+''';;,,..,,,,.,...,.,,,,,'+++'';:,;+############################################\r\n"
+"################################+;,;'';;:'';'+';''''';:,,......,,,,,,,,,,,,:'++''':':'############################################\r\n"
+"################@###@#######@##'+:.;;':;;:;'+;;;;;:;;:,,........,,,,,,,,,,,,:'##+#++++'###########################################\r\n"
+"################@###@@########@;,,,++'';;;;'';::;:::::,.........,,,,,,,,,,,,:;+###+#+'+###########################################\r\n"
+"#####################@#@#@##@##;::.'';;;;::;;:::,:::,,,,.....,,.,,,,,,,,,,,,:;'#######+###########################################\r\n"
+"#####################@@##@@@##;.:;''':::::::::,,:,:,,,,,.....,,,,,,,,,,::::::;'+##@###+#############################@#############\r\n"
+"###########################@#+:`;:'#:.,,,:::::,,,,:,,,,,,...,,,,,,,,,,::::::::;++#@@@@'+#############################@############\r\n"
+"#####################@@@###@##..,:',:,:,:::,::,::,::,,,,,,,,,,,,,,,:,::::::::;;'+#@@@################################@############\r\n"
+"#####################@@@@@@@@:,,:++;,:,::::::,::,:::,,,,,,,,,,,,,,,::::::::::;;'+##@@@@+##########################################\r\n"
+"######################@###@#+``:+++;::::::::::,::,::,,,,,,,,,,::::::::::::::::;'+##@@@@+##########################################\r\n"
+"#########################@@@+`,;+++;;;;;;:::::::,::::,,,,,,,,::::::::::::::::;;;'+#@@@@###########################@#@#############\r\n"
+"#########################@@#',:'##'';;;;:;:::::::::::,,,,,::::::::::::::::::::;;'+##@@############################@@@@############\r\n"
+"########################@###.:''+@';';;;;;:::::::::::,,::,::::;:;;:::::::::::::;;'+##@@#+###++##################@##@#@@#@@########\r\n"
+"###########################+@:;+@#'''';;;;;:;;::;::::::::::::::;:;:::::::::::::;;;'#####++#+,+###################@#@##@@###@@#####\r\n"
+"############################+:'+##''''';;;;;;:;:;::::::::::::::;:::::::,:::::::;;;;+##@@#+ ::,:###############@####@@@##@##@#@####\r\n"
+"###########################;:;'##+'''''';;;;;;;;::;:;::;;::::;;:::::,,::::::::::;:;'+####;:;;+;+###################@@##@#@@@@#####\r\n"
+"############################+'#@@#''''''';;;;;;;;;;;;;::::;::;::::,,::,:::::::;;:::;+####;:;+'+:#@#########@@@########@@#@@@#@@@@#\r\n"
+"############################++#@##'''+''''';;;;;;;;;:;:::;;::;:::,,,:,:,:,:::::;;::;+@#+';'++'''#########@####@##@#@###@@@@@@@@@@@\r\n"
+"###########################;''+#@#+'''''''''';''';';;;;:;;;;:::::,::,:,::::::::;;;:;;+@';;++''';###################@#######@@#@@@@\r\n"
+"###########################@@'##@#+++'+'''''';''';;;;:;;;;:;:::::,,,::;;;;;:;;;;:;:;#@++''+'''';'#@##@@@################@##@@@@@##\r\n"
+"###########################+'+##@#+++''''''''';';';;;;;;;:;:::::,,,::;';'++'''';;;':@;'++++;;';;:@@####@#@###################@@@##\r\n"
+"###########################+;+#@@@#+++''''''';';;;;;:;:::;;::,::,:;;''+++'++''++';++#;:+++';;;;;;@@#@##@####################@@@@##\r\n"
+"###########################@@;@#@@#++++''''''';;;;;;:::::::::::::;'+++#+''''':#+#:##';:'+#+;;;;;;+##@@####################@##@####\r\n"
+"###########################;++#@@@##++++'+''';;;;:;:::::::::;::;';++#+#'+#'+##+#'#@#';;;'#+'';;''@#@#@############################\r\n"
+"##########################@#+#+@@@###++''''';;;;:;::::::::::;;:;''++#+#'+#@####++@'''';;;'+''';';@@###############################\r\n"
+"##############################+@@@@###++''''';;;;;;::;:;::;:;;;''+++#;+#####@##+++''';;;;';;;';;;@################################\r\n"
+"#############################@@#@@@##+++'''''';;';;;;;;;;;;;;;'''+##++@@@#+#++''';'';;';;;;;;;;;;#################################\r\n"
+"############################@###@@@@##+++''';;''';;'''';;;;;;'''+#+##+#+##+'++';';;;;;;;;;;;;;;:'#################################\r\n"
+"#################################@@##+++++'''''+##+++++'+''''';+####++'+';+''+;;::;;;;';';;;':;:+#################################\r\n"
+"#################################@@@#+#++++'++####@####+'+''';;++####+++''''++;::+';;;;'';;;:;::;+################################\r\n"
+"############################@@##@+@@@#++++++##++#++####+;#''+;#+#+'''''++++++;:+:;;;;;;''';'::,::#################################\r\n"
+"###################@###@@#@##@@###@@@#+++++#+#+++#@###@###@#':::;#@++++++++;:,'::;:;;;;''';';:,:+#################################\r\n"
+"################@#@@@@@@@#@#@@@####@@#++++##+++##+@@@@+####+;;::;+#'+'+''';+':::::::;;';'';'',,;+#################################\r\n"
+"################@#@@#@@@@@###@@#@''#@#++###@##+#@#@@@#++#+##;;::;'+#';';;#:':::::::;;;';'';'',:'##################################\r\n"
+"############@###@#@@@#@@#@######'';+##@++++###@#@+#+##+''+##'::::;;''+';;;;;::::::;:;;'';;';;;;'##################################\r\n"
+"##############@@@#@@@@@@####@###,#++#@#@+######@#++#+'+++++#+;:,:;;;;';;;::::::::;;;;;';';;'''+###################################\r\n"
+"###########@@@@@@@@@@#@#########'@++##@@'+######++++#'+++++++;:,:::;;;;;;;;;:::;;;;;;;;';';;'+####################################\r\n"
+"#########@#@@@@@@@@@@############'##+@@#@#####++#+++++++''@++':,,:,::;''';;;;;;;;;;'''';'';'++####################################\r\n"
+"#######@@#@@@@@@@@@@@#@@#########+#####+####++++#++++++''##+';::,::::;;'''''''';'''''''''';;''@###################################\r\n"
+"#####@#@@@@@@@@@@@@@@@##########@#++##@###+#'+''++++'+;@'++'';;::,:::;;;'''++'++''''''''+;';''####################################\r\n"
+"######@@@@@@@@@@@@@@@#############'+++#####+''''++''#++'++++';;;:,:;';''';;''+#++'+'++'''''''':``````'####+#+++###################\r\n"
+"#####@@@@@@@@@@@@@@@##############'''++####+#+++#+;+''''''++'';;::;'+++#;;;''+++#+++'''+''''''``,,,``,.``   ``..,:;+'+':#+########\r\n"
+"####@#@@@@@@@@@@@@@@##############+''+++###++++'''';'';';'++++'''''+###'';;''++++#++''''''''+':.,,,:;;,,..,`,,,`````` ``.`,'######\r\n"
+"######@@@@@@@@@@@@@@@###############@#+##++++++'''';';;;''+++++++++##++'';'''++++++''''''+''''::.:::;',,,.:':,;,,....,,...`````.;#\r\n"
+"#######@@@@@@@@@@@@@################''+++#++++++''''';'''++###@#+++++''''''''++++++''''''''++';;:.:::;';.::;,`..;,:;,::':,```..`  \r\n"
+"###@@@@@@@@@@@@@@@@###############+##+++#+##+++''''';;''+''#######+++'+';;''+++#+++''''''''++;';;..:,:;:`.,`,:::::,,,.:;;:``,;::':\r\n"
+"######@@@@@@@@@@@@@@#@############++++++++++#+'+'''''''+''++++++##+++''''''''#@#''';'''++++++;:;;:,::,::;,.:::::::,,:::::,,,,,,:,:\r\n"
+"#######@@@@@@@#@@@@#@###############++'+#++#+++''''''''+++++++##+++'+''';;'+#@#'''';''''+'++#'';;;::::,:::,::::;::,:::;;:::,,,,,::\r\n"
+"######@#@##@@@#@@#@@@@###############++++#+++++++'+''++++++++++++++''';'++####''''''''''+++++''';;::;;;:';::;;::::,:::;:::,:,,:::,\r\n"
+"########@#@@@@@@@@@@@###############++#++#++#+++++''++#++++++#+++++'''++##+#+'''''''''+++++#'++'';;:;:;;;';:;;::::::::::;,,:,,..` \r\n"
+"###########@@@#@@###@###########+####++;'#++++#+++++++#++#++++++'++++++#++;++';'''''+'++++++';+';';:::;;;';:;;;:::::;:;:;:::`:::,:\r\n"
+"############@#####@###################+;'+++++++++++'+++++++++++#+++###'''+++';'''''+''+++++''+;';;::;::;:;::;:;::::;::::`.`::::,,\r\n"
+"#############@########################++'#+++#+++++++++++++#########+';++''+';;''''''+++++#++'+''';;;;:;:;;::;;;:::.`.``,:::;::::,\r\n"
+"########################################,@###+++++++++++++#@@@#+##+''#''+++'''''';'''+++##+++'@'''';;:;;;;:';;;;;:`::::,::::::;;::\r\n"
+"#########################################+'####++#+++''++++######++++'';'+'''''';;;'''+#+##+++@''';;;;:::;;;:';.`,;:;;:':::::;::::\r\n"
+"##############################################++++#++'''++'+++#####+''''''''''';;;;''+++##+++''''';;;:;:::;:`,,';;;::;:;:;::;;;;::\r\n"
+"############################################+###++#++''';'''++++##++++''++++''';;;;''++####+++'+';;;;::;:::;::;;;;;:;;:;:::;::;:;:\r\n"
+"##############@###############################+#++#+++'''''''+'+''++++++++++'';;;'''+++###+++''#';;;;::;::;;,;'+';;;:;;:;';:;::;;;\r\n"
+"###########################################+`,+##++#+++''''''+++++++++#+++++';;;;;''++####+++''#';;::;;:;:;;;;;'';:;::::';;:;;:::.\r\n"
+"@@##########@#############################;.,;:#+#+#++++''''++++++++++++'''';;;;;''++#####++++'#';;:;;:'::;:;,;'';;;;;'::;:;;;,.`:\r\n"
+"@########################################`,.:.;###++#++++++'+++++++++++';'';;;;;'''+#####+++++'+'';;:;;:;:;:;;;;';;;;;;;;::;.`:;;;\r\n"
+"@#######################++#############@`,,;#.+#####++#+++++++'++++++''''':;'''''+++#####+++'++++';;;:::;::;;:;';;';;;;;;:.`:;:;;'\r\n"
+"@@####################++###+##########+`.:;++:+##@#####+#++++++++++'''';;;;;';;''++#####++++++++#;;;;;:;:;:;:;:;;''':;;:,,;;;;;;;;\r\n"
+"#####################++++++++########+`.,;;'';###@@@######+++''++++''';;;;'';'+'++######++++''+++'';;:;;:;:::;:;'''.....;;;;;;;';;\r\n"
+"#####################++++++++#######;`,:;';'';+###@@########+++'++'++''''++''++++######+#+++''+++';;;';';;:;;:':;'.;;;:''':';;;'';\r\n"
+"#################+##++++++++#+####+:`,.,+'';''+####@@#########++++'++++''++++++#######+#++++'''++;':;;;;;:;;;:;:;,;;;';;;;';';;;;:\r\n"
+"#################++#+++++++++#####,.,::;'++':'+####@@@#########+++++++++++++############+++''++++'';;:;;;;:::::::';'';;';'';+;';;;\r\n"
+"###############++++++++++++++++##.`.,:.;;+,:;++####@@@###########+++++'++++############+++''+++++';;;;:;;,;:::;';';'+';;';;;'''';'\r\n"
+"#############+#+++++++++++++++#+ ``.:'.;;,'+''+#+###@@@###########++++################++++'+'++++''';:':';:::;;;'''';;::;';';;'';;\r\n"
+"########+++++++++++++++++++++++` `,;+;,'''++'+++####@@@##############################+#+++''+++++''+';;;;;::;;;''''';';;;;;'''';';\r\n"
+"###+#+++++++++++++++++++'++'+'``..:':.;'''++++++#+###@@@#############################++++'''++++;''';;;,,;::;;';''';;';;;;';;;'';.\r\n"
+"#++++++++++++++++++++++++++''`...::,,;';'''+++++++####@#@#############################++''''++++++;;::';:;;:';;;'+';;''';;'''',..;\r\n"
+"+++++++++++++++++++++++''+';`..,:.,;::'''''++'++++####@@@@###########################++++'+++++++'';;;;::;;;;''''''';'''''''..,'''\r\n"
+"+++++++++++++++++++++''+'''```.:.;;:;;''';'++'+++++###@##@##########################+++++++++'++'+''::::::;:;'''++';''';';`.;''';'\r\n"
+"++++++++'+++++++'+'+''''''`` .':,:::;;;''''++'++++++#####@#########################++++'++++++++'+''':;;:;';;'''#'';'';,.,';;'''''\r\n"
+"+++++++'+'''+'+'''''''''+```.;::;:;;';;+''''+'++++++#####@@#####+###############+#++++++++++++++''''';::;';;'''''''':,.:;''''';'';\r\n"
+"+++++++'''''''''''''''''.``.;::::;;;';'';''+'+++++++######@#####################++++++++++++++++'+';;;;;;;;:;+'++',,,;;;;;;;''+';'\r\n"
+"+++++''''''''''''''''';..`,;,;;:;;;;;'';';'',:++++++++#####@###++#+#+#######+##++++++++++++++++'++'':;;':'';'''',:'''''';;'''''+;'\r\n"
+"++++'''''''''''''''''':``,;::;::;;';''',,'':+++++'+'++#########+#+++#+####+++++++++++++++++++++''''''';;;''''''+++';:';';';+';';''\r\n"
+"+++++'''''''''''''''';```:,::;;;;;;;;',:'+;+++++'++++#++####@####++++++++#+++++#+++++++++''+++++#+'';;;;';'''##+''';'''''''+''''''\r\n"
+"+++''''''''''''''''';```:,,::::;;;;;,.;'''+'+'#+'++++++++#########+++++++#++++++++++++++++''+++';''';;:';''#@##+''+'';''''''''''''\r\n"
+"+'+''''''''''''''''': `.;::::;;;;:..;;''''+'++++++++++++++#########+##+#+#++++++++++++++'+'+'+#';''';''''#@@@#+'++'';''''''';';'+;\r\n"
+"'+'''''''''''''''';;`.,;::::::;..:';;'++'+'''++++++'+'++#++#++#######++++#++#++++++++++++'++'++';''';'+@######+++'+'''''''++''''+;\r\n"
+"+''''''''''''''''';.` `::::''.`:;;'''''''''+'++#++++++#++++#++######+++++#++++++++++++++++++'+'+':'++@@##++###++'''''';'''''';'''.\r\n"
+"'''''''''''''''''';` ,:::;;..;:';;;'''''+'''''++++++++++++#+++++#####+++#++++++++++++++++'+++++';;'#@@@#++++++'++''''''''''''',,,'\r\n"
+"''''''''''''''''''``,;;:;:.::':;;;;;';''''+++++++++++'+++++++++++++#####++++++++#++++++'++++++'''+;@@@###+++++++'''''''''';',,:'''\r\n"
+"'''''''''''''''';:`.',::.,;:;;;;:;;;;;;'''+'''++#++'+'++'+++++++++++++#+#++++++++++++++'+#+'+:++':;@###+++++++++'''+''''',..;'''''\r\n"
+"''''''''''''''''; `,,::`:;::;;:;';;;;''';'++'':':'+'+''++'+++#++'++++++++++++++++++++++++++++,++';;@###+++++++++''++'',,,'++''+''+\r\n"
+"'''''''''''''''',..:::`:;;;;;;;;;;;;'''';'';,:'++++++++'+'++++++++'++++++++++++++++++'+++'++';;''+#####++++''++''';,,.'''''''''''+\r\n"
+"'''''''''''''';;`,;::`::;:;;:;;;;';''';';,.;+''+#+#++''+'+++++++++'+'+'++++++++++++++''++'+''','+#@####+++++'''::,:;''+;';+;'''++'\r\n"
+"'''''''''''''';.`:,,.:::;;;;;;;;';';;;.,:';+''++++++++'+'+++++++++++++++++++++++++++++++'+''+':#+@@##+#+''+:,,:''''''''''''';+'++'\r\n"
+"'''''''''''''''`,;,.::;;::;;;:;;;;;..,''''''''+++++#+++++++++++++++++++++++++++++#+++++++''';',+@@@###+':,:;'+''''+'+''''+++'''+++\r\n"
+"''''''''''''';..':,:::;;;;;;;:;:;`.;;'''+;+''+''+++#++++'+''++++'+++++++++++++++++#+++++++'+'':+@@##++#,;+''''+'''+'''''''';'''''+\r\n"
+"''''''''''''';.,:.::;;;;;;;;;;;..';+;';;'''+'+'''+++#+++++++++++'++++'+++++'+++++#+++++++++';''#####':'++'++''+''+'+'+'''''+'+'++'\r\n"
+"'''''''''''';`.;.:;;;;:;'';';..;';';;'''''''+'''++++#+++''+'+++++++'++'+++++++####++++++++'++@#@#';:+#+'+'+'''''+'+'+''''++''+''+'\r\n"
+"'''''''''''';.,.;:;;;;;'';;:,;;''+'';'''';'+''+++++++#++++++++''+'++@#+++++++##++###'#++''++@@#+'+#++#+++'+++''+'+'+''''+'''''''''\r\n"
+"'''''''''''; ,.:::;:;;;';'..;''';+';''''+'''++'''++++##+++++''+##@@@###++#++++''+###+###++'@######++++++''+++++'+'+++''''++''''',,\r\n"
+"'''''''''';`.::::;;;;;;;'.;'';'''''''';''''''''+#'''::+#++++#@@#@@@@@#####++++++''+##++++'++@@###++++++''++'+'''+++++''++++'+':,;+\r\n";
+  auto ma_boi_shehzan =
+",,,:,:;;:::::::+';+;;;;;;;;';;;;;;';;;;;';;;;;;;;;;;;;;;;;;;;;;;;;;;;':'+++++#+++##############+++++++++'''++';'';;:,,:::  `  `   .` .,,;'::``,,,..```:;;;\r\n"
+",:::,:;;:;;;:::+';+;;;:;;;'';;;;;;;;'';';';';;;;;;;;;;;;;;;;;;;;;;;;:;:'++++#+++##################+++'+++++++'+''';;;;;:,`  ` .  `,  `,,;:::,::;:,,```;';;\r\n"
+",,,,,:'';;;;:::#':+;;;;;;;'';;;;;;';;;';;;;;';;;;;;;;;;;;;;;;;;;;;;;;;:'+++++'+#############++########+++++++++++'''';;';': ` .   `  ..:,';;::,:,:,`.,;';'\r\n"
+",,,,,::::;;;:::#;:';;;;;;;'';;;;;;;;;;;'';''';';;;;;;;;;;;:;;;;;;;;;;':;+'+'+#+#############+###++#####+#+++++++++'''''';;''':.   .` ..:,;'':;,;:;,:;:;'';\r\n"
+",,,:,::::::::::';:';;;;;;;'';;;;;;;;;;;';;';';;';;;;;;;;;;;;;:;;;;;;:` ``.:.,`` `:'+#+#################+#####+++++++'''''''';;;':..` ..:;,';,;.;'':;:;;;':\r\n"
+",,,:,,::::::::::::';;';;;;'';;;;;;;;;''';''';;;';;;;;;;;;;;;;;;;;:` `....`...,......`'#######++#######++#+########+''''''''''''';;;;:..:;,;;,;':';:;:;;;':\r\n"
+":,,::::::::::;;;;:';;;;;;;;';;;';;;;''';;''';;;;;;;;;;;;;:;::;;: ``.,:,,.,,,,.,.,,,,.. +++++##########+##########+#+++''''''''''''';;';;;',:,;;,;;:;;;;;+:\r\n"
+":,,:::;::::::,:;;:';;;;;;;'';;;;;;;;;;;';';;';;;;;;;;;;;;;;;:;``..,:,,:,.,;,,,,,:,,,,:..`++++++#####+###########+++++++++''''''''''''';;;;;;,;'',':'';;;''\r\n"
+"::::,::::::::::;;:';;;;;;;'';;;;;'';;;'';;;;;;;;;;;;;;;;;;;;: .,,,:,::,,:.:,.,;,,,:,,,,,..+++++######+#########+++++++++++++++'''''''''''';'';;;:;:'';;;;:\r\n"
+":::::::,:::::,:;;;';;;;;;;'';';;;;;;;;;;''';;;;;;;:;;;;;;;;,..,,,:,,,:,,,,;;;:.,,,,:.,.:.,.+++++#++++++++########+++++++#+++++++''''''''''''';;'';:'''';''\r\n"
+":::::::::::;:::;;:';;;;;;;''';;;;;;;;;;;;;;;;;;;;;;;;;;;;;:`,,,:,::::,,::,:;;:::,,:,.::,::,.++++#++++++++########+++++++++++++++++++'''''''''''';;;';;''+'\r\n"
+"::::::,::::::::;::';;;;'''++;;;;;;;;;;;;;'''';;;;;;;;;;;;;`.,:,::,,,,,,,.:,,:;;:,:,:,,:::::.;+++++++++++++##+++##+++++++++++++++++++++++'''''++''''';';;;;\r\n"
+":::::::::::;::::;:';;;;;;;;';;;;;;;;;;;';;;;;;;;;;;;;;;:;.,,,,,,,,,..,.,.,;;;;::::.,,:.::,:.,++###++++++++++++++++++++++++++++++++++++++++++''''''''''';;;\r\n"
+"::::::::::::;::;;:';;;;;;;;';;;;;;;;;;;;;';;;;;;;;;';:;;:...,,,,,`,,..,.,`:::::';;:,...,:,:,:,++#+++#+++++++++++++++++++++++++++++++++++++++++++''''''''''\r\n"
+":::::::::::::,;;;;';;;;;;;;;;;;;;;;;;;;;'';;;;;;;;;;;;;;...,....`...``..,,;';;:::'::,,....,,,.';'+'''+++#+#+++++++++++++++++++++++++++++++++++++++++'''+++\r\n"
+"::::::::::;;;,:;;;';;;;;;;;';;;;;;;;;;;'';;;:;;;;;;;;;;;.....`..`.`..`.,,:::;::;;:::,:......,,:';;;'''+''#++##+++++++++++++++++++++++++++++++++#++++#++'''\r\n"
+";::::::::::;;:;;;;';;;;;;;;;;;;;;;;'';;';'::;;;;';;;;;::..``....```.,.,.::;:;:;;,:::;:,........+'++'';;;'+'++''++++++++++++++++++++++++++++++++++++++###++\r\n"
+":::::::::::;;:;;;;';;;;;';;;;;;;;;;;'''';;:;;:,,,::,,,,,..`..``.``..`:.;;:';;,:'::::;.;:,.,...,+++'++''''';;;'''''+++++++++++++++++++++++++++++++++++##++#\r\n"
+";::::::;::::;:;;;;';;;;;;;;;;;;;;;;;::,,,,,:,,,:;;;:;:;`...``. ..``.`.;,:;:,:,,:;'::,::';.,`,.,.''''''''++++';;;;;'''''+++++++++++++++++++++++++++++###+++\r\n"
+":::::::;::;;;,;;;;';;;;;;;;;::::,,,:::::;::::::::;;;;;;.....``.`.,`,,,.:;;';;':';:,:::';;.:.,.,.';;'+';;++''''''';;;;;''''++++++++++++++++++++++++++#+++++\r\n"
+":::::::;;::::,:;;;';;;;;:::::,,::::;:;;:;;;;;;;;;;;;;;:...``.`````.:.,::,.,.,;''++++;';:;::,;,,.';;;';;;''';'''''+'''';;;;;'''''++++++++++++++++++##++++##\r\n"
+"::::::;;::;;:::;;;'::;:;:::::::::;;;;;;;;;;;:;;;;;;;;;..`..``...,..,:'+#@####@@@@@########:::,,,,;;;';;;''';;+';;'''++++'';';;;;''++++++++++++++++++++++##\r\n"
+":::::;;;::;;:,::;;':;;;;;;;;;;;;;;;;;;;;;:::;:;;;;;;;;.```.`......'##########################:,,,;;;';;;''';;'';;;'''+++++++'''';;;;;;''++++++++++++++++++\r\n"
+";:::;;;;;;;::::;;;';;;;;;;;;;;';;;;;;;;;;;;;;;;;;;;;;;`.....`.,.+###########@@@@@@@@@@@@######+,,;;;;';;;;;;;;;;:;'';''''+''''++++''';;;;'+'++++++++++++++\r\n"
+";:;;:;;';::;;::;;;';;;;;;;;;;;;;;;;;;;;;;;;;;;;;::;;;;....,,..+########@@@@########@@@@@@@@####@,:;;:;;;;;;;;;;;;;';;'''+'++''++'+''''''';;;''''++++++++++\r\n"
+";::::;;;;;;;;::;;;';;;;;;;;;;;;;;';;;;;;;;;;;;;;;;:;;:...,,.+++####@##########@@#@#@##@@#@@@@####,++':;;;;;;;;;;;:;:;''''+++++'+'''''''''++'';;;;'''++++++\r\n"
+";::;::;;;;:;;:;;;;';;;';;;;;;;;;;;;;;;;;;;;;;:;:::;;::...,'#++##########@########@@@@@@@@@#######+++#:';;;;;';:;;:;:;''';:;+++'';'';;''''+'''''';;;;';''++\r\n"
+":::;:;';;;:;;;:;;'';;;';;;;;;;;;;;;;;;;;;;;;;:;:::;;;:...'#+###+###@#######################@@####++++::;;;;;++:;::;:;''';;;;+''';''';;';;'''''''+++'';;;;;\r\n"
+";::;:;;;;;;;:;:;;'';;';;;;;;'';;;;;;;;;;;;;;;:;;;;;:;..:+++##+##@####@###+###+'''''++#######@#####+++::;;';;++;:;:;:;''';;':++'';;;;;;;;;'';;'';'''''+'';;\r\n"
+":::;::;;;;;;:::;''';;;;;;;'';;;''';;;;;;;;;;;;;;;;;;:.,#+#@+########++. ````` ``````` ````;++######++::;;;;;+'',;;;;;'';:;':'++';;;;;;';;';;;';;;''''''+++\r\n"
+";::::;;;::;;:;:;;'';;;;';;;';;;;;;;;;;;:;;;;:;;::::::`++##+###+#''` ```` `````````````````` ``#+####+::;;;;:+'',;;';;'';:;;:''''';;;;;;;;';;;';;'+';'';'''\r\n"
+":::::;;;:;;:;:;;;'';;;;;;;;;;;;;;;;;;;;;;;;;:;:::::,:;+#++###+'``   ```` `    ````````````````` '###+::;;;;;+'',;;;;;'';:;;:''''';;;;;:;;';;;';;;';;';;'''\r\n"
+":::::;;;;:;:;;:;;'';;;;;';';;;;;;;;;;;;;;;;::;:::::::+#+##++;  ` `       `````..,,,:::::::,,.`````.'':,::;;;''',;:;;;'';:;;:'''+';;;;':;;';;;;';;;;;';;'+'\r\n"
+":::::;;;::;:;;:;;';;;;;;';;;;;;;;;;;;;;:;;;::;;::,:::+###+;  `  `  `.,:;;';'+##################+'';;;;;;;;;:,'',;:;;;'';:::,;'''';;;;;::;';;;;;;;';;;';;';\r\n"
+";:::::;;;::::;;;'';;';'';;;;;;;;;;;;;;;;;;;:::;;::::;##+'     .,:'+##+####++#####################@#'';;;;;;;::',;:;;;'';;;;:;'''';::;;;:;';;:':;;';;;;;;';\r\n"
+"::::::;;:::::;:;;';;;;;;;.`.;;;;;;;;;;;;;;;;;:::::::;;,`.,,;+#@##########+++#+#######+###########@##+';;;;;;;';,;:;:;'';;;;:;'''';;:;;;:;';;:+:;;';;':';';\r\n"
+"::;::;;;;;;::;:;;';;;;';`````:;;;;;;;;;;;;;;:.`.,,::::;'#@@@@@##############++++++++++++##########@@+'';;;;:;':,;:;:;'';;;':;'''';;:;;;,;;;;:':;;;;'+:';';\r\n"
+"::::::;;;;;;;;:;;';,,:;.....,.;;;;;;;;;;;;;;`:::::;;;;'#@#@@@##################++++++++####@@@@@##@@#+'';;;:;':,;:;:;'''';':;'''';;:;;;,;;;;:':;;;;'':;;';\r\n"
+"::::::;;;;;;;::;;';,,,:.,...`.;;;;;;;;;;;;;::::::;;;;'+@@@@@##++####@#@@@@@#####++++++##@@@@@@#####@#+'';;;:;',,;:;:;'''''':;'''';;;;;;:;;;;:':';;;'':;'';\r\n"
+",,,,::;;;;;;:''';';,,,,,...,...;;;;;;;;;;;;;:::::;;;''@@@@@##+++##@@###@@#@#@###++++++##@@@@#####+#@#+'';;;:;':,;;;:;;''::;:;'';';;;;;;:;;;::':;;;;;':;;';\r\n"
+",,,,::;;;;;;;;'''+;,,,,,.,,,...;;;;;;;;;;;::;::::;;;'+@@@@@#++++#############@###++++##@@@@@###++++@#+';;;;:;':,;:;:;;'';::;;';;';;;;'::;;;::::;;;;'':;;';\r\n"
+",,,,:::;:;;:;;+;;+:,,,:,,,..,,:;;;;;;;;;;;;:;:::;;;;'@@@@@@#+++++++++####@#@####++++###@@@@@#@##++'@@+';;;;:;';,;:;:;;'''''';;''';;;;'::;;;;'':;;;;;':;;';\r\n"
+",,,,,,::::;;;;++;;:,,,:;,.,,,,;;;;::::::::;;'+;::;;'+#@@@@@#+++++++###@@@######++++#####@@@@##@##+'##+:;:;;:;':,;:;:;''''''''';'';;;;':,;;;:'':;;;;+':;;';\r\n"
+"....,,::::::;;'++;:,,,:;:;:,,:+'++'';';;:::::;;::;;+##@@@@##++++++##@+##@#######+++###@@#@@@#####+'#+#+;:;;:;;:,;:;:;'''++';''''';;;;':,;;;:;':;;;;'':;;';\r\n"
+"''''';;:,..,,,:;++''+++';,.;'++++;:::;;;;;';;'';:;'''++#@@@++++++######@#########+++##############'+++#;;;;:,,,,;;;:;;''+';'''+'';;;;':,;;;;;':;;;;'':;;';\r\n"
+"::;;;;;;;''''''';:,,,,;;:,,;:+#'+;::::::::;:;;;:;:'+'''+#@@+++++++++++++#######++++++#############'+++#';';;::,:;;;::';'++++++''';;;;':,;;;;;':;;';;'::;';\r\n"
+":::::::;::::::;;;;''++'',,;:''+''::::;:,:::;;;;;;:++''''+##+++++++++++++######++++++++###########+'+#++';';;';;;;;;;;;''''+'''''';;;;':,;;;;;':;;;;'':;;;;\r\n"
+",,:,,:::::::,::::::::::::.,``:+'';;:::::;..::::::;++'''''+@++++++++++++######++++++++++##########+'+++#';';;;;';';';;:;;:;;;'''';;;;:;:,;;;;;':;;';'':;;;;\r\n"
+",,,:,,,,,,::,,,:::,:,,::,;;,``'+';:::::::;''.;;:,;++''''+'#++++++++++++#####++++++++++++#######+++''+##;';;;;;;;;;';;:::::;;;:;;;;';:,,,;;;;;'::;;;;'::;;;\r\n"
+",,,:::,,,,,,,,,:,:,,,,,,:```. +++;:;:;;:;:'';;:;;:'++''+++@#++++'++++++++++++++++++++++++###++++++''+#+'''''''''';;;;;;;::;;;::::;';';;;;;;;,,::;;;;'::;';\r\n"
+"::,,.,.,,,,,,,,,,,,:,,,,:...`;,'';;;::;::;;':::;;:'++'++++##+''''''++++++++++++++''+++++###+++++++';##'++'''''''''''';;;;;;;;;;;;;';''''';''';;;;';::::;';\r\n"
+";;';;;;;;;;:,,,.,,,,,,,,:;``,;:'';;;:::;;;;;:;;;;':'+'+++'##++'''''''++++++++++++'''++++#####+++++';+#'''''''''''''''''''''''';;;;;;;;;;;;';'''''''';;;;';\r\n"
+";;;;;;;;;;;;;;;;;;;';;:,,.,. `.''';;:'';;:;';;';;;;;+'+#++##++''''''''+++++++++'''''+++++###++++++''#+;'''''''''''''''''''''''''''''''';';';;;;;;'''''''''\r\n"
+":::::;::::;;:;;;;;;;;;;;;;'':`,';:,:'++;;;;;;;;;;;;;'+'##+##++''''''''++++++++'''''''++++###++++++';#';;;;;;;;;;'''''';''''''''''''''''''''''''''''';;;;''\r\n"
+":::::::::::::::;:::::::::;;';:;;'''';;;;:;;'';;;:;;;;+''+++##+'''''''''+++++++'''++'''+######+++++';+;;;;;;;;;'';'';;;;;;;'''''''''''''''+++++++++++''''''\r\n"
+",,,:::::::::::::::,:::::::;;;:::;;'';;;;;''''''''''';'''''+#++'''''''''++++++++++##+''#######+++++';+::;;;;;;;;;;;;;;;;;;;;;;;;;'''''''''''''+''++++++++++\r\n"
+":,,::,,,,,,:,::::::::::::::;::::::'';:;;;:;';'''++'+';'''''''''''''''''++++++++++++++##########+++''+:::::::::::;;;;;;;;;;;;''''''';;;;;'''''''''''''+++++\r\n"
+"::,::,,:,,,:,:::,:::::,:::::::::::'':,,,,:;::::;;'''';''''''''''''''''+++++++++++++############+++'';::::::::::::::::::;;;;;;;;;;;'''''''''';';'''''+++'''\r\n"
+";;:::::::,,,,::::::,::,,::::::::,,;'';;:;;';;'+++'';;:;'''''''''''''''++++++++++++#############+++';:;:::::::::::::::::::::;:;;;;;;;;;;';'''''''''''';''''\r\n"
+"'''''''''''';;;;;;;::::::::::::::,;''::::,'''++++++'++''''''''''''''''+++++++++++++########+##++++'::'';:::::::::::::::::;;;;;;::::::::::;;;;;';;'''''''''\r\n"
+"'''''''''''''''''''''''''';;;::::::;;;;;+++++#+++++++#+';;''+''''''''''''++++++''++++++++++####+++';;+';::::::::::::::::::;;'';;;:::::::::::::;;'+;;;;;'''\r\n"
+"'''''';''''''''''''''''''''''''';;';;'':'+'+++++++++#++++'''''''''''''''+++++'+++++++++####@###++'';'''':::::::::::::::::;';''':::::::::::::::;;';:;;;;;;;\r\n"
+";;;;;;;;'';''''''''''''''''''''''''';'''''''+'''''''++++++''''''''''''''++#@######+#++#@#######+++:''''';:::::::::::::::;;'+++'':::::,,,,,,,:;:'';:;::;;;;\r\n"
+";;;';';';;;;;;;;;'';;;;;;;;;;;';;;;;;;'''''''''''''+++++++'';'''''''''''+#####################+++':;';''::::::::::::::::''''++'''::,,,,,,,,,:;'+;::::;;;;;\r\n"
+";;;;;;;;;;;;;;;';;;;;;;';;;;;;;;;;'';;;;''''''''''''++++'''';'''''''''''++##+++++++#####+#####+++;::+;''::::::::::::::::;;'+++'''',,,:;'.,,,;;,:;;:::;;;;;\r\n"
+"::::::::::::;;;;';;;;;;;;;;;;;;;;;'';;;''''''''''''''++''''';''''''''''++++++''+'++++#++++####+++::;+:''::::::::::::::::;''++'+'''',:;;;;..;;,,,:;;:;;;;;;\r\n"
+"::::::::::::::::;;::::::::::::;;;;'';;;;;+''''''+++'++++'+'';''''''''''++++++''''+++++++++####++;:::':''::::::::::::::::;''++'+,,;'::';';.,:;,,::;::;;:;;;\r\n"
+"::::::::::::::::::::::::::::::::::;':;;;;''++''''''';;++'++';'''''''''++++++++''+++++++++#####++::::':''::::::::::::::::;;;++;',,,:;;.';;,:;`,.:;:;;;;;;;;\r\n"
+"::::::::::::::::::::::::::::::::::;':;;;;;'++;'''';;;;'+'+'';''''++'++++++++++++++######+####++:::::':;'::::::::::::::::';:++;,,,,,;':.;;,;;,,,;';:;;:;;;;\r\n"
+"::::::::::::::::::::::::::::::::::;':;;;;''+''''';';;;''++'';''''++++'++++++++++++++++#######+;:::::':;';:::::::::::::::;;:'+;,,,,,,';:,.;;.,,;;':::;;;;;;\r\n"
+";;;;;;::::::::::::::::::::::,:::::;':;:;:+'+';'';;;;+++'+++';''''+++++++++++++++++++++######+'::::::':;';:::::::::::::::;;:++;,,,,,,,';::;;,,,''';::;;:;;;\r\n"
+"::::::::::::::::;;;;;:::::::::::::;':;;;:'';;+;';;'+++#;+++:;''''+++++++++++++++++++++#####++:::::::':;';:::::::::::::::;;:++',,,,,,,;;;';,,,'';';:::::;;;\r\n"
+"::::::::::::::::::::::::::::::::;;'':;:::''''''';'+'''#+#',:;''''++++++++++++++++++++++####+;;;::::;;::';:::::::::::::::'::++',,,,,,,,:;;;,,;';;';::::::::\r\n"
+"::::::::::::::::::::::::::::::::::;':::;:';;';'''+';####+:::;''''++++++++++++++++++++++++#+;;;:::::;'::'':::::::::::::::'::++',,,,,,,,,';,,;';:;';::::::::\r\n"
+"'''''';;:;;;;;;:::::::::::::::::::;':::;::;;;';;+''###+#.,::;'''''+++++++++++++++++++++++++;;;:::::;;:;';:::::::::::::::'::'+;',,,,,,,,,::';:;::';::::::::\r\n"
+":::::';;::;;;;;;;;;;;;;';:::::::::;;::::,:;;;;;'''++: ..,:;;;''''++++++++++++++++++++++++++;:::::::;'''';;::::::::::::::';:++;'+',,,,,:;';::::::';::::::::\r\n"
+":::::;;;;::::::::::::::;;:::::::::;'::;;;;;;;;;''#  ;..,:;;;;'''''+++++++++++++###+++++++++,::::::;'+++++;::::::::::::::';''+'+''''++';::::::;;:';::::::::\r\n"
+"::;::;;;;;::::::;::::::;;:::::::::;':::;;;;;;;';;``...,:;;;;;'''+++++++++++++++++++++++++++` .:::::;''''':::::::::::::::+++++++';;;;;::::::::;;;'';:::::::\r\n"
+";:::::;;;:::::::::;;;;:;;:::::::::;':::;;;;;:;:```..,,::;';;''''+++++++++++++++++++++++++++,```.,;;;;;;;;:::::::::::::::;;;'+;::;;;::::::::::;+++'::::::::\r\n"
+"::::::;;;:::::::::;;::::;:::::::::;',::;;;:;,```...,::;;''';''''++++++++++++++++++++++++++',,..`` :;;;;;;::::::::::::::::;;;;;;;;:;:::::::::::;;;;;;::::::\r\n"
+":::::;;';::::::::;:;;:::;::,,,,,,,:',::;:;.``````.,,::;;'''''''+'+++++++++++++++++#+++++++',:.:.``.:::;:;::::::::::::::::;;;'';;;;::::::::::::;;;;;:::::::\r\n"
+":::::;;;:;;::,:::::;;:::;:,,,,,,,,:;::::.`````..,,:::;;'''''''''++++++++++++++++++++++++++':::,:...`..:::;:;::::::::::::::;;'';;;;:::;::;::::::;;;;;;:;;::\r\n"
+":::::::::::;;::::::;;;::;:,,,,,,,,:;:,:  ````.,,,:::;;'''''''''''+++++++++++++++#++##+'+++':::,;:...```.``:::::::::::::::::;;';;;;;::;:::;:::::;;:::::::::\r\n"
+"::::,:::::,::;::::::;;::;::,,,,,,::;:. ``````,::,::;;;''''''''''+'++++++++++++++++++++'+++';,:::::,,...``.` ,::::::::::::::;;';;;;;;;;::::;::::;:;;;:;;:::\r\n"
+":,,,,::::,,,,:;:,:::;'::;::,,,,,,:::` `````..:::::;;:;;''''''''''+++++++++++++++++++++++++;+:::::::,:,...``.```:::::::::::;;;;;;;;;::::::;;;:;;:;;;:;;::;:\r\n"
+",,,,,::::,,,,,;:,:::;;::;::,,,,,,:. ````....:;;::;;:;;;''''''''''+++++++++++++++++++++++++'#;::::;:,:,,...`...`` ::::::::::;;;;;;;;:::::::;;::;;;;;;;;:;;:\r\n"
+",,,,:::::,,,,,:;::::;;::;::,,,,,,` ````....,:;;;;;;;';;;''''''''++++++++++++++++++++++++++'+':::::::,:,.,,.....````,::::::;;'';;;;;:::::::;;:::';;;;;;;;;;\r\n"
+",::::;;;::,,,,,::::::;::;::,,,,,` ````....,:;'';;;;;;;;;;'''''''+++++++++++++++++++++++++'++';::::::,:,,,,,,,:,...`` ::;:::;'';;;;;;:;::::;;::;';:;;;;::;;\r\n"
+"::::;;;:;;::,,,,;::::;::;:,,,,, `````...,,:;''';;';;;;;'''''''''+++++++++++++++++++++++++++''';:::;::,,,,:::::::,...``,::;;;;'';;;;;::::;:;;::;'+;::;;:::;\r\n"
+"::;::;;:::;;:,,,:::::;::;:,,,` ``````.,,,::;'+';;;;;;;;'''''''''++++++++++++++++++++++++++#'''';:;:;::,,,,:::;;::,,,..`.:;;;'''';;;;:::::;;;::;'+;;;::::;:\r\n"
+":;::::;::::;;,,,,;::::;::,,.` ``````..::::;'''';'';;;;;''';'++''+++++++++++++++++++++#++++#;''';;:;;:,:,:::;::;;;:::,,,`:;''''''';:::::::::;::';+'::;;;;;;\r\n"
+":;::::;;:::;:;,,::::::;:;.  ``````...,:::;'+++';;;;;;;';'''''++++++++++++++++++++++++++++#+'''';;;:;:,:::::::::;;::::,,,`;''''+''';;:;;:;:;;::;;';;:;;;;;;\r\n"
+";:::::;;:::::;::,:;:::::`  ```````.,,:;;;''+'''';;;;:;;';'''''++++++++++++++++++++++++++##''''';;;;,::,:::::::;;;;::;:::,:++++''''';;;;:;::;;;''';::::;;;;\r\n"
+";:::::;;:::::::,,:;::::`````.````.,,,;;;'''++''';';:;;;;;''''''++++++++++++#+++++++++++##++''''';'';::::::,,::;;;;;;;;;:,.'+''+++''';;;::::;;;''';;;;;;;;;\r\n"
+";:::::;;::::::::::;::`` ````..`...,::;;''''''''';;;:;:;:;+'''''''#+#+++++###++++++++#####''''''';';';:;::;;;;;;;;:;;;;;;:,'++++'+'';'';;;;:;;;;'';;;;;:;;;\r\n"
+";:::::;;;:::::;:::::```````.....,:::;;;''''''';;;;;;;:;;''''''''''+####++######++#######+'''''';;;;;;;;;;;;';;;;;:;;;;;;;,,'+++''''';';:::;;;;:'';;;;;:;;;\r\n"
+";:::::;:::::::;:::`   ````.....,,:;;;;''''';;;;;;:;:;';;''''''''''';+##################+''''';'';''';'':;;'';;;;;:;;;'';;:.'+'+++'''';;::::;:::;;;;;;;;;;;\r\n"
+";:::::;:::::::;:. ```````...,,,,::;;;''''';;;;;;;;:;;;;;;''''''''''''''+##############'+''''''''''''';'':''';;;;;;;;;;'';;,+'+++++''''';:::;::::;;;;;;;;;;\r\n"
+";::::::::::::::` ```.`.....,,,:::;;''''''';;;;;;;::;:;;;;;;'''''''''''''''+++#####+++'''''''''''''''';''';';;;;;;;;''''';;,''++++''++++';:;;:;;;;;;;;:;;;;\r\n"
+";:::::;::::::,````.......,,,,::::;;'''''''';;;;;;;;;'';::;'';'''+'''''''''++'''''++++'+++'''''''''''';;''';;;;;;'';''''';;:;+++++''++++;;:::;::::::;:;;;;;\r\n"
+";::;;;;;:,````````......,,:,:,::;;;''''''''''';;:;';;;;;;;;;;;;'''''''''++++++++++'+++++''''''''''''''''';'';;;;;;;''''';;::'++'+++''+'';:::;:::;;;;;;;;:;\r\n"
+";;;;;;;;,.`............,,,::::::;;'''''''''''''';';'';;;;;'+';;;'''''+'''+++++++++++++'+++'''''''''''';;''';';'';''''''';;:,''+'''+''++';;::::::;;;;;;;:::\r\n"
+";;;;;;;:.,`....,,..,,,,,,,,::::;;;''''''''''''';;;;''';;;;'''';;'';'''''++''++++++'+++''+'';;'''';;'';;;;';;;''''''''''':;:,'++'++++'''';;::;::;;:;;:,,;;;\r\n"
+";;;;;;;,:,`...,,,,,,,:,:::::::;;;;''''''''+'''';';;;;;;;;;''''''''''''''+++'''++++''''''+'''''''''''';;;';;';;;''''''''':;:,'++''''''''''':::;:::;:,;;;;;;\r\n"
+";:::;::.,``...,,,,,,,,::::::::;;;''''''''''''':';;;';;;;;;;''''''''''''''++++''+''''+++'+''''''''''''';;;''';;;;'''''''':;:,++++++++++++++::;;;:,:;:;:;;;;\r\n"
+":;;;;:;````.,,,,,,:::::::::;;;;;''''''''''+''';;'';;;;;;;''''''''''''''+'+++++++++++++'+++'''''''''';;;;;;;;';;;;'''''';:;:,+++++++;+'+++':::::;;;;;;;;;;;\r\n"
+";;;;::,```..,,,,,,,:::::::;;;;;;''''+'+'++++''''';;;;;;;;;'''''''''''''''''++''+'''++'+++'''''''''';;'';;;;;;';;'''''''';;::'+++++++++#+;;::;;;;;;;;;;;;;;\r\n"
+":::::,````..,,,,,,::::::;;;;;;;''''''++''+++'''''';'';;;'''''''''++''''+'+++++'+'''+++'+++'''''''''';';;;';'';;;;'';''';;;;:++++++++++#+;;:;;;:;;;;;;;;;;;\r\n"
+";:::` ``..,,,,,::::::;;;;;;;;;'''''+''++++++'+'+'';'''''''''''''''''''''++'''++'''''''+++'''''''''''''';;;;;;;;;;''''''';;::''+'''''++++;;::;;;;;;;;;;;;;;\r\n"
+";'+```...,,,,,:::::::;;;;;;;;;;''+++''++++++;'''''';''''''''''''''''''''''++++++''+'+'++''''''''''''';''';';;;;;;;''''''':;;+++'+++'++++;;::;;;;;;;;::;;;;\r\n"
+":;,``....,,,:::::;:;;:;;;;;;';;''+++++'++++++'+''''''''''''';'''''''''''''''+++++'''''++'''''''''''''''''';;;;';;;''''';;:;;+++++++#+#+';;::;;;;;;;:;;:;;;\r\n"
+";;` `...,,,:::::::;;;;;;;;;'''''''+++++++++'''+'';;''''''''';;;;'''''''+'++++''++''''++'''''''''+''''';;;;;;;'';;;''''';;:';+++'++##+#++;;;:,..,....,,;:;;\r\n"
+":, `...,,,:::::;;;;;;;';;;;'''''''++++++++'+''+''''''''''';;''''''''''''''''''+++++''+'++''''''+''';''''''''';;;;;''''';;:';++++++#++++';;::,,,:,,,,,,;;;;\r\n"
+", `...,,,,:::::;;;;;;;;';;;'''''''++++++++'''+''''''''';'';;';''''''''''''+'''''+++'+++++'+''''+''''''';;''''''';;''''':;;';++++#++#+++';;::,,,,,,.,.,:::;\r\n"
+"``...,,,:::::::;;;;;;;;;;;''''''''++++'+++'''++'''''''';';;;';'''''''''''''+''''++'+++++'''''''+'''''''';;;;;'';;;'';'';;;';'++++++++++';:::,,,.,....,:;:;\r\n"
+"```..,,::::::;;;;;;;;;;;;;''''''''+++++++''''''''''''';;;;;'''''''+++''''+''''''+'''+++'+'''''''''''''';';''';;;;;''';;':'';'+++++++++'';;::,,,,;:...,:::;\r\n"
+"``...,,:::::;;;;;;;;;;;;;''+''''''+++++++'''''''';;;;;;;;'''''''''''+''''+''''''''++++'''''''''''''''''''''';;;;;;'';;;':++';:''+++++++';;:::,,:,.,..:::::\r\n"
+"`..,,,,:::;;;;;;;';;;;;;'''++'';''+++++++''''''''';;;;;;;;''''''''''''''+''''''''''+++'''''''''''''';'''';';;;;';;;;;;;':+'';''+'++++++';;:::,,:,,:..:;:::\r\n"
+"`.,,,:,:::;;;;;;'';;;;;';''++';;'''+++++''''''''''';;;;;;'''';'''''''''+'+'''''''''+++''''''''''''''''''';;;';;';;';;;:':++',...:;'++++';;:::,,,';:,.:;:::\r\n"
+"..,,::::;;;;;;;;'';;;;'';''++';;'''+++++';;'''';;:;;;;;;;;'''''''''''''''''''''''++++++'''+'''''''''';';''';;;;;;;;;;;:;;++:       `  .:;;:,:,,.;,;,,:;:::\r\n"
+"..,,:::;;;;;;;;'''';;;;''''++';;'''++++++''''';:;;;;;:;;;;'''''''''''''+'''''''''''+'''+'''''''''''''''';;';;;;;;;;;;;;;'+'.````````````,::,,,..::;:,:::;:\r\n"
+".,,:::::;;;;'';'''';;;'''''++';;'''++++'''''';;;';;;;;;;;'''''''''''''+'''''''''''++'''++''''''''''';';''''''';';;;';;;;++',.........,,,:;:;;::::;;;;;:,,:\r\n"
+",,,::;;;;;;;;'''''';;;'''''+++';'''++++'''''''';;;;;'''''''''''''''''''''''''''''''+'''''+''''''''''''';';';;;;;;;;';;:;++'::,,,,,,,,,,,:':';;';''''';;;;;\r\n"
+",,::;:;;;;;;;;''''';;;'''''+++';;'''++++';''''';'''''''''''''''''''''''+'''''''''+'''++'+'+''''''''''';';''';;;;;;;';;;;++':::,:::::::,,,;:,`::;::,:,::;;;\r\n"
+":::::;;;;;;';;''''';:;;''''+++';;''++++''''''''''''''''''''''''''''''''''''''''''''''++''++++'''''''''''';'';;';;;;';:;;''''.,,,,,,,,,,:;:,,..,,:....,::::\r\n"
+"::::;;;;;;;';;'''';;;;''''''++';;''+++'''''''';''''';'''''''''''''''''''''''''''''''''+'''+'+'''''''''''';+;;;';;;';;:;;+''',,;;;;::;;;;;:;,;,.,:,,,.;;;;;\r\n"
+":,::;;;;;;;;;;;''';;;;'''''++++;;'++++''''''''''''';;;'''''''''''''''''''''''''''''''''+'''''''''''''''''''+'';;'';;;:';+''':,''++'++++''';,;,.;;::,,:::::\r\n"
+"::::;;;''';;;;;'+';;;''';'''++';''++'''''';;''';;;;;;''''''''''''''''''''''''''''''+'+''+'''''''''''''''''''+';;;;;;;:';+';':,''++++++++'';,;,.,,,,,:::;''\r\n"
+"::::;';;'''';;''+'';;''+';''++';''+''''+'';;;;;;';;;;''''''''''''''''''''''''';'''''+++'+''+'''''''''''''''''+';';;;;:';'';'::;'++++++++++;,;.:,,,,,,;''''\r\n"
+":::;''';;'''';;'++'';''+';''++';;'+'''''''';;;;;;;;;;''''''''''''''''''''''';;;''''++++''''''''''''''''''''''+';';;;;:''++'':::'++'+++'+++;,',.:;,,,,;''''\r\n"
+":::;;''';;'';;;''+''''++';'+++';;'''''''';;;;;;;;';'''''''';;''''''''''+''''';''''++''+'+''+'''''''''''''''''''';;;;;;'++''';;:'++'++++++'':'';'';;'''''''\r\n"
+";::;''''';;'';;''''''''+''''++';''''';;;;;;;;''';;''''''''''''''''''''''''''';'''''+'''++++'''''''''''''''''';'';;;;:';++;';;;;'++'++''++'+:'::,;.,,:'''''\r\n"
+";::;'''';';;';;''''''''+';'+++';''';;;'''';;'''';;''''''''''''';'''''''''''';'''''++''''+++''''''''''''''+''''';;;;;:''+''';'';''+'+++++++':;+`,,,,,''''''\r\n"
+";::;''';''';;'';'+';''++';'++';;'';;;''''''''''';';''''''''''''''''''''''''''''''+'++'+++''''''''''''''''''''';';;;;:'++'';+;''''''++'++++',;+.,,.:,+'''''\r\n"
+";;::''';''';;'''''''''++';'++';;;';';;;''''''';'''''''';'';;'';''''''''''''''''''+''''++++''''''''''''''''''''';';;;:++'''++';''''+'''+'+;':;+''';''+'''''\r\n"
+";;:;''+'''';;;'''''''+++'''+''';''';;;''''''''';''''''''''''''''''''''''''''''''+'''+'++++'''''''''''''''''''''';;;;:+'''+#''''''+'+';''+':,;+++'++'''';';\r\n"
+";;:;'++'''';;;'''''''+++''++''';;'';;';''''''';''''''''''''''''''''''''''''''''+'++++'''+'''+'''+'''''''''''''''';;:;''+'##':''''''+++;'''',:'''';:;++';';\r\n"
+";;;:;'++''';;;'''''''##'''++''''''';;;''''';;;;;'''''''''''''''''''''''''''''''+++'+++''''''++++'''''+'''''''''';;;:;'++##+;,''''''++'+'';'::'''''''++;'''\r\n"
+";;;;''++'';';;'''''''##'''++'';'';;;;'''';;;;;;;''''''';'''''''''''''''''''+'''''''''++++'''+''''''''''++'''''''';;:'#++#+';:''''+'+++'';:::;;;;;'''''';''\r\n"
+";;;;;'+++'';;'''''''+#+''+++'';''';;;;;;;;;;;;;;'''';;;''''''''''''';'''''''''+++''''++''+++++''''++''+'''''''''';;:+#+++';;;;'''''+,,'+;::,;;::;'''''';;'\r\n"
+";;;;''+++'';;;'';'''+#''+++''''''';;;;;;;;;;;;'';;;'''''''''''''''''+''''''''''''++''+'+''++''+'''++'''''''''''';;;:++++;;'';;;''+'+';'';::,;;:::'''''''''\r\n"
+";;:;;'+++''';;;'''''##''++''''+'';;;;;;;;;;;;;''''''''''''''''''''''''''''''''++''++''+++''+''+'''''+++++'''''''';;;'+'+'''''';:'';;'''';::,:;::;;''';'';;\r\n"
+";;;;;''+++'';;''''''#'''+'''''+';;;;;;;;';;;;;;'''''''''''''''''''''''''''''''+++'++'++'''''''++''+'+++''''''''';;;''++'''''++';:;;'';;;:::,::::;'+';;''''\r\n"
+";;;;;'''++'';;''''''#''''''''+'';'';;'';;;;;;;;;;;'''''''''''''''''''''''+'+''''+'''+++''+'''++'''++''+''+'''''';;:''''''+++##+';:;'''+';::,::::;'''''''''\r\n"
+"'';;;''+++'';;'''''++''+''''+''''''''';;;;;;;;;;'''''''''''''''''''''''''''''''+++++++++++''''''''''''+'++'''''';;:'''''+++###++';;:'''';::,,::::''++'''''\r\n"
+"'';;;''+'+''';;''''#'''''''+++'''''';;;;;;;;'';;';;''''''';;''''''''''''+'++'''+'''''''''+''+'+''''+''''''''''''';:''''+++#####++'';:''';:::,;::;'''''''''\r\n"
+"'';;;'++''''';;'''++'''''''+++''''';;;;;;;;;;;;;;;;;''''''''';''''''+'''''+++'+++++'''''''''++'''''''+'''''''''';;:'''+'+#######+++';:;;;::::;:;:;;'''';''\r\n"
+"+'';;'++''''';;''+++''';'+'++++'';;;;;;;;;;;;;;;;;;;;;';;'''''''''''''''+'++'++'+''''+'''+'''+''''++'''''''''''';;:''+'++#######++++';:;';:::;::;'';''+'';\r\n"
+"#'';;'+++'''';;''+++''+++++''++'';;;;;;;;;;;;;;;';''';;;;;''''''''''''''''''''''++'''++'''''''''''''''''''''''''';;'''++#########++++';:''';:++++'''+'';;;\r\n"
+"+#+';''++';''';;'+''+#+++++'''''';;;;;;;;;;;;;;;;;;''';;;;'''''''''''''''''++++++''''+++'++''''++++++''''''''''';;;'++++##########++++';:;;:,++++''';;;;;:\r\n"
+"'+#+''''''';''''';+++++++++'';'''';;;;;;;;;;;;;;;;';;;;''''''''''''''''''''++++'+'''++'''++++'''+'+'''''''''''''';''++++############+++';:;:,+++'';;;;:::;\r\n";
+  
+  std::fstream file(path, std::ios::out | std::ios::trunc);
+  if(file)
+  {
+#define LINE_ENDINGS "\r\n"
+    auto LINE_END = [](const std::string& string)
+    {
+      return string + LINE_ENDINGS;
+    };
+
+    file << LINE_END("+++++ IT'S MA BOIS +++++");
+    file << ma_boi_pat;
+    file << ma_boi_shehzan;
+
+    std::map<int, int> model_id_map;
+    std::map<int, int> diffuse_texture_id_map;
+    std::map<int, int> normal_texture_id_map;
+    std::map<int, int> material_id_map;
+
+    file << LINE_END("+++++ MODELS +++++");
+
+    //models
+    int model_id = 0;
+    for(const auto& pair : m_sceneLoaded->modelMap)
+    {
+      int original_model_id = pair.first;
+      auto& model = pair.second;
+
+      model_id_map.insert({ original_model_id, model_id });
+
+      if(model.name.find(".gltf") == std::string::npos)
+      {
+        file << "MODEL " << model_id++ << LINE_ENDINGS;
+        file << "path " << model.name << LINE_ENDINGS;
+        file << LINE_ENDINGS;
+      }
+    }
+
+    file << LINE_END("+++++ DIFFUSE TEXTURES +++++");
+
+    //diffuse textures
+    int diffuse_texture_id = 0;
+    for (const auto& pair : m_sceneLoaded->diffuseTextureMap)
+    {
+      int original_diffuse_texture_id = pair.first;
+      auto& diffuse_texture = pair.second;
+
+      diffuse_texture_id_map.insert({ original_diffuse_texture_id, diffuse_texture_id });
+
+      if(!diffuse_texture.was_loaded_from_gltf)
+      {
+        file << "DIFFUSE_TEXTURE " << diffuse_texture_id++ << LINE_ENDINGS;
+        file << "path " << diffuse_texture.name << LINE_ENDINGS;
+        file << LINE_ENDINGS;
+      }
+    }
+
+    file << LINE_END("+++++ NORMAL TEXTURES +++++");
+
+    //normal textures
+    int normal_texture_id = 0;
+    for (const auto& pair : m_sceneLoaded->diffuseTextureMap)
+    {
+      int original_normal_texture_id = pair.first;
+      auto& normal_texture = pair.second;
+
+      normal_texture_id_map.insert({ original_normal_texture_id, normal_texture_id });
+
+      if (!normal_texture.was_loaded_from_gltf)
+      {
+        file << "NORMAL_TEXTURE " << normal_texture_id++ << LINE_ENDINGS;
+        file << "path " << normal_texture.name << LINE_ENDINGS;
+        file << LINE_ENDINGS;
+      }
+    }
+
+    file << LINE_END("+++++ MATERIALS +++++");
+
+#define STREAM_WIDTH (16)
+#define FORMAT_LEFT std::left << std::setfill(' ') << std::setw(STREAM_WIDTH)
+
+    //material
+    int material_id = 0;
+    for (const auto& pair : m_sceneLoaded->materialMap)
+    {
+      int original_material_id = pair.first;
+      auto& material = pair.second;
+
+      material_id_map.insert({ original_material_id, material_id });
+
+      if (!material.was_loaded_from_gltf)
+      {
+        file << "MATERIAL " << material_id++ << " " << material.name << LINE_ENDINGS;
+        file << FORMAT_LEFT << "RGB" << material.material.diffuse.x << " " << material.material.diffuse.y << " " << material.material.diffuse.z << LINE_ENDINGS;
+        file << FORMAT_LEFT << "SPECRGB" << material.material.specular.x << " " << material.material.specular.y << " " << material.material.specular.z << LINE_ENDINGS;
+        file << FORMAT_LEFT << "SPECEX" << material.material.specularExp << LINE_ENDINGS;
+        file << FORMAT_LEFT << "REFL" << material.material.reflectiveness << LINE_ENDINGS;
+        file << FORMAT_LEFT << "REFR" << material.material.refractiveness << LINE_ENDINGS;
+        file << FORMAT_LEFT << "ETA" << material.material.eta << LINE_ENDINGS;
+        file << FORMAT_LEFT << "EMITTANCE" << material.material.emittance << LINE_ENDINGS;
+        file << LINE_ENDINGS;
+      }
+    }
+
+    file << LINE_END("+++++ OBJECTS +++++");
+
+    int object_id = 0;
+    for (const auto& object : m_sceneLoaded->objects)
+    {
+      if (object.name.find(".gltf") == std::string::npos)
+      {
+        file << FORMAT_LEFT << "OBJECT" << object_id++ << " " << object.name << LINE_ENDINGS;
+
+        if (object.model == nullptr)
+        {
+          file << FORMAT_LEFT << "MODEL" << " -1" << LINE_ENDINGS;
+        }
+        else
+        {
+          file << FORMAT_LEFT << "MODEL" << model_id_map[object.model->id] << LINE_ENDINGS;
+        }
+
+        if (object.textures.albedoTex == nullptr)
+        {
+          file << FORMAT_LEFT << "DIFFUSE_TEX" << " -1" << LINE_ENDINGS;
+        }
+        else
+        {
+          file << FORMAT_LEFT << "DIFFUSE_TEX" << model_id_map[object.textures.albedoTex->id] << LINE_ENDINGS;
+        }
+
+        if (object.textures.normalTex == nullptr)
+        {
+          file << FORMAT_LEFT << "NORMAL_TEX" << " -1" << LINE_ENDINGS;
+        }
+        else
+        {
+          file << FORMAT_LEFT << "NORMAL_TEX" << model_id_map[object.textures.normalTex->id] << LINE_ENDINGS;
+        }
+
+        if (object.material == nullptr)
+        {
+          file << FORMAT_LEFT << "MATERIAL" << " -1" << LINE_ENDINGS;
+        }
+        else
+        {
+          file << FORMAT_LEFT << "MATERIAL" << model_id_map[object.material->id] << LINE_ENDINGS;
+        }
+
+        //transformations
+        file << FORMAT_LEFT << "trans" << object.translation.x << " " << object.translation.y << " " << object.translation.z << LINE_ENDINGS;
+        file << FORMAT_LEFT << "rotat" << object.rotation.x << " " << object.rotation.y << " " << object.rotation.z << LINE_ENDINGS;
+        file << FORMAT_LEFT << "scale" << object.scale.x << " " << object.scale.y << " " << object.scale.z << LINE_ENDINGS;
+
+        file << LINE_ENDINGS;
+      }
+    }
+
+    file << LINE_END("+++++ GLTFS +++++");
+
+    for (const auto& pair : m_sceneLoaded->modelMap)
+    {
+      auto& model = pair.second;
+
+      if (model.name.find(".gltf") != std::string::npos)
+      {
+        file << "GLTF " << model.name << LINE_ENDINGS;
+        file << LINE_ENDINGS;
+      }
+    }
+  }
+}
+
+int D3D12RaytracingSimpleLighting::GetHeapOffsetForVertices()
+{
+  return vertex_offset++;
+}
+
+int D3D12RaytracingSimpleLighting::GetHeapOffsetForIndices()
+{
+  return indices_offset++;
+}
+
+int D3D12RaytracingSimpleLighting::GetHeapOffsetForObjects()
+{
+  return objects_offset++;
+}
+
+int D3D12RaytracingSimpleLighting::GetHeapOffsetForMaterials()
+{
+  return materials_offset++;
+}
+
+int D3D12RaytracingSimpleLighting::GetHeapOffsetForDiffuseTextures()
+{
+  return diffuse_textures_offset++;
+}
+
+int D3D12RaytracingSimpleLighting::GetHeapOffsetForNormalTextures()
+{
+  return normal_textures_offset++;
+}
+
+void D3D12RaytracingSimpleLighting::ResetHeapOffsets()
+{
+  vertex_offset = VERTEX_HEAP_OFFSET;
+  indices_offset = INDICIES_HEAP_OFFSET;
+  objects_offset = OBJECTS_HEAP_OFFSET;
+  materials_offset = MATERIALS_HEAP_OFFSET;
+  diffuse_textures_offset = DIFFUSE_TEXTURES_HEAP_OFFSET;
+  normal_textures_offset = NORMAL_TEXTURES_HEAP_OFFSET;
+}
+
+int D3D12RaytracingSimpleLighting::AllocateHeapDescriptorType(D3D12_CPU_DESCRIPTOR_HANDLE* cpuDescriptor, UINT descriptorIndexToUse, HeapDescriptorOffsetType offset_type)
+{
+  switch (offset_type)
+  {
+  case HeapDescriptorOffsetType::NONE:
+    {
+      return AllocateDescriptor(cpuDescriptor, descriptorIndexToUse);
+    }
+  case HeapDescriptorOffsetType::VERTEX:
+    {
+      return AllocateDescriptor(cpuDescriptor, GetHeapOffsetForVertices());
+    }
+  case HeapDescriptorOffsetType::INDICES:
+    {
+      return AllocateDescriptor(cpuDescriptor, GetHeapOffsetForIndices());
+    }
+  case HeapDescriptorOffsetType::OBJECTS:
+    {
+      return AllocateDescriptor(cpuDescriptor, GetHeapOffsetForObjects());
+    }
+  case HeapDescriptorOffsetType::MATERIALS:
+    {
+      return AllocateDescriptor(cpuDescriptor, GetHeapOffsetForMaterials());
+    }
+  case HeapDescriptorOffsetType::DIFFUSE_TEXTURES:
+    {
+      return AllocateDescriptor(cpuDescriptor, GetHeapOffsetForDiffuseTextures());
+    }
+  case HeapDescriptorOffsetType::NORMAL_TEXTURES:
+    {
+      return AllocateDescriptor(cpuDescriptor, GetHeapOffsetForNormalTextures());
+    }
+  default: return AllocateDescriptor(cpuDescriptor, descriptorIndexToUse);
+  }
+}
+

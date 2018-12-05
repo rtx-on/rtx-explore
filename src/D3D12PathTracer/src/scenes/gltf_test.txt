@@ -163,6 +163,8 @@ trans       0 0 3
 rotat       0 180 0
 scale       1 1 1
 
+GLTF src\gltf\Suzanne\Suzanne.gltf
+
 CAMERA
 resolution         800 800
 fovy        45
