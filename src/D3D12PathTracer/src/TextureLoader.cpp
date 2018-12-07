@@ -215,6 +215,7 @@ int TextureLoader::LoadImageDataFromFile(BYTE** imageData, D3D12_RESOURCE_DESC& 
 	resourceDescription.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN; // The arrangement of the pixels. Setting to unknown lets the driver choose the most efficient one
 	resourceDescription.Flags = D3D12_RESOURCE_FLAG_NONE; // no flags
 
+        wicDecoder->Release();
 	// return the size of the image. remember to delete the image once your done with it (in this tutorial once its uploaded to the gpu)
 	return imageSize;
 }

@@ -226,6 +226,33 @@ private:
     bool MakeEmptyObject();
     void SerializeToTxt(std::string path);
 
+    //features
+    bool enable_anti_aliasing = true;
+    bool enable_depth_of_field = false;
+    UINT feature_depth = 5;
+
+    //image loading/saving
+    bool save_image = false;
+    std::string save_image_path{};
+
+    ComPtr<ID3D12Resource> save_image_resource;
+    UINT save_image_row_pitch = 0;
+    D3D12_RANGE readRange = { 0, 0 };
+    D3D12_RANGE writeRange = { 0, 0 };
+
+    bool load_split_image = false;
+    std::string split_image_path{};
+    bool image_splitter_auto_move = false;
+    bool image_splitter_auto_move_direction = false;
+    int image_splitter_auto_move_speed = 3;
+    bool image_splitter_position_updated = false;
+    float image_position_split_percentage = 0.0f;
+    int image_splitter_x = 400;
+
+    void PreSaveImage();
+    void PostSaveImage();
+    void LoadSplitImage();
+
 
 #define VERTEX_HEAP_OFFSET (1000)
 #define INDICIES_HEAP_OFFSET (2000)

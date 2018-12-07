@@ -19,6 +19,7 @@
 #include "MeshLoader.h"
 #include <iostream>
 #include <algorithm>
+#include "stb_image_write.h"
 
 using namespace std;
 using namespace DX;
@@ -846,8 +847,17 @@ void D3D12RaytracingSimpleLighting::CopyRaytracingOutputToBackbuffer()
 
     commandList->ResourceBarrier(ARRAYSIZE(postCopyBarriers), postCopyBarriers);
 
+    LoadSplitImage();
+    PreSaveImage();
+
     //Render IMGUI to screen
     RenderImGUI();
+
+    m_deviceResources->ExecuteCommandList();
+
+    m_deviceResources->WaitForGpu();
+
+    commandList->Reset(m_deviceResources->GetCommandAllocator(), nullptr);
 
     D3D12_RESOURCE_BARRIER ImGUIBarriers[1];
     ImGUIBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
@@ -943,6 +953,7 @@ void D3D12RaytracingSimpleLighting::OnRender()
 
     DoRaytracing();
     CopyRaytracingOutputToBackbuffer();
+    PostSaveImage();
 
     if (m_camChanged)
     {
@@ -1281,33 +1292,6 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		// Raytracing API selection changed, recreate everything.
 		RecreateD3D();
 	}
-}
-
-void D3D12RaytracingSimpleLighting::InitImGUI()
-{
-  auto device = m_deviceResources->GetD3DDevice();
-  // #IMGUI Setup ImGui binding
-  {
-    {
-      D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-      desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-      desc.NumDescriptors = HEAP_DESCRIPTOR_SIZE;
-      desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-      ThrowIfFailed(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&g_pd3dSrvDescHeap)));
-    }
-
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
-    ImGui_ImplDX12_Init(Win32Application::GetHwnd(), FrameCount, device, DXGI_FORMAT_R8G8B8A8_UNORM,
-      g_pd3dSrvDescHeap->GetCPUDescriptorHandleForHeapStart(),
-      g_pd3dSrvDescHeap->GetGPUDescriptorHandleForHeapStart());
-
-    // Setup style
-    ImGui::StyleColorsDark();
-    ImGui_ImplDX12_CreateDeviceObjects();
-  }
 }
 
 void D3D12RaytracingSimpleLighting::StartFrameImGUI()
@@ -1988,28 +1972,26 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
   auto ShowFeaturesHeader = [&]()
   {
     if (ImGui::CollapsingHeader("Features"))
-    {
-      auto frame_index = m_deviceResources->GetCurrentFrameIndex();
-      auto &current_scene = m_sceneCB[frame_index];
-      bool enable_anti_aliasing = current_scene.features & AntiAliasing;
-      bool enable_depth_of_field = current_scene.features & DepthOfField;
-
+    {  
       ImGui::Checkbox("Anti-Aliasing", &enable_anti_aliasing);
       ImGui::Checkbox("Depth Of Field", &enable_depth_of_field);
 
-      current_scene.features = 0;
-      current_scene.features |= enable_anti_aliasing ? AntiAliasing : 0;
-      current_scene.features |= enable_depth_of_field ? DepthOfField : 0;
-
-      ImGui::DragInt("Iteration depth", reinterpret_cast<int*>(&current_scene.depth));
-
-      for (int i = 0; i < FrameCount; i++)
-      {
-        m_sceneCB[i] = current_scene;
-      }
+      ImGui::DragInt("Iteration depth", reinterpret_cast<int*>(&feature_depth));
 
       if (ImGui::Button("Update"))
       {
+        const auto frame_index = m_deviceResources->GetCurrentFrameIndex();
+        auto current_scene = m_sceneCB[frame_index];
+        current_scene.features = 0;
+        current_scene.features |= enable_anti_aliasing ? AntiAliasing : 0;
+        current_scene.features |= enable_depth_of_field ? DepthOfField : 0;
+        current_scene.iteration = feature_depth;
+
+        for (std::size_t  i = 0; i < FrameCount; i++)
+        {
+          m_sceneCB[i] = current_scene;
+        }
+
         ResetPathTracing();
       }
     }
@@ -2130,30 +2112,35 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
   {
     if (ImGui::CollapsingHeader("Save/Load Scene File"))
     {
-      bool save_button_pressed = ImGui::Button("Save scene");
-      const char* save_path = dlg.saveFileDialog(save_button_pressed, nullptr, "scene.txt");
-      if (strlen(save_path) > 0)
       {
-        SerializeToTxt(save_path);
-      }
-      else if (save_button_pressed)
-      {
-        ImGui::Text("Invalid path");
+        bool save_button_pressed = ImGui::Button("Save scene");
+        static ImGuiFs::Dialog dlg; // one per dialog (and must be static)
+        const char* save_path = dlg.saveFileDialog(save_button_pressed, nullptr, "scene.txt");
+        if (strlen(save_path) > 0)
+        {
+          SerializeToTxt(save_path);
+        }
+        else if (save_button_pressed)
+        {
+          ImGui::Text("Invalid path");
+        }
       }
 
-      bool load_button_pressed = ImGui::Button("Load scene");
-      static ImGuiFs::Dialog dlg; // one per dialog (and must be static)
-      const char* load_path = dlg.chooseFileDialog(load_button_pressed, nullptr, ".txt");
-      if (strlen(load_path) > 0)
       {
-        p_sceneFileName = load_path;
-        //load scene, basically restart
-        rebuild_all_resources = true;
-        rebuild_scene = true;
-      }
-      else if (load_button_pressed)
-      {
-        ImGui::Text("Invalid path");
+        bool load_button_pressed = ImGui::Button("Load scene");
+        static ImGuiFs::Dialog dlg; // one per dialog (and must be static)
+        const char* load_path = dlg.chooseFileDialog(load_button_pressed, nullptr, ".txt");
+        if (strlen(load_path) > 0)
+        {
+          p_sceneFileName = load_path;
+          //load scene, basically restart
+          rebuild_all_resources = true;
+          rebuild_scene = true;
+        }
+        else if (load_button_pressed)
+        {
+          ImGui::Text("Invalid path");
+        }
       }
     }
   };
@@ -2162,6 +2149,74 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
   {
     if (ImGui::CollapsingHeader("Kewl RTX Image Comparison Thing"))
     {
+      {
+        bool save_button_pressed = ImGui::Button("Save image");
+        static ImGuiFs::Dialog dlg1; // one per dialog (and must be static)
+        const char* save_path = dlg1.saveFileDialog(save_button_pressed, nullptr, "scene.bmp", ".bmp");
+        if (strlen(save_path) > 0)
+        {
+          save_image = true;
+          save_image_path = save_path;
+        }
+        else if (save_button_pressed)
+        {
+          ImGui::Text("Invalid path");
+        }
+      }
+
+      {
+        const bool load_button_pressed = ImGui::Button("Load image for comparison");
+        static ImGuiFs::Dialog dlg; // one per dialog (and must be static)
+        const char* load_path = dlg.chooseFileDialog(load_button_pressed, nullptr, ".bmp");
+        if (strlen(load_path) > 0)
+        {
+          load_split_image = true;
+          image_splitter_position_updated = true;
+          split_image_path = load_path;
+        }
+        else if (load_button_pressed)
+        {
+          ImGui::Text("Invalid path");
+        }
+
+        if (load_split_image)
+        {
+          ImGui::Checkbox("Auto Move Split Image Slider", &image_splitter_auto_move);
+
+          if(image_splitter_auto_move)
+          {
+            ImGui::DragInt("Auto Move Split Image Slider Speed", &image_splitter_auto_move_speed, 1, 0, 10);
+          }
+          else
+          {
+            ImGui::SliderFloat("Split Image bar position", &image_position_split_percentage, 0.0f, 100.0f);
+            image_position_split_percentage /= 100.0f;
+            image_splitter_x = static_cast<int>(image_position_split_percentage * static_cast<float>(m_width));
+            image_position_split_percentage *= 100.0f;
+          }
+
+          if(ImGui::Button("Set slider to be the middle"))
+          {
+            image_position_split_percentage = 50.0f;
+            image_splitter_x = m_width / 2;
+          }
+
+          //clamp, cuz copytextureregion will be mad :(
+          if(image_splitter_x <= 0)
+          {
+            image_splitter_x = 1;
+          }
+          else if(image_splitter_x >= m_width)
+          {
+            image_splitter_x = m_width;
+          }
+
+          if (ImGui::Button("Stop image comparison"))
+          {
+            load_split_image = false;
+          }
+        }
+      }
     }
   };
 
@@ -2193,9 +2248,37 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
   ShowHeaders();
 
   ImGui::End();
-  bool a = true;
-  ImGui::ShowDemoWindow(&a);
+  //bool a = true;
+  //ImGui::ShowDemoWindow(&a);
 }
+
+void D3D12RaytracingSimpleLighting::InitImGUI()
+{
+  auto device = m_deviceResources->GetD3DDevice();
+  // #IMGUI Setup ImGui binding
+  {
+    {
+      D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+      desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+      desc.NumDescriptors = HEAP_DESCRIPTOR_SIZE;
+      desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+      ThrowIfFailed(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&g_pd3dSrvDescHeap)));
+    }
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
+    ImGui_ImplDX12_Init(Win32Application::GetHwnd(), FrameCount, device, DXGI_FORMAT_R8G8B8A8_UNORM,
+      g_pd3dSrvDescHeap->GetCPUDescriptorHandleForHeapStart(),
+      g_pd3dSrvDescHeap->GetGPUDescriptorHandleForHeapStart());
+
+    // Setup style
+    ImGui::StyleColorsDark();
+    ImGui_ImplDX12_CreateDeviceObjects();
+  }
+}
+
 
 void D3D12RaytracingSimpleLighting::RenderImGUI()
 {
@@ -2806,6 +2889,315 @@ void D3D12RaytracingSimpleLighting::SerializeToTxt(std::string path)
       {
         file << "GLTF " << model.name << LINE_ENDINGS;
         file << LINE_ENDINGS;
+      }
+    }
+  }
+}
+
+void D3D12RaytracingSimpleLighting::PreSaveImage()
+{
+  if(save_image)
+  {
+    if (save_image_resource != nullptr)
+    {
+      save_image_resource.Reset();
+    }
+
+    auto device = m_deviceResources->GetD3DDevice();
+    auto commandList = m_deviceResources->GetCommandList();
+    auto commandAllocator = m_deviceResources->GetCommandAllocator();
+    auto renderTarget = m_deviceResources->GetRenderTarget();
+
+    D3D12_RESOURCE_DESC desc = renderTarget->GetDesc();
+
+    UINT64 totalResourceSize = 0;
+    UINT64 fpRowPitch = 0;
+    UINT fpRowCount = 0;
+
+    // Get the rowcount, pitch and size of the top mip
+    device->GetCopyableFootprints(
+      &desc,
+      0,
+      1,
+      0,
+      nullptr,
+      &fpRowCount,
+      &fpRowPitch,
+      &totalResourceSize);
+
+    // Round up the srcPitch to multiples of 256
+    UINT64 dstRowPitch = (fpRowPitch + 255) & ~0xFF;
+    save_image_row_pitch = dstRowPitch;
+
+    D3D12_RESOURCE_DESC bufferDesc = {};
+    bufferDesc.Alignment = desc.Alignment;
+    bufferDesc.DepthOrArraySize = 1;
+    bufferDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    bufferDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+    bufferDesc.Format = DXGI_FORMAT_UNKNOWN;
+    bufferDesc.Height = 1;
+    bufferDesc.Width = dstRowPitch * desc.Height;
+    bufferDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    bufferDesc.MipLevels = 1;
+    bufferDesc.SampleDesc.Count = 1;
+    bufferDesc.SampleDesc.Quality = 0;
+
+    ThrowIfFailed(device->CreateCommittedResource(
+      &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK),
+      D3D12_HEAP_FLAG_NONE,
+      &bufferDesc,
+      D3D12_RESOURCE_STATE_COPY_DEST,
+      nullptr,
+      IID_PPV_ARGS(&save_image_resource)));
+
+    // Get the copy target location
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT bufferFootprint = {};
+    bufferFootprint.Footprint.Width = static_cast<UINT>(desc.Width);
+    bufferFootprint.Footprint.Height = desc.Height;
+    bufferFootprint.Footprint.Depth = 1;
+    bufferFootprint.Footprint.RowPitch = static_cast<UINT>(dstRowPitch);
+    bufferFootprint.Footprint.Format = desc.Format;
+
+    CD3DX12_TEXTURE_COPY_LOCATION copyDest(save_image_resource.Get(), bufferFootprint);
+    CD3DX12_TEXTURE_COPY_LOCATION copySrc(renderTarget, 0);
+
+    D3D12_RESOURCE_BARRIER preCopyBarriers[1];
+    preCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
+    commandList->ResourceBarrier(ARRAYSIZE(preCopyBarriers), preCopyBarriers);
+
+    commandList->CopyTextureRegion(&copyDest, 0, 0, 0, &copySrc, nullptr);
+
+    D3D12_RESOURCE_BARRIER postCopyBarriers[1];
+    postCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    commandList->ResourceBarrier(ARRAYSIZE(postCopyBarriers), postCopyBarriers);
+
+    UINT64 imageSize = dstRowPitch * UINT64(desc.Height);
+    readRange = { 0, static_cast<SIZE_T>(imageSize) };
+    writeRange = { 0, 0 };
+  }
+}
+
+void D3D12RaytracingSimpleLighting::PostSaveImage()
+{
+  if (save_image)
+  {
+    if(!save_image_path.empty())
+    {
+      auto device = m_deviceResources->GetD3DDevice();
+      auto commandList = m_deviceResources->GetCommandList();
+      auto commandAllocator = m_deviceResources->GetCommandAllocator();
+      auto renderTarget = m_deviceResources->GetRenderTarget();
+
+      D3D12_RESOURCE_DESC desc = renderTarget->GetDesc();
+
+      void* mapped_data;
+      save_image_resource->Map(0, &readRange, &mapped_data);
+
+      //https://stackoverflow.com/questions/30021274/capture-screen-using-directx/30125325
+#define WIDEN2(x) L ## x
+#define WIDEN(x) WIDEN2(x)
+#define __WFILE__ WIDEN(__FILE__)
+#define HRCHECK(__expr) {hr=(__expr);if(FAILED(hr)){wprintf(L"FAILURE 0x%08X (%i)\n\tline: %u file: '%s'\n\texpr: '" WIDEN(#__expr) L"'\n",hr, hr, __LINE__,__WFILE__);goto cleanup;}}
+#define RELEASE(__p) {if(__p!=nullptr){__p->Release();__p=nullptr;}}
+      auto SavePixelsToFile32bppPBGRA = [](UINT width, UINT height, UINT stride, LPBYTE pixels, LPWSTR filePath, const GUID &format)
+      {
+        if (!filePath || !pixels)
+          return E_INVALIDARG;
+
+        HRESULT hr = S_OK;
+        IWICImagingFactory *factory = nullptr;
+        IWICBitmapEncoder *encoder = nullptr;
+        IWICBitmapFrameEncode *frame = nullptr;
+        IWICStream *stream = nullptr;
+        GUID pf = GUID_WICPixelFormat32bppPBGRA;
+        BOOL coInit = CoInitialize(nullptr);
+
+        HRCHECK(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)));
+        HRCHECK(factory->CreateStream(&stream));
+        HRCHECK(stream->InitializeFromFilename(filePath, GENERIC_WRITE));
+        HRCHECK(factory->CreateEncoder(format, nullptr, &encoder));
+        HRCHECK(encoder->Initialize(stream, WICBitmapEncoderNoCache));
+        HRCHECK(encoder->CreateNewFrame(&frame, nullptr)); // we don't use options here
+        HRCHECK(frame->Initialize(nullptr)); // we dont' use any options here
+        HRCHECK(frame->SetSize(width, height));
+        HRCHECK(frame->SetPixelFormat(&pf));
+        HRCHECK(frame->WritePixels(height, stride, stride * height, pixels));
+        HRCHECK(stream->Commit(STGC_OVERWRITE));
+        HRCHECK(frame->Commit());
+        HRCHECK(encoder->Commit());
+
+      cleanup:
+        RELEASE(stream);
+        RELEASE(frame);
+        RELEASE(encoder);
+        RELEASE(factory);
+        if (coInit) CoUninitialize();
+        return hr;
+      };
+
+      //flip r and b? (dunno why they are flipped)
+      for (int i = 0; i < desc.Width * desc.Height; i++)
+      {
+        char* data = (char*)mapped_data;
+        std::swap(data[i * sizeof(float)], data[i * sizeof(float) + 2]);
+      }
+
+      SavePixelsToFile32bppPBGRA((UINT)desc.Width, (UINT)desc.Height, (UINT)save_image_row_pitch, (LPBYTE)mapped_data, (LPWSTR)utilityCore::string2wstring(save_image_path).c_str(), GUID_ContainerFormatBmp);
+
+      save_image_resource->Unmap(0, &writeRange);
+
+      save_image = false;
+      save_image_path = std::string{};
+    }
+  }
+}
+
+void D3D12RaytracingSimpleLighting::LoadSplitImage()
+{
+  //Place loaded image on screen
+  if (load_split_image)
+  {
+    auto device = m_deviceResources->GetD3DDevice();
+    auto commandList = m_deviceResources->GetCommandList();
+    auto commandAllocator = m_deviceResources->GetCommandAllocator();
+    auto renderTarget = m_deviceResources->GetRenderTarget();
+
+    D3D12_RESOURCE_DESC desc = renderTarget->GetDesc();
+
+    UINT64 totalResourceSize = 0;
+    UINT64 fpRowPitch = 0;
+    UINT fpRowCount = 0;
+    // Get the rowcount, pitch and size of the top mip
+    device->GetCopyableFootprints(
+      &desc,
+      0,
+      1,
+      0,
+      nullptr,
+      &fpRowCount,
+      &fpRowPitch,
+      &totalResourceSize);
+
+    // Round up the srcPitch to multiples of 256
+    UINT64 dstRowPitch = (fpRowPitch + 255) & ~0xFF;
+
+    static ComPtr<ID3D12Resource> split_image_resource;
+
+    if (image_splitter_position_updated)
+    {
+      if(split_image_resource != nullptr)
+      {
+        split_image_resource.Reset();
+      }
+
+      // Load the image from file
+      D3D12_RESOURCE_DESC textureDesc{};
+      int imageBytesPerRow;
+      BYTE* imageData;
+
+      wstring wpath = utilityCore::string2wstring(split_image_path);
+      int imageSize = TextureLoader::LoadImageDataFromFile(&imageData, textureDesc, wpath.c_str(), imageBytesPerRow);
+
+      if(imageSize <= 0)
+      {
+        load_split_image = false;
+      }
+      else
+      {
+        //flip r and b? (dunno why they are flipped)
+        for (int i = 0; i < imageSize / 4; i++)
+        {
+          std::swap(imageData[i * sizeof(float)], imageData[i * sizeof(float) + 2]);
+        }
+
+        D3D12_RESOURCE_DESC bufferDesc = {};
+        bufferDesc.Alignment = desc.Alignment;
+        bufferDesc.DepthOrArraySize = 1;
+        bufferDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        bufferDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+        bufferDesc.Format = DXGI_FORMAT_UNKNOWN;
+        bufferDesc.Height = 1;
+        bufferDesc.Width = imageSize;
+        bufferDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        bufferDesc.MipLevels = 1;
+        bufferDesc.SampleDesc.Count = 1;
+        bufferDesc.SampleDesc.Quality = 0;
+
+        ThrowIfFailed(device->CreateCommittedResource(
+          &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+          D3D12_HEAP_FLAG_NONE,
+          &bufferDesc,
+          D3D12_RESOURCE_STATE_GENERIC_READ,
+          nullptr,
+          IID_PPV_ARGS(&split_image_resource)));
+
+        void* mapped_data;
+        split_image_resource->Map(0, nullptr, &mapped_data);
+
+        memcpy(mapped_data, imageData, imageSize);
+
+        split_image_resource->Unmap(0, nullptr);
+
+        image_splitter_position_updated = false;
+      }
+
+      ::free(imageData);
+    }
+    if(!image_splitter_position_updated)
+    {
+
+      // Get the copy target location
+      D3D12_PLACED_SUBRESOURCE_FOOTPRINT bufferFootprint = {};
+      bufferFootprint.Footprint.Width = static_cast<UINT>(desc.Width);
+      bufferFootprint.Footprint.Height = desc.Height;
+      bufferFootprint.Footprint.Depth = 1;
+      bufferFootprint.Footprint.RowPitch = static_cast<UINT>(dstRowPitch);
+      bufferFootprint.Footprint.Format = desc.Format;
+
+      //start the transition
+      CD3DX12_TEXTURE_COPY_LOCATION copySrc(split_image_resource.Get(), bufferFootprint);
+      CD3DX12_TEXTURE_COPY_LOCATION copyDest(renderTarget, 0);
+
+      D3D12_RESOURCE_BARRIER preCopyBarriers[1];
+      preCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST);
+      commandList->ResourceBarrier(ARRAYSIZE(preCopyBarriers), preCopyBarriers);
+
+      D3D12_BOX box;
+      box.left = 0;
+      box.top = 0;
+      box.right = image_splitter_x;
+      //box.right = desc.Width;
+      box.bottom = desc.Height;
+      box.front = 0;
+      box.back = 1;
+
+      commandList->CopyTextureRegion(&copyDest, 0, 0, 0, &copySrc, &box);
+
+      D3D12_RESOURCE_BARRIER postCopyBarriers[1];
+      postCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
+      commandList->ResourceBarrier(ARRAYSIZE(postCopyBarriers), postCopyBarriers);
+
+      //update if automove
+      static bool image_splitter_auto_move_direction = false;
+      if (image_splitter_auto_move_direction)
+      {
+        image_splitter_x += image_splitter_auto_move_speed;
+      }
+      else
+      {
+        image_splitter_x -= image_splitter_auto_move_speed;
+      }
+
+      //clamp, cuz copytextureregion will be mad :(
+      if (image_splitter_x <= 0)
+      {
+        image_splitter_x = 1;
+        image_splitter_auto_move_direction = !image_splitter_auto_move_direction;
+      }
+      else if (image_splitter_x >= m_width)
+      {
+        image_splitter_x = m_width;
+        image_splitter_auto_move_direction = !image_splitter_auto_move_direction;
       }
     }
   }
