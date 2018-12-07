@@ -5,7 +5,7 @@
   <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/pathtracer.gif"/>
 </p>
 
-Our group implemented a Path Tracer that runs on Nvidia's & Microsoft's DirectX Raytracing platform. **Our code does NOT require an actual RTX GPU**. A Shader Model 6.0 (sm 6.0) compatible GPU is enough, given that you import the [fallback layer]().
+Our group implemented a Path Tracer that runs on Nvidia's & Microsoft's DirectX Raytracing platform. **Our code does NOT require an actual RTX GPU**. A Shader Model 6.0 (sm 6.0) compatible GPU is enough, given that you import the [fallback layer](https://github.com/rtx-on/rtx-explore/blob/master/README.md#building--running).
 
 # Path Tracing Intro
 <p align="center">
