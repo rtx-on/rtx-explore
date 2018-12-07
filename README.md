@@ -14,6 +14,15 @@ Our group implemented a Path Tracer that runs on Nvidia's & Microsoft's DirectX 
 
 Path Tracing is a computer graphics Monte Carlo method of rendering images of three-dimensional scenes such that the global illumination is faithful to reality. In simple terms, a path tracer fires rays from each pixel, which would bounce off in many directions depending on the objects in the scene. If the ray is fortunate enough, it would hit an illuminating surface (lightbulb, sun, etc...), and would cause the first object it hit to be illuminated, much like how light travels towards our eyes.
 
+# Features
+* Dynamic loading of object files and their transformations through custom scene file format
+* Dynamic loading of object textures and normal map textures through scene file
+* Support for movable perspective camera to observe scenes from any angle
+* Support for diffuse, reflective, and refractive materials
+* Rendering of materials that are both refractive and reflective with fresnel effects and light dispersion/caustics
+* Dynamic loading of gltf objects
+* Any of the above features editable through interactive GUI
+
 # Required Build Environment
 * Visual Studio 2017 version 15.8.4 or higher.
 * [Windows 10 October 2018 (17763) SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk)
