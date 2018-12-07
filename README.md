@@ -2,14 +2,14 @@
 
 # Project Goal
 <p align="center">
-  <img src="https://github.com/ziedbha/Project3-CUDA-Path-Tracer/blob/master/images/top.png"/>
+  <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/pathtracer.gif"/>
 </p>
 
 Our group implemented a Path Tracer that runs on Nvidia's & Microsoft's DirectX Raytracing platform. **Our code does NOT require an actual RTX GPU**. A Shader Model 6.0 (sm 6.0) compatible GPU is enough, given that you import the [fallback layer]().
 
 # Path Tracing Intro
 <p align="center">
-  <img width="300" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/pathtracer.gif"/>
+  <img width="300" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/explanation.png"/>
 </p>
 
 Path Tracing is a computer graphics Monte Carlo method of rendering images of three-dimensional scenes such that the global illumination is faithful to reality. In simple terms, a path tracer fires rays from each pixel, which would bounce off in many directions depending on the objects in the scene. If the ray is fortunate enough, it would hit an illuminating surface (lightbulb, sun, etc...), and would cause the first object it hit to be illuminated, much like how light travels towards our eyes.
