@@ -1,6 +1,7 @@
-# rtx-explore
+# RTX-Explore - DXR Path Tracer
 
-# Required Environment
+
+# Required Build Environment
 * Visual Studio 2017 version 15.8.4 or higher.
 * [Windows 10 October 2018 (17763) SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk)
      * Get the ISO
@@ -16,9 +17,9 @@
       * Make sure that the NuGet package manager can automatically retrieve missing packages. This might require running build twice.
 2) TBD
 
-# Debugging Fallback layer (possibly actual RTX, not tested, since we are not testing on actual RTX)
+# Debugging the Fallback Layer
 
-### Option 1: Microsoft Pix debugger (Fallback tested, RTX (?), but supported)
+### Option 1: Microsoft Pix debugger
 
 [https://blogs.msdn.microsoft.com/pix/download/](https://blogs.msdn.microsoft.com/pix/download/)
 
