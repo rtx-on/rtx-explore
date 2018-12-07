@@ -16,27 +16,37 @@ Path Tracing is a computer graphics Monte Carlo method of rendering images of th
 # Features
 ### Dynamic loading of object files and their transformations through custom scene file format
 <p align="center">
-  <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms2/scene_loading.png"/>
+  <kbd>
+  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms2/scene_loading.png"/>
+  </kbd>
 </p> 
 
 ### Dynamic loading of object textures and normal map textures through scene file
 <p align="center">
-  <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
+    <kbd>
+  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
+  </kbd>
 </p> 
 
 ### Support for movable perspective camera to observe scenes from any angle
 <p align="center">
+    <kbd>
   <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms3/good%20dargon.PNG"/>
+  </kbd>
 </p> 
 
 ### Support for diffuse, reflective, and refractive materials
 <p align="center">
-  <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms3/bloch.PNG"/>
+    <kbd>
+  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms3/bloch.PNG"/>
+  </kbd>
 </p> 
 
 ### Rendering of materials that are both refractive and reflective with fresnel effects and light dispersion/caustics
 <p align="center">
-  <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms3/dragon.PNG"/>
+    <kbd>
+  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms3/dragon.PNG"/>
+  </kbd>
 </p> 
 
 ### Dynamic loading of gltf objects
