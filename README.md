@@ -1,6 +1,20 @@
-# rtx-explore
+# RTX-Explore - DXR Path Tracer
 
-# Required Environment
+# Project Goal
+<p align="center">
+  <img src="https://github.com/ziedbha/Project3-CUDA-Path-Tracer/blob/master/images/top.png"/>
+</p>
+
+Our group implemented a Path Tracer that runs on Nvidia's & Microsoft's DirectX Raytracing platform. **Our code does NOT require an actual RTX GPU**. A Shader Model 6.0 (sm 6.0) compatible GPU is enough, given that you import the [fallback layer]().
+
+# Path Tracing Intro
+<p align="center">
+  <img width="300" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/pathtracer.gif"/>
+</p>
+
+Path Tracing is a computer graphics Monte Carlo method of rendering images of three-dimensional scenes such that the global illumination is faithful to reality. In simple terms, a path tracer fires rays from each pixel, which would bounce off in many directions depending on the objects in the scene. If the ray is fortunate enough, it would hit an illuminating surface (lightbulb, sun, etc...), and would cause the first object it hit to be illuminated, much like how light travels towards our eyes.
+
+# Required Build Environment
 * Visual Studio 2017 version 15.8.4 or higher.
 * [Windows 10 October 2018 (17763) SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk)
      * Get the ISO
@@ -16,9 +30,9 @@
       * Make sure that the NuGet package manager can automatically retrieve missing packages. This might require running build twice.
 2) TBD
 
-# Debugging Fallback layer (possibly actual RTX, not tested, since we are not testing on actual RTX)
+# Debugging the Fallback Layer
 
-### Option 1: Microsoft Pix debugger (Fallback tested, RTX (?), but supported)
+### Option 1: Microsoft Pix debugger
 
 [https://blogs.msdn.microsoft.com/pix/download/](https://blogs.msdn.microsoft.com/pix/download/)
 
