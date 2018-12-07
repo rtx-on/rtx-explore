@@ -888,10 +888,10 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
     mini_terrian.program_state = this;
     generateMoreChunks();
 
-    // m_eye = {0.0f, 128.0f, -20.0f, 1.0f};
-    // m_at = {0.0f, 128.0f, 1.0f, 1.0f};    
-    m_eye = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_at = {0.0f, 0.0f, -1.0f, 1.0f};  
+    m_eye = {0.0f, 128.0f, 10.0f, 1.0f};
+    m_at = {0.0f, 134.0f, 0.0f, 1.0f};    
+    // m_eye = {0.0f, 0.0f, 0.0f, 1.0f};
+    // m_at = {0.0f, 0.0f, -1.0f, 1.0f};  
     
     chunk_generation_thread = std::thread([this]()
     {
@@ -910,20 +910,65 @@ void D3D12RaytracingSimpleLighting::BuildAccelerationStructures()
         mini_face_manager->Reset();
         
         MiniFace* mini_face = mini_face_manager->AllocateMiniFace();
-        if (mini_face != nullptr)
+        /*if (mini_face != nullptr)
         {
-          //glm::mat4 mat;
-          //mat = glm::rotate(mat, glm::radians(angleToRotateBy), glm::vec3(0, 1, 0));
-          //mat = glm::translate(mat, mini_block->GetTranslation());
-    
           glm::vec3 block_rotation = mini_face->GetRotation();
-          block_rotation.y += glm::radians(angleToRotateBy) * 100;
+          block_rotation.x += glm::radians(angleToRotateBy) * 100;
           mini_face->SetRotation(block_rotation);
-          // mini_block->SetTranslation(mini_block->GetTranslation() +
-          //                             glm::vec3(0.01f, 0.0, 0.0));
+          mini_face->SetTranslation(glm::vec3(-1.0f, 128.0, 0.0));
     
         }
-        //recreateChunkVBO();
+
+        mini_face = mini_face_manager->AllocateMiniFace();
+        if (mini_face != nullptr)
+        {
+          glm::vec3 block_rotation = mini_face->GetRotation();
+          block_rotation.x -= glm::radians(angleToRotateBy) * 100;
+          mini_face->SetRotation(block_rotation);
+          mini_face->SetTranslation(glm::vec3(1.0f, 128.0, 0.0));
+        }*/
+
+        // glm::vec4 world = glm::vec4(-1.0f, 128.0f, 0.0f, 0.0f);
+        // if (mini_face != nullptr)
+        // {
+        //   mini_face->SetFacePos(world, glm::vec4(1.0f, 0.0f, 0.0f, 0.0f));
+        // }
+        //
+        // mini_face = mini_face_manager->AllocateMiniFace();
+        // if (mini_face != nullptr)
+        // {
+        //   mini_face->SetFacePos(world, glm::vec4(-1.0f, 0.0f, 0.0f, 0.0f));
+        // }
+        //
+        // mini_face = mini_face_manager->AllocateMiniFace();
+        // if (mini_face != nullptr)
+        // {
+        //   mini_face->SetFacePos(world, glm::vec4(0.0f, 1.0f, 0.0f, 0.0f));
+        // }
+        //
+        // mini_face = mini_face_manager->AllocateMiniFace();
+        // if (mini_face != nullptr)
+        // {
+        //   mini_face->SetFacePos(world, glm::vec4(0.0f, -1.0f, 0.0f, 0.0f));
+        // }
+        //
+        // mini_face = mini_face_manager->AllocateMiniFace();
+        // if (mini_face != nullptr)
+        // {
+        //   mini_face->SetFacePos(world, glm::vec4(0.0f, 0.0f, 1.0f, 0.0f));
+        // }
+        //
+        // mini_face = mini_face_manager->AllocateMiniFace();
+        // if (mini_face != nullptr)
+        // {
+        //   mini_face->SetFacePos(world, glm::vec4(0.0f, 0.0f, -1.0f, 0.0f));
+        // }
+
+        static bool a = false;
+        if(!a) {
+          recreateChunkVBO();
+          a = true;
+        }
         chunk_cv.wait(lock, [this]{ return start_generation; });
 
         chunk_promise.set_value(false);

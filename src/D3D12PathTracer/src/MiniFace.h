@@ -13,32 +13,35 @@ public:
   {
     glm::vec3 new_rotation{};
     glm::vec3 new_translation{};
+    const float translation_amount = 1.0f;
     if (normal.x == -1.0f)
     {
       new_rotation.y = 90.0f;
+      new_translation.x = -translation_amount;
     }
     else if (normal.x == 1.0f)
     {
       new_rotation.y = -90.0f;
-      new_translation.x = 1.0f;
+      new_translation.x = translation_amount;
     }
     else if (normal.y == -1.0f)
     {
       new_rotation.x = -90.0f;
+      new_translation.y = -translation_amount;
     }
     else if (normal.y == 1.0f)
     {
       new_rotation.x = 90.0f;
-      new_translation.y = 1.0f;
+      new_translation.y = translation_amount;
     }
     else if (normal.z == -1.0f)
     {
-
+      new_translation.z = -translation_amount;
     }
     else if (normal.z == 1.0f)
     {
       new_rotation.x = 180.0f;
-      new_translation.z = 1.0f;
+      new_translation.z = translation_amount;
     }
     else 
     {
