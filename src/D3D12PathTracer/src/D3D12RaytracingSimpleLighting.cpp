@@ -2020,6 +2020,73 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       {
         MakeEmptyMaterial();
       }
+
+      //materials
+      std::vector<std::pair<std::string, ModelLoading::MaterialResource*>> material_names;
+      material_names.reserve(m_sceneLoaded->materialMap.size());
+      for (auto& material_pair : m_sceneLoaded->materialMap)
+      {
+        auto& material = material_pair.second;
+        material_names.emplace_back(FormatIdAndName("Material", material), &material);
+      }
+
+      if (ImGui::Button("Select material to remove"))
+        ImGui::OpenPopup("material_remove");
+
+      if (ImGui::BeginPopup("material_remove"))
+      {
+        ImGui::Text("Material");
+        ImGui::Separator();
+        for (std::size_t i = 0; i < material_names.size(); i++)
+        {
+          if (ImGui::Selectable(material_names[i].first.data()))
+          {
+            if (!m_sceneLoaded->materialMap[i].was_loaded_from_gltf)
+            {
+              auto& material_map = m_sceneLoaded->materialMap;
+              auto found_material = material_map.find(i);
+
+              //find and erase material i
+              if (found_material != std::end(material_map))
+              {
+                material_map.erase(found_material);
+              }
+
+              //update the indices
+              std::vector<std::pair<int, ModelLoading::MaterialResource>> material_vector(std::begin(m_sceneLoaded->materialMap), std::end(m_sceneLoaded->materialMap));
+              for (std::size_t j = 0; j < material_vector.size(); j++)
+              {
+                if(material_vector[j].first > i)
+                {
+                  material_vector[j].first--;
+                  material_vector[j].second.id--;
+                }
+              }
+
+              material_map = std::map<int, ModelLoading::MaterialResource>(std::make_move_iterator(std::begin(material_vector)), std::make_move_iterator(std::end(material_vector)));
+
+              //update every object if id changed
+              for (auto& object : m_sceneLoaded->objects)
+              {
+                if (object.material != nullptr)
+                {
+                  object.info_resource.info.material_offset = object.material->id;
+
+                  //update the resource info
+                  void* mapped_data;
+                  object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
+                  memcpy(mapped_data, &object.info_resource.info, sizeof(Info));
+                  object.info_resource.d3d12_resource.resource->Unmap(0, nullptr);
+                }
+              }
+            }
+
+            ResetPathTracing();
+          }
+        }
+
+        ImGui::EndPopup();
+      }
     }
   };
 
