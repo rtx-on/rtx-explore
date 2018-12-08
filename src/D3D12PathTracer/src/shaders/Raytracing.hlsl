@@ -248,6 +248,16 @@ float3 CalculateRandomDirectionInHemisphere(float3 normal) {
 		+ sin(around) * over * perpendicularDirection2;
 }
 
+
+float3 CalculateRandomDirectionInSphere(float3 normal)
+{
+	float3 newDirPos = CalculateRandomDirectionInHemisphere(normal);
+	float3 newDirNeg = CalculateRandomDirectionInHemisphere(-1.0f * normal);
+
+	float bounceUpOrDown = Uniform01();
+	return (bounceUpOrDown < 0.5f) ? newDirPos : newDirNeg;
+}
+
 void ReflectiveBounce(float3 triangleNormal, float3 hitPosition, float hitType, RayPayload payload)
 {
 	float3 newDir = reflect(WorldRayDirection(), triangleNormal);
@@ -383,6 +393,47 @@ void DiffuseBounce(uint texture_offset, uint material_offset, uint sampler_offse
 	}
 
 	payload.color = float4(color.xyz, emittance);
+}
+
+
+void TransmissiveBounce(float3 triangleNormal, float3 hitPosition, float hitType, RayPayload payload)
+{
+	// if we are inside the material
+	if (dot(WorldRayDirection(), triangleNormal) < 0.f)
+	{
+		// TODO: Get all this information from the scene file
+		float3 absorptionColor = float3(0, 1, 1);
+		float3 absorptionAtDistance = 1.0f;
+		float3 absorptionCoefficient = -log(absorptionColor) / absorptionAtDistance;
+		float scatteringDistance = 3.0f; // TODO: hook into scene file
+		float scatteringCoefficient = 1 / scatteringDistance;
+
+		// find out how far we would have to go to exit the medium
+		float tFar = distance(hitPosition, payload.rayOrigin);
+
+		// sample randomly to see if we exit the medium
+		float distance = -log(Uniform01()) / scatteringCoefficient;
+
+		payload.color = float4(payload.color.rgb * exp(-absorptionCoefficient * distance), hitType);
+
+		// If we are exiting the medium, take a refractive bounce
+		if (distance >= tFar)
+		{
+			RefractiveBounce(triangleNormal, hitPosition, hitType, payload);
+		}
+		else // otherwise do a sub-surface scatter within the medium
+		{
+			float3 scatterDirection = CalculateRandomDirectionInSphere(triangleNormal);
+
+			payload.rayOrigin += distance * payload.rayDir;
+			payload.rayDir = scatterDirection;
+		}
+	}
+	else // IF we are entering the medium, take a refractive bounce
+	{
+		//payload.color = float4(payload.color.rgb * absorptionColor * exp(-absorptionCoefficient * distance), hitType);
+		RefractiveBounce(triangleNormal, hitPosition, hitType, payload);
+	}
 }
 
 [shader("raygeneration")]
@@ -586,6 +637,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	}
 	else if (reflectiveness > 0.0f) // do a R E F L E C C
 	{
+		//TransmissiveBounce(triangleNormal, hitPosition, hitType, payload);
 		ReflectiveBounce(triangleNormal, hitPosition, hitType, payload);
 	}
 	else if (refractiveness > 0.0f) // Do a R E F R A C C
