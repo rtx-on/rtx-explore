@@ -1,0 +1,103 @@
+MODEL 0
+path src/objects/crate.obj
+
+// Emissive material (light)
+MATERIAL 0 Light
+RGB         1 1 1
+SPECRGB     0 0 0
+SPECEX      0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   5
+
+// Diffuse white
+MATERIAL 1 DiffuseWhite
+RGB         .98 .98 .98
+SPECRGB     0 0 0
+SPECEX      0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Ceiling
+OBJECT 0 Ceiling
+model 0
+albedo_tex -1
+normal_tex -1
+material 1
+trans       0 7 0
+rotat       0 0 0
+scale       15 0.5 15
+
+// Floor
+OBJECT 1 Floor
+model 0
+albedo_tex -1
+normal_tex -1
+material 1
+trans       0 -3 0
+rotat       0 0 0
+scale       15 0.4 15
+
+// Back wall
+OBJECT 2 BackWall
+model 0
+albedo_tex -1
+normal_tex -1
+material 1
+trans       0 3.5 5
+rotat       0 0 0
+scale       15 15 0.5
+
+// Left wall
+OBJECT 3 LeftWall
+model 0
+albedo_tex -1
+normal_tex -1
+material 1
+trans       3 3.5 0
+rotat       0 0 0
+scale       .04 15 15
+
+// Right wall
+OBJECT 4 RightWall
+model 0
+albedo_tex -1
+normal_tex -1
+material 1
+trans       -3 3.5 0
+rotat       0 0 0
+scale       .04 15 15
+
+// Light
+OBJECT 5 Light
+model 0
+albedo_tex -1
+normal_tex -1
+material 1
+trans       0 15 0
+rotat       0 0 0
+scale       50 .3 50
+
+// Mario
+OBJECT 6 Waboi
+model 0
+albedo_tex 1
+normal_tex -1
+material 1
+trans       0 0 3
+rotat       0 180 0
+scale       1 1 1
+
+CAMERA
+resolution         800 800
+fovy        45
+iterations  5000
+depth       30
+eye         0.0 2 -20
+lookat      0 0 1
+up          0 1 0
+focal		10
+lensr		0.5

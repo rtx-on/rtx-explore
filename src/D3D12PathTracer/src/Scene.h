@@ -10,9 +10,6 @@
 
 using namespace std;
 
-// static glm::vec3 calculate_geometric_normals(glm::vec3 p0, glm::vec3 p1,
-// glm::vec3 p2);
-
 class D3D12RaytracingSimpleLighting;
 
 class Scene {

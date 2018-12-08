@@ -2,12 +2,9 @@
 #include "MeshLoader.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION 
-#include "model_loading/tiny_obj_loader.h"
+#include "include/tiny_obj_loader.h"
 
 using namespace Model;
-
-//くそ
-//Kuso
 
 std::vector<Mesh> MeshLoader::load_obj(std::string base_path, std::string object_name)
 {

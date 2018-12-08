@@ -3,25 +3,25 @@ MODEL 0
 path src/objects/crate.obj
 
 MODEL 1
-path src/objects/Chromie.obj
+path src/objects/chromie.obj
 
 MODEL 2
 path src/objects/wahoo.obj
 
 MODEL 3
-path src/objects/Cerberus.obj
+path src/objects/cerberus.obj
 
 DIFFUSE_TEXTURE 0
-path src/textures/chromie.jpg
+path src/textures/chromie_a.jpg
 
 DIFFUSE_TEXTURE 1
-path src/textures/wahoo.bmp
+path src/textures/wahoo_a.bmp
 
 DIFFUSE_TEXTURE 2
-path src/textures/Cerberus/Cerberus.png
+path src/textures/cerberus_a.png
 
 NORMAL_TEXTURE 0
-path src/textures/Cerberus/Cerberus_N.png
+path src/textures/cerberus_n.png
 
 // Emissive material (light)
 MATERIAL 0 Light
