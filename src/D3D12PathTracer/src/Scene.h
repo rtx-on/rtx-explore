@@ -24,6 +24,7 @@ public:
   template<typename Callback>
   void RecurseGLTF(tinygltf::Model &model, tinygltf::Node &node, Callback callback);
   void ParseGLTF(std::string filename, bool make_light = true);
+  void ParseScene(std::string filename);
 
   int loadMaterial(string materialid, std::string name = "");
   int loadDiffuseTexture(string texid);
