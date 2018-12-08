@@ -1793,7 +1793,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
                 {
                   if (!m_sceneLoaded->materialMap[i - 1].was_loaded_from_gltf)
                   {
-                    object.material = material_names[i - 1].second;
+                    object.material = material_names[i].second;
                     object.info_resource.info.material_offset = object.material->id;
                   }
                 }
@@ -1841,7 +1841,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
                 {
                   if (!m_sceneLoaded->diffuseTextureMap[i - 1].was_loaded_from_gltf)
                   {
-                    object.textures.albedoTex = diffuse_texture_names[i - 1].second;
+                    object.textures.albedoTex = diffuse_texture_names[i].second;
                     object.info_resource.info.texture_offset = object.textures.albedoTex->id;
                   }
                 }
@@ -1889,7 +1889,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
                 {
                   if (!m_sceneLoaded->normalTextureMap[i - 1].was_loaded_from_gltf)
                   {
-                    object.textures.normalTex = normal_texture_names[i - 1].second;
+                    object.textures.normalTex = normal_texture_names[i].second;
                     object.info_resource.info.texture_normal_offset = object.textures.normalTex->id;
                   }
                 }
@@ -1925,6 +1925,32 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       if (ImGui::Button("Add Empty Object"))
       {
         MakeEmptyObject();
+      }
+
+      //remove object
+      if (ImGui::Button("Select Object to remove"))
+        ImGui::OpenPopup("object_remove");
+
+      if (ImGui::BeginPopup("object_remove"))
+      {
+        ImGui::Text("Object");
+        ImGui::Separator();
+        
+        for (std::size_t i = 0; i < m_sceneLoaded->objects.size(); i++)
+        {
+          if (ImGui::Selectable(m_sceneLoaded->objects[i].name.data()))
+          {
+            for(std::size_t j = i + 1; j < m_sceneLoaded->objects.size(); j++)
+            {
+              m_sceneLoaded->objects[j].id--;
+            }
+            std::move(std::begin(m_sceneLoaded->objects) + i + 1, std::end(m_sceneLoaded->objects), std::begin(m_sceneLoaded->objects) + i);
+            m_sceneLoaded->objects.erase(std::end(m_sceneLoaded->objects) - 1);
+            rebuild_scene = true;
+          }
+        }
+
+        ImGui::EndPopup();
       }
     }
   };
@@ -2196,7 +2222,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
               }
             }
 
-            RebuildScene();
+            rebuild_scene = true;
           }
         }
 
@@ -2298,11 +2324,54 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
               }
             }
 
-            RebuildScene();
+            rebuild_scene = true;
           }
         }
 
         ImGui::EndPopup();
+      }
+    }
+  };
+
+  auto ShowOBJHeader = [&]()
+  {
+    if (ImGui::CollapsingHeader("OBJ"))
+    {
+      const bool browseButtonPressed = ImGui::Button("Upload OBJ file");
+      static ImGuiFs::Dialog dlg; // one per dialog (and must be static)
+      const char* chosen_path = dlg.chooseFileDialog(browseButtonPressed, nullptr, ".obj");
+
+      if (strlen(chosen_path) > 0)
+      {
+        auto new_model_id = m_sceneLoaded->modelMap.size() - 1;
+        ModelLoading::Model new_model;
+        m_sceneLoaded->LoadModelHelper(chosen_path, new_model_id, new_model);
+
+        MakeEmptyObject();
+        auto& new_object = m_sceneLoaded->objects.back();
+
+        //set model
+        new_object.model = &m_sceneLoaded->modelMap[new_model_id];
+
+        //set name
+        new_object.name = chosen_path;
+
+        //set scale
+        new_object.scale = glm::vec3(1.0f);
+
+        new_object.info_resource.info.model_offset = new_model_id;
+        new_object.info_resource.info.texture_offset = -1;
+        new_object.info_resource.info.material_offset = -1;
+        new_object.info_resource.info.texture_normal_offset = -1;
+        new_object.info_resource.info.diffuse_sampler_offset = 0;
+        new_object.info_resource.info.normal_sampler_offset = 0;
+        
+
+        rebuild_scene = true;
+      }
+      else if (browseButtonPressed)
+      {
+        ImGui::Text("Invalid path");
       }
     }
   };
@@ -2448,6 +2517,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
     ShowDiffuseTextureHeader();
     ShowNormalTextureHeader();
     ShowObjectHeader();
+    ShowOBJHeader();
     ShowGLTFHeader();
     SaveSceneToDiskHeader();
     ImageFunctionsHeader();
@@ -2564,6 +2634,11 @@ void D3D12RaytracingSimpleLighting::RebuildScene()
   for (auto& object : m_sceneLoaded->objects)
   {
     object.transformBuilt = false;
+
+    void* mapped_data;
+    object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
+    memcpy(mapped_data, &object.info_resource.info, sizeof(Info));
+    object.info_resource.d3d12_resource.resource->Unmap(0, nullptr);
   }
 
   // Create root signatures for the shaders.
