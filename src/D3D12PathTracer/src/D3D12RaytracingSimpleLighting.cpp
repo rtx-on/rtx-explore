@@ -2044,19 +2044,36 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
             if (!m_sceneLoaded->materialMap[i].was_loaded_from_gltf)
             {
               auto& material_map = m_sceneLoaded->materialMap;
-              auto found_material = material_map.find(i);
+
+              //update object if id changed
+              for (auto& object : m_sceneLoaded->objects)
+              {
+                if (object.material != nullptr)
+                {
+                  if (object.material->id == i)
+                  {
+                    object.material = nullptr;
+                    object.info_resource.info.material_offset = -1;
+                  }
+                  else if(object.material->id > i)
+                  {
+                    object.info_resource.info.material_offset--;
+                  }
+                }
+              }
 
               //find and erase material i
+              auto found_material = material_map.find(i);
               if (found_material != std::end(material_map))
               {
                 material_map.erase(found_material);
               }
 
               //update the indices
-              std::vector<std::pair<int, ModelLoading::MaterialResource>> material_vector(std::begin(m_sceneLoaded->materialMap), std::end(m_sceneLoaded->materialMap));
-              for (std::size_t j = 0; j < material_vector.size(); j++)
+              std::vector<std::pair<int, ModelLoading::MaterialResource>> material_vector(std::begin(material_map), std::end(material_map));
+              for (std::size_t j = 0; j < material_map.size(); j++)
               {
-                if(material_vector[j].first > i)
+                if (material_vector[j].first > i)
                 {
                   material_vector[j].first--;
                   material_vector[j].second.id--;
@@ -2068,20 +2085,14 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
               //update every object if id changed
               for (auto& object : m_sceneLoaded->objects)
               {
-                if (object.material != nullptr)
+                if(object.material != nullptr)
                 {
-                  object.info_resource.info.material_offset = object.material->id;
-
-                  //update the resource info
-                  void* mapped_data;
-                  object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
-                  memcpy(mapped_data, &object.info_resource.info, sizeof(Info));
-                  object.info_resource.d3d12_resource.resource->Unmap(0, nullptr);
+                  object.material = &material_map[object.info_resource.info.material_offset];
                 }
               }
-            }
 
-            ResetPathTracing();
+              rebuild_scene = true;
+            }
           }
         }
 
@@ -2113,6 +2124,84 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       {
         ImGui::Text("Invalid path");
       }
+
+      //diffuse
+      std::vector<std::pair<std::string, ModelLoading::Texture*>> diffuse_texture_names;
+      diffuse_texture_names.reserve(m_sceneLoaded->diffuseTextureMap.size());
+      for (auto& diffuse_pair : m_sceneLoaded->diffuseTextureMap)
+      {
+        auto& diffuse_texture = diffuse_pair.second;
+        diffuse_texture_names.emplace_back(FormatIdAndName("Diffuse Texture", diffuse_texture), &diffuse_texture);
+      }
+
+      if (ImGui::Button("Select Diffuse Texture to remove"))
+        ImGui::OpenPopup("diffuse_remove");
+
+      if (ImGui::BeginPopup("diffuse_remove"))
+      {
+        ImGui::Text("Diffuse Texture");
+        ImGui::Separator();
+        for (std::size_t i = 0; i < diffuse_texture_names.size(); i++)
+        {
+          if (ImGui::Selectable(diffuse_texture_names[i].first.data()))
+          {
+            if (!m_sceneLoaded->diffuseTextureMap[i].was_loaded_from_gltf)
+            {
+              auto& diffuse_texture_map = m_sceneLoaded->diffuseTextureMap;
+              auto found_diffuse_texture = diffuse_texture_map.find(i);
+
+              //update object if id changed
+              for (auto& object : m_sceneLoaded->objects)
+              {
+                if (object.textures.albedoTex != nullptr)
+                {
+                  if (object.textures.albedoTex->id == i)
+                  {
+                    object.textures.albedoTex = nullptr;
+                    object.info_resource.info.texture_offset = -1;
+                  }
+                  else if (object.textures.albedoTex->id > i)
+                  {
+                    object.info_resource.info.texture_offset--;
+                  }
+                }
+              }
+
+              //find and erase i
+              if (found_diffuse_texture != std::end(diffuse_texture_map))
+              {
+                diffuse_texture_map.erase(found_diffuse_texture);
+              }
+
+              //update the indices
+              std::vector<std::pair<int, ModelLoading::Texture>> diffuse_texture_vector(std::begin(diffuse_texture_map), std::end(diffuse_texture_map));
+              for (std::size_t j = 0; j < diffuse_texture_vector.size(); j++)
+              {
+                if (diffuse_texture_vector[j].first > i)
+                {
+                  diffuse_texture_vector[j].first--;
+                  diffuse_texture_vector[j].second.id--;
+                }
+              }
+
+              diffuse_texture_map = std::map<int, ModelLoading::Texture>(std::make_move_iterator(std::begin(diffuse_texture_vector)), std::make_move_iterator(std::end(diffuse_texture_vector)));
+
+              //update every object if id changed
+              for (auto& object : m_sceneLoaded->objects)
+              {
+                if (object.textures.albedoTex != nullptr)
+                {
+                  object.textures.albedoTex = &diffuse_texture_map[object.info_resource.info.texture_offset];
+                }
+              }
+            }
+
+            RebuildScene();
+          }
+        }
+
+        ImGui::EndPopup();
+      }
     }
   };
 
@@ -2136,6 +2225,84 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
       else if (browseButtonPressed)
       {
         ImGui::Text("Invalid path");
+      }
+
+      //normal
+      std::vector<std::pair<std::string, ModelLoading::Texture*>> normal_texture_names;
+      normal_texture_names.reserve(m_sceneLoaded->normalTextureMap.size());
+      for (auto& normal_pair : m_sceneLoaded->normalTextureMap)
+      {
+        auto& normal_texture = normal_pair.second;
+        normal_texture_names.emplace_back(FormatIdAndName("Normal Texture", normal_texture), &normal_texture);
+      }
+
+      if (ImGui::Button("Select Normal Texture to remove"))
+        ImGui::OpenPopup("normal_remove");
+
+      if (ImGui::BeginPopup("normal_remove"))
+      {
+        ImGui::Text("Normal Texture");
+        ImGui::Separator();
+        for (std::size_t i = 0; i < normal_texture_names.size(); i++)
+        {
+          if (ImGui::Selectable(normal_texture_names[i].first.data()))
+          {
+            if (!m_sceneLoaded->normalTextureMap[i].was_loaded_from_gltf)
+            {
+              auto& normal_texture_map = m_sceneLoaded->normalTextureMap;
+              auto found_normal_texture = normal_texture_map.find(i);
+
+              //update object if id changed
+              for (auto& object : m_sceneLoaded->objects)
+              {
+                if (object.textures.normalTex != nullptr)
+                {
+                  if (object.textures.normalTex->id == i)
+                  {
+                    object.textures.normalTex = nullptr;
+                    object.info_resource.info.texture_offset = -1;
+                  }
+                  else if (object.textures.normalTex->id > i)
+                  {
+                    object.info_resource.info.texture_offset--;
+                  }
+                }
+              }
+
+              //find and erase i
+              if (found_normal_texture != std::end(normal_texture_map))
+              {
+                normal_texture_map.erase(found_normal_texture);
+              }
+
+              //update the indices
+              std::vector<std::pair<int, ModelLoading::Texture>> normal_texture_vector(std::begin(normal_texture_map), std::end(normal_texture_map));
+              for (std::size_t j = 0; j < normal_texture_vector.size(); j++)
+              {
+                if (normal_texture_vector[j].first > i)
+                {
+                  normal_texture_vector[j].first--;
+                  normal_texture_vector[j].second.id--;
+                }
+              }
+
+              normal_texture_map = std::map<int, ModelLoading::Texture>(std::make_move_iterator(std::begin(normal_texture_vector)), std::make_move_iterator(std::end(normal_texture_vector)));
+
+              //update every object if id changed
+              for (auto& object : m_sceneLoaded->objects)
+              {
+                if (object.textures.normalTex != nullptr)
+                {
+                  object.textures.normalTex = &normal_texture_map[object.info_resource.info.texture_normal_offset];
+                }
+              }
+            }
+
+            RebuildScene();
+          }
+        }
+
+        ImGui::EndPopup();
       }
     }
   };
