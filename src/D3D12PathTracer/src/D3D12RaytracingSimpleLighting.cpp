@@ -1985,7 +1985,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
         current_scene.features = 0;
         current_scene.features |= enable_anti_aliasing ? AntiAliasing : 0;
         current_scene.features |= enable_depth_of_field ? DepthOfField : 0;
-        current_scene.iteration = feature_depth;
+        current_scene.depth = feature_depth;
 
         for (std::size_t  i = 0; i < FrameCount; i++)
         {
