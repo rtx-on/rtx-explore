@@ -15,6 +15,7 @@
 #define STBI_MSC_SECURE_CRT
 // #define TINYGLTF_NOEXCEPTION // optional. disable exception handling.
 #include "tiny_gltf.h"
+#include <glm/glm/gtc/type_ptr.inl>
 
 using namespace tinyobj;
 using namespace std;
@@ -1333,10 +1334,16 @@ void Scene::AllocateResourcesInDescriptorHeap()
       info_resource.info.material_offset = object.material->id;
     }
 
-    XMVECTOR rotation_vector = XMLoadFloat3(&XMFLOAT3((object.rotation.z), (object.rotation.y), (object.rotation.x)));
+    XMVECTOR rotation_vector = XMLoadFloat3(&XMFLOAT3((object.rotation.x), (object.rotation.y), (object.rotation.z)));
     XMMATRIX rotation = XMMatrixRotationRollPitchYawFromVector(rotation_vector);
     XMMATRIX scale = XMMatrixScaling(object.scale.x, object.scale.y, object.scale.z);
-    info_resource.info.rotation_scale_matrix = rotation * scale;
+
+	glm::mat4 transformCol = utilityCore::buildTransformationMatrix(glm::vec4(0,0,0,1), object.rotation, object.scale);
+	glm::mat4 transformRow = glm::transpose(transformCol);
+
+	float* mat = glm::value_ptr(transformRow);
+
+	info_resource.info.rotation_scale_matrix = XMMATRIX(mat);
 
     // Create the constant buffer memory and map the CPU and GPU addresses
     const D3D12_HEAP_PROPERTIES uploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
