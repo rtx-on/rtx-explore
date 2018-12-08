@@ -1793,13 +1793,8 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
                 {
                   if (!m_sceneLoaded->materialMap[i - 1].was_loaded_from_gltf)
                   {
-                    object.material = material_names[i].second;
+                    object.material = material_names[i - 1].second;
                     object.info_resource.info.material_offset = object.material->id;
-                  }
-                  else
-                  {
-                    ImGui::BeginPopup("Cannot set to this item since this item is from a GLTF file");
-                    ImGui::EndPopup();
                   }
                 }
                 else
@@ -1846,13 +1841,8 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
                 {
                   if (!m_sceneLoaded->diffuseTextureMap[i - 1].was_loaded_from_gltf)
                   {
-                    object.textures.albedoTex = diffuse_texture_names[i].second;
+                    object.textures.albedoTex = diffuse_texture_names[i - 1].second;
                     object.info_resource.info.texture_offset = object.textures.albedoTex->id;
-                  }
-                  else
-                  {
-                    ImGui::BeginPopup("Cannot set to this item since this item is from a GLTF file");
-                    ImGui::EndPopup();
                   }
                 }
                 else
@@ -1899,13 +1889,8 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
                 {
                   if (!m_sceneLoaded->normalTextureMap[i - 1].was_loaded_from_gltf)
                   {
-                    object.textures.normalTex = normal_texture_names[i].second;
+                    object.textures.normalTex = normal_texture_names[i - 1].second;
                     object.info_resource.info.texture_normal_offset = object.textures.normalTex->id;
-                  }
-                  else
-                  {
-                    ImGui::BeginPopup("Cannot set to this item since this item is from a GLTF file");
-                    ImGui::EndPopup();
                   }
                 }
                 else
