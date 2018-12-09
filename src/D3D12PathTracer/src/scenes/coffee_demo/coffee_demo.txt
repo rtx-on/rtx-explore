@@ -164,13 +164,13 @@ REFR            1
 ETA             0
 EMITTANCE       0
 
-MATERIAL 7 ReflectiveRefractive
+MATERIAL 7 Glassy
 RGB             1 1 1
 SPECRGB         1 1 1
 SPECEX          1
 REFL            1
 REFR            1
-ETA             0.5
+ETA             1.44
 EMITTANCE       0
 
 MATERIAL 8 BalloonMaterial
@@ -287,7 +287,7 @@ OBJECT          10 Glass
 MODEL           4
 DIFFUSE_TEX     -1
 NORMAL_TEX      -1
-MATERIAL        5
+MATERIAL        7
 trans           -0.85 -0.7 0.75
 rotat           0 0 0
 scale           0.1 0.1 0.1
