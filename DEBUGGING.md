@@ -26,7 +26,7 @@
 4) Find the folder that is rtx-explore
 <p align="center">
     <kbd>
-  <img width="400" height="250" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/debugging/pix_base_folder.png"/>
+  <img width="600" height="250" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/debugging/pix_base_folder.png"/>
   </kbd>
 </p> 
 
@@ -34,7 +34,7 @@
 
 <p align="center">
     <kbd>
-  <img width="400" height="250" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/debugging/pix_working_dir.png"/>
+  <img width="600" height="250" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/debugging/pix_working_dir.png"/>
   </kbd>
 </p> 
 
@@ -42,7 +42,7 @@
 
 <p align="center">
     <kbd>
-  <img width="400" height="250" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/debugging/pix_path_to_executable.png"/>
+  <img width="600" height="250" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/debugging/pix_path_to_executable.png"/>
   </kbd>
 </p> 
 
@@ -72,7 +72,7 @@
 
 <p align="center">
     <kbd>
-  <img width="400" height="250" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/debugging/pix_analysis.png"/>
+  <img width="900" height="300" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/debugging/pix_analysis.png"/>
   </kbd>
 </p> 
 
