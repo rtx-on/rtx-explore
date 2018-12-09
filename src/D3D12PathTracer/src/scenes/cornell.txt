@@ -3,7 +3,7 @@ MODEL 0
 path src/objects/crate.obj
 
 MODEL 1
-path src/objects/ hromie.obj
+path src/objects/chromie.obj
 
 MODEL 2
 path src/objects/wahoo.obj
