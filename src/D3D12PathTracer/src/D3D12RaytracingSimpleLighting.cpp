@@ -95,12 +95,31 @@ void D3D12RaytracingSimpleLighting::UpdateCameraMatrices()
 {
     auto frameIndex = m_deviceResources->GetCurrentFrameIndex();
 
-    m_sceneCB[frameIndex].cameraPosition = m_eye;
     float fovAngleY = 45.0f;
 
-    XMMATRIX view = XMMatrixLookAtLH(m_eye, m_at, m_up);
-    XMMATRIX proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(fovAngleY), m_aspectRatio, 1.0f, 125.0f);
-    XMMATRIX viewProj = view * proj;
+    XMMATRIX view;
+    XMMATRIX proj;
+    XMMATRIX viewProj;
+
+    if(m_sceneLoaded != nullptr)
+    {
+      m_sceneCB[frameIndex].cameraPosition = m_sceneLoaded->camera.eye;
+
+      float fovAngleY = m_sceneLoaded->camera.fov;
+
+      view = XMMatrixLookAtLH(m_sceneLoaded->camera.eye, m_sceneLoaded->camera.lookat, m_sceneLoaded->camera.up);
+      proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(fovAngleY), m_aspectRatio, 1.0f, 125.0f);
+      viewProj = view * proj;
+    }
+    else
+    {
+      m_sceneCB[frameIndex].cameraPosition = m_eye;
+      fovAngleY = 45.0f;
+
+      view = XMMatrixLookAtLH(m_eye, m_at, m_up);
+      proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(fovAngleY), m_aspectRatio, 1.0f, 125.0f);
+      viewProj = view * proj;
+    }
 
     m_sceneCB[frameIndex].projectionToWorld = XMMatrixInverse(nullptr, viewProj);
 }
@@ -1167,8 +1186,8 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		XMStoreFloat4(&right, m_right);
 		XMMATRIX translate = XMMatrixTranslation(-right.x * c_movementAmountFactor, -right.y * c_movementAmountFactor, -right.z * c_movementAmountFactor);
 
-		m_eye = XMVector3Transform(m_eye, translate);
-		m_at = XMVector3Transform(m_at, translate);
+		m_sceneLoaded->camera.eye = XMVector3Transform(m_sceneLoaded->camera.eye, translate);
+		m_sceneLoaded->camera.lookat = XMVector3Transform(m_sceneLoaded->camera.lookat, translate);
 		m_camChanged = true;
 		break;
 	}
@@ -1180,8 +1199,8 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		XMStoreFloat4(&right, m_right);
 		XMMATRIX translate = XMMatrixTranslation(right.x * c_movementAmountFactor, right.y * c_movementAmountFactor, right.z * c_movementAmountFactor);
 
-		m_eye = XMVector3Transform(m_eye, translate);
-		m_at = XMVector3Transform(m_at, translate);
+		m_sceneLoaded->camera.eye = XMVector3Transform(m_sceneLoaded->camera.eye, translate);
+		m_sceneLoaded->camera.lookat = XMVector3Transform(m_sceneLoaded->camera.lookat, translate);
 		m_camChanged = true;
 		break;
 	}
@@ -1189,12 +1208,12 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 	case 0x53: // S
 	{
 		XMFLOAT4 up;
-		XMVector4Normalize(m_up);
-		XMStoreFloat4(&up, m_up);
+		XMVector4Normalize(m_sceneLoaded->camera.up);
+		XMStoreFloat4(&up, m_sceneLoaded->camera.up);
 		XMMATRIX translate = XMMatrixTranslation(up.x * c_movementAmountFactor, up.y * c_movementAmountFactor, up.z * c_movementAmountFactor);
 
-		m_eye = XMVector3Transform(m_eye, translate);
-		m_at = XMVector3Transform(m_at, translate);
+		m_sceneLoaded->camera.eye = XMVector3Transform(m_sceneLoaded->camera.eye, translate);
+		m_sceneLoaded->camera.lookat = XMVector3Transform(m_sceneLoaded->camera.lookat, translate);
 		m_camChanged = true;
 		break;
 	}
@@ -1202,12 +1221,12 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 	case 0x57: // W
 	{
 		XMFLOAT4 up;
-		XMVector4Normalize(m_up);
-		XMStoreFloat4(&up, m_up);
+		XMVector4Normalize(m_sceneLoaded->camera.up);
+		XMStoreFloat4(&up, m_sceneLoaded->camera.up);
 		XMMATRIX translate = XMMatrixTranslation(-up.x * c_movementAmountFactor, -up.y * c_movementAmountFactor, -up.z * c_movementAmountFactor);
 
-		m_eye = XMVector3Transform(m_eye, translate);
-		m_at = XMVector3Transform(m_at, translate);
+		m_sceneLoaded->camera.eye = XMVector3Transform(m_sceneLoaded->camera.eye, translate);
+		m_sceneLoaded->camera.lookat = XMVector3Transform(m_sceneLoaded->camera.lookat, translate);
 		m_camChanged = true;
 		break;
 	}
@@ -1219,8 +1238,8 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		XMStoreFloat4(&forward, m_forward);
 		XMMATRIX translate = XMMatrixTranslation(forward.x * c_movementAmountFactor, forward.y * c_movementAmountFactor, forward.z * c_movementAmountFactor);
 
-		m_eye = XMVector3Transform(m_eye, translate);
-		m_at = XMVector3Transform(m_at, translate);
+		m_sceneLoaded->camera.eye = XMVector3Transform(m_sceneLoaded->camera.eye, translate);
+		m_sceneLoaded->camera.lookat = XMVector3Transform(m_sceneLoaded->camera.lookat, translate);
 		m_camChanged = true;
 		break;
 	}
@@ -1232,8 +1251,8 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 		XMStoreFloat4(&forward, m_forward);
 		XMMATRIX translate = XMMatrixTranslation(-forward.x * c_movementAmountFactor, -forward.y * c_movementAmountFactor, -forward.z * c_movementAmountFactor);
 
-		m_eye = XMVector3Transform(m_eye, translate);
-		m_at = XMVector3Transform(m_at, translate);
+		m_sceneLoaded->camera.eye = XMVector3Transform(m_sceneLoaded->camera.eye, translate);
+		m_sceneLoaded->camera.lookat = XMVector3Transform(m_sceneLoaded->camera.lookat, translate);
 		m_camChanged = true;
 		break;
 	}
@@ -1241,10 +1260,10 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 	case VK_UP: // Up arrow
 	{
 		XMMATRIX rotate = XMMatrixRotationAxis(m_right, XMConvertToRadians(-c_rotateDegrees));
-		m_eye = XMVector3Transform(m_eye, rotate);
-		m_up = XMVector3Transform(m_up, rotate);
+		m_sceneLoaded->camera.eye = XMVector3Transform(m_sceneLoaded->camera.eye, rotate);
+		m_sceneLoaded->camera.up = XMVector3Transform(m_sceneLoaded->camera.up, rotate);
 		m_forward = XMVector3Transform(m_forward, rotate);
-		m_at = XMVector3Transform(m_at, rotate);
+		m_sceneLoaded->camera.lookat = XMVector3Transform(m_sceneLoaded->camera.lookat, rotate);
 		m_camChanged = true;
 		break;
 	}
@@ -1252,32 +1271,32 @@ void D3D12RaytracingSimpleLighting::OnKeyDown(UINT8 key)
 	case VK_DOWN: // Down arrow
 	{
 		XMMATRIX rotate = XMMatrixRotationAxis(m_right, XMConvertToRadians(c_rotateDegrees));
-		m_eye = XMVector3Transform(m_eye, rotate);
-		m_up = XMVector3Transform(m_up, rotate);
+		m_sceneLoaded->camera.eye = XMVector3Transform(m_sceneLoaded->camera.eye, rotate);
+		m_sceneLoaded->camera.up = XMVector3Transform(m_sceneLoaded->camera.up, rotate);
 		m_forward = XMVector3Transform(m_forward, rotate);
-		m_at = XMVector3Transform(m_at, rotate);
+		m_sceneLoaded->camera.lookat = XMVector3Transform(m_sceneLoaded->camera.lookat, rotate);
 		m_camChanged = true;
 		break;
 	}
 
 	case VK_RIGHT: // Right arrow
 	{
-		XMMATRIX rotate = XMMatrixRotationAxis(m_up, XMConvertToRadians(c_rotateDegrees));
-		m_eye = XMVector3Transform(m_eye, rotate);
+		XMMATRIX rotate = XMMatrixRotationAxis(m_sceneLoaded->camera.up, XMConvertToRadians(c_rotateDegrees));
+		m_sceneLoaded->camera.eye = XMVector3Transform(m_sceneLoaded->camera.eye, rotate);
 		m_right = XMVector3Transform(m_right, rotate);
 		m_forward = XMVector3Transform(m_forward, rotate);
-		m_at = XMVector3Transform(m_at, rotate);
+		m_sceneLoaded->camera.lookat = XMVector3Transform(m_sceneLoaded->camera.lookat, rotate);
 		m_camChanged = true;
 		break;
 	}
 
 	case VK_LEFT: // Left arrow
 	{
-		XMMATRIX rotate = XMMatrixRotationAxis(m_up, XMConvertToRadians(-c_rotateDegrees));
-		m_eye = XMVector3Transform(m_eye, rotate);
+		XMMATRIX rotate = XMMatrixRotationAxis(m_sceneLoaded->camera.up, XMConvertToRadians(-c_rotateDegrees));
+		m_sceneLoaded->camera.eye = XMVector3Transform(m_sceneLoaded->camera.eye, rotate);
 		m_right = XMVector3Transform(m_right, rotate);
 		m_forward = XMVector3Transform(m_forward, rotate);
-		m_at = XMVector3Transform(m_at, rotate);
+		m_sceneLoaded->camera.lookat = XMVector3Transform(m_sceneLoaded->camera.lookat, rotate);
 		m_camChanged = true;
 		break;
 	}

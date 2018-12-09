@@ -164,6 +164,10 @@ void Scene::ParseScene(std::string filename)
         ParseGLTF(tokens[1], false);
         std::cout << " " << endl;
       }
+      else if (strcmp(tokens[0].c_str(), "CAMERA") == 0) {
+        loadCamera();
+        programState->UpdateCameraMatrices();
+      }
     }
   }
 
@@ -1030,60 +1034,36 @@ int Scene::loadCamera() {
 	OuputAndReset(wstr);
 
 	ModelLoading::Camera newCam;
-	float fovy;
 
 	// load static properties
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 5; i++) {
 		string line;
 		utilityCore::safeGetline(fp_in, line);
 		vector<string> tokens = utilityCore::tokenizeString(line);
-		if (strcmp(tokens[0].c_str(), "resolution") == 0) {
-			newCam.width = atoi(tokens[1].c_str());
-			newCam.height = atoi(tokens[2].c_str());
-		}
-		else if (strcmp(tokens[0].c_str(), "fovy") == 0) {
-			fovy = atof(tokens[1].c_str());
-		}
-		else if (strcmp(tokens[0].c_str(), "iterations") == 0) {
-			newCam.maxIterations = atoi(tokens[1].c_str());
+                if (strcmp(tokens[0].c_str(), "fov") == 0) {
+                        newCam.fov = atof(tokens[1].c_str());
 		}
 		else if (strcmp(tokens[0].c_str(), "depth") == 0) {
 			newCam.maxDepth = atoi(tokens[1].c_str());
 		}
+                else if (strcmp(tokens[0].c_str(), "eye") == 0) {
+                        glm::vec3 eye(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()));
+                        XMFLOAT3 xm_eye(eye.x, eye.y, eye.z);
+                        newCam.eye = XMLoadFloat3(&xm_eye);
+                }
+                else if (strcmp(tokens[0].c_str(), "lookat") == 0) {
+                        glm::vec3 look_at(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()));
+                        XMFLOAT3 xm_look_at(look_at.x, look_at.y, look_at.z);
+                        newCam.lookat = XMLoadFloat3(&xm_look_at);
+                }
+                else if (strcmp(tokens[0].c_str(), "up") == 0) {
+                        glm::vec3 up(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()));
+                        XMFLOAT3 xm_up(up.x, up.y, up.z);
+                        newCam.up = XMLoadFloat3(&xm_up);
+                }
 	}
 
-	string line;
-	utilityCore::safeGetline(fp_in, line);
-	while (!line.empty() && fp_in.good()) {
-		vector<string> tokens = utilityCore::tokenizeString(line);
-		if (strcmp(tokens[0].c_str(), "eye") == 0) {
-			newCam.eye = glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()));
-		}
-		else if (strcmp(tokens[0].c_str(), "lookat") == 0) {
-			newCam.lookat = glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()));
-		}
-		else if (strcmp(tokens[0].c_str(), "up") == 0) {
-			newCam.up = glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()));
-		}
-		else if (strcmp(tokens[0].c_str(), "focal") == 0) {
-			newCam.focalDist = atof(tokens[1].c_str());
-		}
-		else if (strcmp(tokens[0].c_str(), "lensr") == 0) {
-			newCam.lensRadius = atof(tokens[1].c_str());
-		}
-
-		utilityCore::safeGetline(fp_in, line);
-	}
-
-	// calculate fov based on resolution
-	float yscaled = tan(fovy * (PI / 180));
-	float xscaled = (yscaled * camera.width) / camera.height;
-	float fovx = (atan(xscaled) * 180) / PI;
-	newCam.fov = glm::vec2(fovx, fovy);
-
-	// camera axes
-	newCam.forward = glm::normalize(newCam.lookat - newCam.eye);
-	newCam.right = glm::normalize(glm::cross(camera.forward, camera.up));	
+        camera = std::move(newCam);
 
 	wstr << L"Done loading CAMERA !n";
 	wstr << L"----------------------------------------\n";

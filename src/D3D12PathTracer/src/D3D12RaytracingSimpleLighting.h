@@ -88,6 +88,7 @@ public:
 	}
 
       WRAPPED_GPU_POINTER CreateFallbackWrappedPointer(ID3D12Resource* resource, UINT bufferNumElements);
+      void UpdateCameraMatrices();
 
 private:
 	static const UINT FrameCount = 3;
@@ -178,7 +179,6 @@ private:
 
     void EnableDirectXRaytracing(IDXGIAdapter1* adapter);
     void ParseCommandLineArgs(WCHAR* argv[], int argc);
-    void UpdateCameraMatrices();
     void InitializeScene();
     void RecreateD3D();
     void DoRaytracing();
