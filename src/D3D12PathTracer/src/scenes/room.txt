@@ -1,6 +1,29 @@
 MODEL 0
 path src/objects/crate.obj
 
+MODEL 1
+path src/objects/table.obj
+
+// To render
+MODEL 2
+path src/objects/bunny.obj
+
+MODEL 3
+path src/objects/tyra.obj
+
+DIFFUSE_TEXTURE 0
+path src/textures/concrete_a.jpg
+
+DIFFUSE_TEXTURE 1
+path src/textures/tile_a.jpg
+
+NORMAL_TEXTURE 0
+path src/textures/concrete_n.jpg
+
+NORMAL_TEXTURE 1
+path src/textures/tile_n.jpg
+
+
 // Emissive material (light)
 MATERIAL 0 Light
 RGB         1 1 1
@@ -21,75 +44,155 @@ REFR        0
 REFRIOR     0
 EMITTANCE   0
 
+// Reflective white
+MATERIAL 2 ReflectiveWhite
+RGB         .98 .98 .98
+SPECRGB     0 0 0
+SPECEX      0
+REFL        1
+REFR        0
+REFRIOR     1.4
+EMITTANCE   0
+
+// Diffuse brown
+MATERIAL 3 DiffuseBrown
+RGB         .60 .30 .0
+SPECRGB     0 0 0
+SPECEX      0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Diffuse Blue
+MATERIAL 4 DiffuseBlueish
+RGB         .35 .35 .98
+SPECRGB     .35 .35 .98
+SPECEX      0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Diffuse green
+MATERIAL 5 DiffuseGreen
+RGB         .5 .97 .5
+SPECRGB     0 0 0
+SPECEX      0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+
 // Ceiling
 OBJECT 0 Ceiling
 model 0
-albedo_tex -1
-normal_tex -1
+albedo_tex 0
+normal_tex 0
 material 1
-trans       0 7 0
+trans       0 16 5
 rotat       0 0 0
-scale       15 0.5 15
+scale       30 0.5 30
 
 // Floor
 OBJECT 1 Floor
 model 0
-albedo_tex -1
-normal_tex -1
+albedo_tex 1
+normal_tex 1
 material 1
-trans       0 -3 0
+trans       0 -7 0
 rotat       0 0 0
 scale       15 0.4 15
 
 // Back wall
 OBJECT 2 BackWall
 model 0
-albedo_tex -1
-normal_tex -1
+albedo_tex 0
+normal_tex 0
 material 1
-trans       0 3.5 5
+trans       0 3.5 15
 rotat       0 0 0
-scale       15 15 0.5
+scale       30 30 0.5
 
 // Left wall
 OBJECT 3 LeftWall
 model 0
-albedo_tex -1
-normal_tex -1
+albedo_tex 0
+normal_tex 0
 material 1
-trans       3 3.5 0
+trans       15 3.5 5
 rotat       0 0 0
-scale       .04 15 15
+scale       .04 30 30
 
 // Right wall
 OBJECT 4 RightWall
 model 0
-albedo_tex -1
-normal_tex -1
+albedo_tex 0
+normal_tex 0
 material 1
-trans       -3 3.5 0
+trans       -15 3.5 5
 rotat       0 0 0
-scale       .04 15 15
+scale       .04 30 30
 
 // Light
 OBJECT 5 Light
 model 0
 albedo_tex -1
 normal_tex -1
-material 1
-trans       0 15 0
+material 0
+trans       0 15 5
 rotat       0 0 0
-scale       50 .3 50
+scale       10 .3 10
 
-// Mario
-OBJECT 6 Waboi
+// Back wall reflective
+OBJECT 7 BackMirror
 model 0
-albedo_tex 1
+albedo_tex -1
 normal_tex -1
+material 2
+trans       0 3.5 14
+rotat       0 0 0
+scale       15 15 0.5
+
+// Front Wall
+OBJECT 9 FrontWall
+model 0
+albedo_tex 0
+normal_tex 0
 material 1
-trans       0 0 3
+trans       0 3.5 -20
+rotat       0 0 0
+scale       15 15 0.5
+
+// Table
+OBJECT 6 Model
+model 1
+albedo_tex -1
+normal_tex -1
+material 3
+trans       0 -7 3
+rotat       0 180 0
+scale       0.5 0.5 0.5
+
+// Model
+OBJECT 6 Model
+model 2
+albedo_tex -1
+normal_tex -1
+material 4
+trans       0 -3 3
 rotat       0 180 0
 scale       1 1 1
+
+OBJECT 10 Model
+model 3
+albedo_tex -1
+normal_tex -1
+material 5
+trans       -9 0 3
+rotat       0 180 0
+scale       4 4 4
 
 CAMERA
 resolution         800 800
