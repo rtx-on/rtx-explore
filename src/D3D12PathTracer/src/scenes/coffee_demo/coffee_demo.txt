@@ -174,12 +174,12 @@ ETA             1.44
 EMITTANCE       0
 
 MATERIAL 8 BalloonMaterial
-RGB             0.85 0.35 0.35
-SPECRGB         0.85 0.35 0.35
+RGB             0.50 0.35 0.35
+SPECRGB         0.50 0.35 0.35
 SPECEX          1
 REFL            0
-REFR            1
-ETA             1.44
+REFR            0
+ETA             0
 EMITTANCE       0
 
 MATERIAL 9 CurtainMaterial
@@ -279,7 +279,7 @@ MODEL           0
 DIFFUSE_TEX     -1
 NORMAL_TEX      -1
 MATERIAL        0
-trans           1 0.25 0
+trans           1 0.25 -0.2
 rotat           0 0 0
 scale           0.11 0.1 0.1
 
