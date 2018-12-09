@@ -21,9 +21,9 @@ namespace GlobalRootSignatureParams {
     enum Value {
         OutputViewSlot = 0,
         AccelerationStructureSlot,
-	TextureSlot,
-	NormalTextureSlot,
-	SceneConstantSlot,
+		TextureSlot,
+		NormalTextureSlot,
+		SceneConstantSlot,
         VertexBuffersSlot,
         IndexBuffersSlot,
         MaterialBuffersSlot,

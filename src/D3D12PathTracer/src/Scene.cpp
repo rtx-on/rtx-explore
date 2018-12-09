@@ -4,7 +4,7 @@
 #include <cstring>
 #include <glm/glm/gtc/matrix_inverse.hpp>
 #include <glm/glm/gtx/string_cast.hpp>
-#include "model_loading/tiny_obj_loader.h"
+#include "include/tiny_obj_loader.h"
 #include "DirectXRaytracingHelper.h"
 #include "D3D12RaytracingSimpleLighting.h"
 #include "TextureLoader.h"
@@ -13,7 +13,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STBI_MSC_SECURE_CRT
-// #define TINYGLTF_NOEXCEPTION // optional. disable exception handling.
 #include "tiny_gltf.h"
 #include <glm/glm/gtc/type_ptr.inl>
 
@@ -102,12 +101,6 @@ void OuputAndReset(std::wstringstream& stream)
 
 
 Scene::Scene(string filename, D3D12RaytracingSimpleLighting* programState) : programState(programState) {
-	std::wstringstream wstr;
-	wstr << L"\n";
-	wstr << L"------------------------------------------------------------------------------\n";
-	wstr << L"Reading scene from " << filename.c_str() << L"\n";
-	wstr << L"------------------------------------------------------------------------------\n";
-	OuputAndReset(wstr);
 
         if (filename.find(".gltf") != std::string::npos)
         {
@@ -115,57 +108,70 @@ Scene::Scene(string filename, D3D12RaytracingSimpleLighting* programState) : pro
         }
         else
         {
-          char* fname = (char*)filename.c_str();
-	  fp_in.open(fname);
-	  if (!fp_in.is_open()) {
-		  wstr << L"Error reading from file - aborting!\n";
-		  wstr << L"------------------------------------------------------------------------------\n";
-		  OuputAndReset(wstr);
-		  throw;
-	  }
-	  while (fp_in.good()) {
-		  string line;
-		  utilityCore::safeGetline(fp_in, line);
-		  if (!line.empty()) {
-			  vector<string> tokens = utilityCore::tokenizeString(line);
-                          std::string name{};
-                          if (tokens.size() == 3)
-                          {
-                            name = tokens[2];
-                          }
-			  if (strcmp(tokens[0].c_str(), "MATERIAL") == 0) {
-                      
-				  loadMaterial(tokens[1], name);
-				  std::cout << " " << endl;
-			  }
-			  else if (strcmp(tokens[0].c_str(), "MODEL") == 0) {
-				  loadModel(tokens[1]);
-				  std::cout << " " << endl;
-			  }
-			  else if (strcmp(tokens[0].c_str(), "DIFFUSE_TEXTURE") == 0) {
-				  loadDiffuseTexture(tokens[1]);
-				  std::cout << " " << endl;
-			  }
-			  else if (strcmp(tokens[0].c_str(), "NORMAL_TEXTURE") == 0) {
-				  loadNormalTexture(tokens[1]);
-				  std::cout << " " << endl;
-			  }
-		          else if (strcmp(tokens[0].c_str(), "OBJECT") == 0) {
-				  loadObject(tokens[1], name);
-				  std::cout << " " << endl;
-			  }
-		          else if (strcmp(tokens[0].c_str(), "GLTF") == 0) {
-				  ParseGLTF(tokens[1], false);
-				  std::cout << " " << endl;
-			  }
-		  }
-	  }
-
-	  wstr << L"Done loading the scene file!\n";
-	  wstr << L"------------------------------------------------------------------------------\n";
-	  OuputAndReset(wstr);
+          ParseScene(filename);
         }
 }
+
+void Scene::ParseScene(std::string filename)
+{
+  std::wstringstream wstr;
+  wstr << L"\n";
+  wstr << L"------------------------------------------------------------------------------\n";
+  wstr << L"Reading scene from " << filename.c_str() << L"\n";
+  wstr << L"------------------------------------------------------------------------------\n";
+  OuputAndReset(wstr);
+
+  char* fname = (char*)filename.c_str();
+  fp_in.open(fname);
+  if (!fp_in.is_open()) {
+    wstr << L"Error reading from file - aborting!\n";
+    wstr << L"------------------------------------------------------------------------------\n";
+    OuputAndReset(wstr);
+    throw;
+  }
+  while (fp_in.good()) {
+    string line;
+    utilityCore::safeGetline(fp_in, line);
+    if (!line.empty()) {
+      vector<string> tokens = utilityCore::tokenizeString(line);
+      std::string name{};
+      if (tokens.size() == 3)
+      {
+        name = tokens[2];
+      }
+      if (strcmp(tokens[0].c_str(), "MATERIAL") == 0) {
+
+        loadMaterial(tokens[1], name);
+        std::cout << " " << endl;
+      }
+      else if (strcmp(tokens[0].c_str(), "MODEL") == 0) {
+        loadModel(tokens[1]);
+        std::cout << " " << endl;
+      }
+      else if (strcmp(tokens[0].c_str(), "DIFFUSE_TEXTURE") == 0) {
+        loadDiffuseTexture(tokens[1]);
+        std::cout << " " << endl;
+      }
+      else if (strcmp(tokens[0].c_str(), "NORMAL_TEXTURE") == 0) {
+        loadNormalTexture(tokens[1]);
+        std::cout << " " << endl;
+      }
+      else if (strcmp(tokens[0].c_str(), "OBJECT") == 0) {
+        loadObject(tokens[1], name);
+        std::cout << " " << endl;
+      }
+      else if (strcmp(tokens[0].c_str(), "GLTF") == 0) {
+        ParseGLTF(tokens[1], false);
+        std::cout << " " << endl;
+      }
+    }
+  }
+
+  wstr << L"Done loading the scene file!\n";
+  wstr << L"------------------------------------------------------------------------------\n";
+  OuputAndReset(wstr);
+}
+
 
 template <typename Callback>
 void Scene::RecurseGLTF(tinygltf::Model& model, tinygltf::Node& node, Callback callback)

@@ -164,7 +164,6 @@ PrebuildCheck.bat</Command>
     </PreLinkEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="src\AssetManager.h" />
     <ClInclude Include="src\core\Common.h" />
     <ClInclude Include="src\core\Texture.h" />
     <ClInclude Include="src\core\Vertex.h" />
@@ -186,20 +185,10 @@ PrebuildCheck.bat</Command>
     <ClInclude Include="src\imgui\stb_textedit.h" />
     <ClInclude Include="src\imgui\stb_truetype.h" />
     <ClInclude Include="src\json.hpp" />
-    <ClInclude Include="src\Model.h" />
-    <ClInclude Include="src\stb_image.h" />
-    <ClInclude Include="src\stb_image_write.h" />
-    <ClInclude Include="src\tiny_gltf.h" />
-    <ClInclude Include="src\Utilities.h" />
     <ClInclude Include="src\Mesh.h" />
     <ClInclude Include="src\MeshLoader.h" />
-    <ClInclude Include="src\model_loading\Asset.h" />
-    <ClInclude Include="src\model_loading\AssetDatabase.h" />
-    <ClInclude Include="src\model_loading\Geometry.h" />
-    <ClInclude Include="src\model_loading\Material.h" />
-    <ClInclude Include="src\model_loading\OBJ_Loader.h" />
-    <ClInclude Include="src\model_loading\Texture.h" />
-    <ClInclude Include="src\model_loading\tiny_obj_loader.h" />
+    <ClInclude Include="src\Model.h" />
+    <ClInclude Include="src\Utilities.h" />
     <ClInclude Include="src\Scene.h" />
     <ClInclude Include="src\shaders\RayTracingHlslCompat.h" />
     <ClInclude Include="src\shaders\util\HlslCompat.h" />
@@ -210,7 +199,6 @@ PrebuildCheck.bat</Command>
     <ClInclude Include="d3dx12.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\AssetManager.cpp" />
     <ClCompile Include="src\D3D12RaytracingSimpleLighting.cpp" />
     <ClCompile Include="src\DeviceResources.cpp" />
     <ClCompile Include="src\DXSample.cpp" />

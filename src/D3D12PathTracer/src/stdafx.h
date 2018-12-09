@@ -61,11 +61,11 @@
 #include "imgui/imgui_impl_dx12.h"
 #include "imgui/imguifilesystem.h"
 
-#include "tiny_gltf.h"
+#include "include/tiny_gltf.h"
 
 #include "D3D12RaytracingSimpleLighting.h"
 
-#include "model_loading/OBJ_Loader.h"
+#include "include/OBJ_Loader.h"
 
 #include "Model.h"
 

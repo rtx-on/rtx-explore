@@ -69,26 +69,8 @@
     <ClInclude Include="src\DirectXRaytracingHelper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\model_loading\Asset.h">
-      <Filter>Header Files\Model Loading</Filter>
-    </ClInclude>
     <ClInclude Include="src\core\Common.h">
       <Filter>Header Files\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="src\model_loading\AssetDatabase.h">
-      <Filter>Header Files\Model Loading</Filter>
-    </ClInclude>
-    <ClInclude Include="src\model_loading\Geometry.h">
-      <Filter>Header Files\Model Loading</Filter>
-    </ClInclude>
-    <ClInclude Include="src\model_loading\Material.h">
-      <Filter>Header Files\Model Loading</Filter>
-    </ClInclude>
-    <ClInclude Include="src\model_loading\Texture.h">
-      <Filter>Header Files\Model Loading</Filter>
-    </ClInclude>
-    <ClInclude Include="src\model_loading\tiny_obj_loader.h">
-      <Filter>Header Files\Model Loading</Filter>
     </ClInclude>
     <ClInclude Include="src\core\Texture.h">
       <Filter>Header Files\Core</Filter>
@@ -97,10 +79,6 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\TextureLoader.h" />
-    <ClInclude Include="src\AssetManager.h" />
-    <ClInclude Include="src\Mesh.h" />
-    <ClInclude Include="src\MeshLoader.h" />
-    <ClInclude Include="src\model_loading\OBJ_Loader.h" />
     <ClInclude Include="src\Scene.h" />
     <ClInclude Include="src\Utilities.h" />
     <ClInclude Include="src\Model.h" />
@@ -116,10 +94,9 @@
     <ClInclude Include="src\imgui\stb_truetype.h" />
     <ClInclude Include="src\imgui\imguifilesystem.h" />
     <ClInclude Include="src\imgui\dirent_portable.h" />
-    <ClInclude Include="src\tiny_gltf.h" />
-    <ClInclude Include="src\stb_image_write.h" />
-    <ClInclude Include="src\stb_image.h" />
     <ClInclude Include="src\json.hpp" />
+    <ClInclude Include="src\Mesh.h" />
+    <ClInclude Include="src\MeshLoader.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\D3D12RaytracingSimpleLighting.cpp">
@@ -141,9 +118,6 @@
       <Filter>Source Files\Util</Filter>
     </ClCompile>
     <ClCompile Include="src\TextureLoader.cpp" />
-    <ClCompile Include="src\AssetManager.cpp" />
-    <ClCompile Include="src\Mesh.cpp" />
-    <ClCompile Include="src\MeshLoader.cpp" />
     <ClCompile Include="src\Scene.cpp" />
     <ClCompile Include="src\Utilities.cpp" />
     <ClCompile Include="src\Model.cpp" />
@@ -152,6 +126,8 @@
     <ClCompile Include="src\imgui\imgui_draw.cpp" />
     <ClCompile Include="src\imgui\imgui_impl_dx12.cpp" />
     <ClCompile Include="src\imgui\imguifilesystem.cpp" />
+    <ClCompile Include="src\Mesh.cpp" />
+    <ClCompile Include="src\MeshLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
