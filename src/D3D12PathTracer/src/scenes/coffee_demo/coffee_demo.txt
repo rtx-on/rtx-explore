@@ -216,7 +216,7 @@ NORMAL_TEX      -1
 MATERIAL        1
 trans           1 -1 0
 rotat           0 0 0
-scale           3 3 3
+scale           0.1 0.1 0.1
 
 OBJECT          13 Book1
 MODEL           7
