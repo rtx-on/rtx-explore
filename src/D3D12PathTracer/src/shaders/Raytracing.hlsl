@@ -654,8 +654,8 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	}
 	else if (reflectiveness > 0.0f) // do a R E F L E C C
 	{
-		TransmissiveBounce(texture_offset, material_offset, diffuse_sampler_offset, emittance, triangleNormal, hitPosition, hitType, triangleUV, payload);
-		//ReflectiveBounce(triangleNormal, hitPosition, hitType, payload);
+		//TransmissiveBounce(texture_offset, material_offset, diffuse_sampler_offset, emittance, triangleNormal, hitPosition, hitType, triangleUV, payload);
+		ReflectiveBounce(material_offset, triangleNormal, hitPosition, hitType, payload);
 	}
 	else if (refractiveness > 0.0f) // Do a R E F R A C C
 	{
