@@ -254,7 +254,7 @@ private:
     void LoadSplitImage();
 
     //stop/resume rendering
-    bool is_rendering = true;
+    bool enable_rendering = true;
 
 #define VERTEX_HEAP_OFFSET (1000)
 #define INDICIES_HEAP_OFFSET (2000)

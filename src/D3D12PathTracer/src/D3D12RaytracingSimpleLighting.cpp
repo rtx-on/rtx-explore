@@ -828,13 +828,19 @@ void D3D12RaytracingSimpleLighting::DoRaytracing()
     {
         SetCommonPipelineState(m_fallbackCommandList.Get());
         m_fallbackCommandList->SetTopLevelAccelerationStructure(GlobalRootSignatureParams::AccelerationStructureSlot, m_fallbackTopLevelAccelerationStructurePointer);
-        DispatchRays(m_fallbackCommandList.Get(), m_fallbackStateObject.Get(), &dispatchDesc);
+        if(enable_rendering)
+        {
+          DispatchRays(m_fallbackCommandList.Get(), m_fallbackStateObject.Get(), &dispatchDesc);
+        }
     }
     else // DirectX Raytracing
     {
         SetCommonPipelineState(commandList);
         commandList->SetComputeRootShaderResourceView(GlobalRootSignatureParams::AccelerationStructureSlot, m_topLevelAccelerationStructure->GetGPUVirtualAddress());
-        DispatchRays(m_dxrCommandList.Get(), m_dxrStateObject.Get(), &dispatchDesc);
+        if (enable_rendering)
+        {
+          DispatchRays(m_dxrCommandList.Get(), m_dxrStateObject.Get(), &dispatchDesc);
+        }
     }
 }
 
@@ -2525,6 +2531,11 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
     }
   };
 
+  auto EnableRenderingHeader = [&]()
+  {
+    ImGui::Checkbox("Enable/Disable Rendering", &enable_rendering);
+  };
+
   auto ShowHeaders = [&]()
   {
     ShowHelpHeader();
@@ -2538,6 +2549,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
     ShowGLTFHeader();
     SaveSceneToDiskHeader();
     ImageFunctionsHeader();
+    EnableRenderingHeader();
   };
 
   auto commandList = m_deviceResources->GetCommandList();
