@@ -194,13 +194,10 @@ trans       -9 0 3
 rotat       0 180 0
 scale       4 4 4
 
+
 CAMERA
-resolution         800 800
-fovy        45
-iterations  5000
-depth       30
-eye         0.0 2 -20
+fov        45
+eye         0 0 -20
 lookat      0 0 1
 up          0 1 0
-focal		10
-lensr		0.5
+depth       30

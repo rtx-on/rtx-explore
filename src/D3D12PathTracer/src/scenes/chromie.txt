@@ -3,7 +3,7 @@ MODEL 0
 path src/objects/crate.obj
 
 MODEL 1
-path src/objects/hromie.obj
+path src/objects/chromie.obj
 
 DIFFUSE_TEXTURE 0
 path src/textures/chromie_a.jpg
@@ -131,13 +131,10 @@ trans       0 0 0
 rotat       0 160 0
 scale       0.2 0.2 0.2
 
+
 CAMERA
-resolution         800 800
-fovy        45
-iterations  5000
-depth       30
-eye         0.0 2 -5
+fov        45
+eye         0 0 -20
 lookat      0 0 1
 up          0 1 0
-focal		10
-lensr		0.5
+depth       30
