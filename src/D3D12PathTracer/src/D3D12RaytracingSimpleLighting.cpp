@@ -2458,7 +2458,7 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
 
   auto ImageFunctionsHeader = [&]()
   {
-    if (ImGui::CollapsingHeader("Kewl RTX Image Comparison Thing"))
+    if (ImGui::CollapsingHeader("RTX Image Comparison"))
     {
       {
         bool save_button_pressed = ImGui::Button("Save image");
