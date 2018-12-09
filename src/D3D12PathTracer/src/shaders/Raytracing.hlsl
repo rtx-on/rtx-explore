@@ -38,7 +38,6 @@ static const float SQRT_OF_ONE_THIRD = 0.577350269189625764509148780501957455647
 
 static const float4 BACKGROUND_COLOR = float4(0,0,0,0);
 static const float4 INITIAL_COLOR = float4(1, 1, 1, 0);
-static const float4 SPECULAR_COLOR = float4(1, 1, 1, 1);
 static const float INV_PI = 0.3183098861837906715377675267450287240689f;
 static const float RED_WAVELENGTH_UM = 0.69f;
 static const float BLUE_WAVELENGTH_UM = 0.47f;
@@ -80,7 +79,7 @@ float Uniform01() {
 typedef BuiltInTriangleIntersectionAttributes MyAttributes;
 struct RayPayload
 {
-        float4 color;
+    float4 color;
 	float3 rayOrigin;
 	float3 rayDir;
 };
@@ -258,13 +257,13 @@ float3 CalculateRandomDirectionInSphere(float3 normal)
 	return (bounceUpOrDown < 0.5f) ? newDirPos : newDirNeg;
 }
 
-void ReflectiveBounce(float3 triangleNormal, float3 hitPosition, float hitType, RayPayload payload)
+void ReflectiveBounce(uint material_offset, float3 triangleNormal, float3 hitPosition, float hitType, RayPayload payload)
 {
 	float3 newDir = reflect(WorldRayDirection(), triangleNormal);
 	payload.rayDir = newDir;
 	payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;
 
-	float3 color = payload.color.rgb * SPECULAR_COLOR;
+	float3 color = payload.color.rgb * materials[material_offset].specular;
 	payload.color = float4(color, hitType);
 }
 
@@ -288,7 +287,7 @@ float SellmeierEquation(float wavelength)
 	return sqrt(1.0f + term1 + term2 + term3);
 }
 
-void GlassBounce(float3 triangleNormal, float3 hitPosition, float hitType, RayPayload payload)
+void GlassBounce(uint material_offset, float3 triangleNormal, float3 hitPosition, float hitType, RayPayload payload)
 {
 	float wavelength = 0.0f;
 	float rand = Uniform01();
@@ -311,6 +310,7 @@ void GlassBounce(float3 triangleNormal, float3 hitPosition, float hitType, RayPa
 		payload.color *= float4(0.0f, 0.0f, 3.0f, 0.0f);
 	}
 
+	// TODO: Figure out if this is just editing the index of refraction or if this is actually correct
 	float indexOfRefraction = SellmeierEquation(wavelength);
 
 	// adjust eta & normal according to direction of ray (inside or outside mat)
@@ -338,13 +338,13 @@ void GlassBounce(float3 triangleNormal, float3 hitPosition, float hitType, RayPa
 	payload.rayDir = newDir;
 	payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;
 
-	float3 color = payload.color.rgb * SPECULAR_COLOR;
+	float3 color = payload.color.rgb * materials[material_offset].specular;
 	payload.color = float4(color, hitType);
 }
 
-void RefractiveBounce(float3 triangleNormal, float3 hitPosition, float hitType, RayPayload payload)
+void RefractiveBounce(uint material_offset, float3 triangleNormal, float3 hitPosition, float hitType, RayPayload payload)
 {
-	float indexOfRefraction = 1.2f; // TODO: Change this to be more general
+	float indexOfRefraction = materials[material_offset].eta; // TODO: Change this to be more general
 
 	// adjust eta & normal according to direction of ray (inside or outside mat)
 	bool inside = dot(WorldRayDirection(), triangleNormal) > 0.f;
@@ -371,7 +371,7 @@ void RefractiveBounce(float3 triangleNormal, float3 hitPosition, float hitType, 
 	payload.rayDir = newDir;
 	payload.rayOrigin = hitPosition + payload.rayDir * 0.01f;
 
-	float3 color = payload.color.rgb * SPECULAR_COLOR;
+	float3 color = payload.color.rgb * materials[material_offset].specular;
 	payload.color = float4(color, hitType);
 }
 
@@ -417,7 +417,7 @@ void TransmissiveBounce(uint texture_offset, uint material_offset, uint sampler_
 		float3 textureColor = float4(color.xyz, emittance);*/
 
 		// TODO: Get all this information from the scene file
-		float3 absorptionColor = float3(1.f, 0.00001f, 0.00001f);
+		float3 absorptionColor = clamp(materials[material_offset].specular, 0.00001f, 1.0f);
 		
 		float3 absorptionAtDistance = 20.f;
 		float3 absorptionCoefficient = -log(absorptionColor) / absorptionAtDistance;
@@ -436,7 +436,7 @@ void TransmissiveBounce(uint texture_offset, uint material_offset, uint sampler_
 		// If we are exiting the medium, take a refractive bounce
 		if (distance >= tFar)
 		{
-			RefractiveBounce(triangleNormal, hitPosition, hitType, payload);
+			RefractiveBounce(material_offset, triangleNormal, hitPosition, hitType, payload);
 		}
 		else // otherwise do a sub-surface scatter within the medium
 		{
@@ -449,7 +449,7 @@ void TransmissiveBounce(uint texture_offset, uint material_offset, uint sampler_
 	else // IF we are entering the medium, take a refractive bounce
 	{
 		//payload.color = float4(payload.color.rgb * absorptionColor * exp(-absorptionCoefficient * distance), hitType);
-		RefractiveBounce(triangleNormal, hitPosition, hitType, payload);
+		RefractiveBounce(material_offset, triangleNormal, hitPosition, hitType, payload);
 	}
 }
 
@@ -537,9 +537,9 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	uint texture_offset = infos[instanceId].texture_offset;
 	uint texture_normal_offset = infos[instanceId].texture_normal_offset;
 	uint material_offset = infos[instanceId].material_offset;
-        uint diffuse_sampler_offset = infos[instanceId].diffuse_sampler_offset;
-        uint normal_sampler_offset = infos[instanceId].normal_sampler_offset;
-        float4x4 rotation_scale_matrix = infos[instanceId].rotation_scale_matrix;
+	uint diffuse_sampler_offset = infos[instanceId].diffuse_sampler_offset;
+	uint normal_sampler_offset = infos[instanceId].normal_sampler_offset;
+	float4x4 rotation_scale_matrix = infos[instanceId].rotation_scale_matrix;
 
 	float eta = 0;
 	float reflectiveness = 0;
@@ -636,7 +636,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 
 	if (reflectiveness > 0.0f && refractiveness > 0.0f) // Do both a R E F L E C C and a R E F R A C C with fresnel effects
 	{
-		float indexOfRefraction = 1.2f; // TODO: Change this to be more general
+		float indexOfRefraction = materials[material_offset].eta; // TODO: Change this to be more general
 
 		float VdotN = dot(-WorldRayDirection(), triangleNormal);
 		bool leaving = VdotN < 0.f;
@@ -646,10 +646,10 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 		float fresnel = EvaluateFresnelDielectric(VdotN, eI, eT) / abs(VdotN);
 
 		if (Uniform01() < fresnel) {
-			ReflectiveBounce(triangleNormal, hitPosition, hitType, payload);
+			ReflectiveBounce(material_offset, triangleNormal, hitPosition, hitType, payload);
 		}
 		else {
-			GlassBounce(triangleNormal, hitPosition, hitType, payload);
+			GlassBounce(material_offset, triangleNormal, hitPosition, hitType, payload);
 		}
 	}
 	else if (reflectiveness > 0.0f) // do a R E F L E C C
@@ -659,7 +659,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	}
 	else if (refractiveness > 0.0f) // Do a R E F R A C C
 	{
-		GlassBounce(triangleNormal, hitPosition, hitType, payload);
+		RefractiveBounce(material_offset, triangleNormal, hitPosition, hitType, payload);
 	}
 	else if (emittance > 0.0f) // I think this means its a light
 	{
