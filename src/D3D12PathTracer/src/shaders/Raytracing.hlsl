@@ -396,16 +396,31 @@ void DiffuseBounce(uint texture_offset, uint material_offset, uint sampler_offse
 }
 
 
-void TransmissiveBounce(float3 triangleNormal, float3 hitPosition, float hitType, RayPayload payload)
+void TransmissiveBounce(uint texture_offset, uint material_offset, uint sampler_offset, float emittance, float3 triangleNormal, float3 hitPosition, float hitType, float2 triangleUV, RayPayload payload)
 {
 	// if we are inside the material
 	if (dot(WorldRayDirection(), triangleNormal) < 0.f)
 	{
+		// sample object 
+		float3 newDir = CalculateRandomDirectionInHemisphere(triangleNormal);
+		float3 color = BACKGROUND_COLOR.xyz;
+		if (texture_offset != NULL_OFFSET)
+		{
+			float3 tex = text[texture_offset].SampleLevel(samplers[sampler_offset], triangleUV, 0);
+			color = payload.color.rgb * tex.rgb;
+		}
+		else if (material_offset != NULL_OFFSET)
+		{
+			color = payload.color.rgb * materials[material_offset].diffuse;
+		}
+
+		float3 textureColor = float4(color.xyz, emittance);
+
 		// TODO: Get all this information from the scene file
-		float3 absorptionColor = float3(0, 1, 1);
-		float3 absorptionAtDistance = 1.0f;
+		float3 absorptionColor = textureColor; // NOTE: DOn't do that as 0
+		float3 absorptionAtDistance = 20.f;
 		float3 absorptionCoefficient = -log(absorptionColor) / absorptionAtDistance;
-		float scatteringDistance = 3.0f; // TODO: hook into scene file
+		float scatteringDistance = 1.f; // TODO: hook into scene file
 		float scatteringCoefficient = 1 / scatteringDistance;
 
 		// find out how far we would have to go to exit the medium
@@ -413,6 +428,7 @@ void TransmissiveBounce(float3 triangleNormal, float3 hitPosition, float hitType
 
 		// sample randomly to see if we exit the medium
 		float distance = -log(Uniform01()) / scatteringCoefficient;
+		distance = clamp(distance, 0, tFar);
 
 		payload.color = float4(payload.color.rgb * exp(-absorptionCoefficient * distance), hitType);
 
@@ -637,8 +653,8 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	}
 	else if (reflectiveness > 0.0f) // do a R E F L E C C
 	{
-		//TransmissiveBounce(triangleNormal, hitPosition, hitType, payload);
-		ReflectiveBounce(triangleNormal, hitPosition, hitType, payload);
+		TransmissiveBounce(texture_offset, material_offset, diffuse_sampler_offset, emittance, triangleNormal, hitPosition, hitType, triangleUV, payload);
+		//ReflectiveBounce(triangleNormal, hitPosition, hitType, payload);
 	}
 	else if (refractiveness > 0.0f) // Do a R E F R A C C
 	{
