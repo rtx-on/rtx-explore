@@ -126,7 +126,7 @@ MATERIAL 9 gray
 RGB         .3 .3 .3
 SPECRGB     .3 .3 .3
 SPECEX      0
-REFL        1
+REFL        0
 REFR        1
 REFRIOR     1.7
 EMITTANCE   0
