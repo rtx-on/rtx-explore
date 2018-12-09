@@ -1,6 +1,6 @@
 # RTX-Explore - DXR Path Tracer
 <p align="center">
-  <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/pathtracer.gif"/>
+  <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/coffee_front.bmp"/>
 </p>
 
 # Project Goal
