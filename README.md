@@ -154,7 +154,8 @@ This faithfulness to the physical properties of light allows path tracing to gen
      * Install all options preferably
 * Developer mode enabled on Windows 10
 
-# Building & Running
+# Building & Running & Debugging
+## Build & Run
 1) Test that you can run all 3 samples
    * Go to /src
    * Choose one of the sample (HelloTriangle, Procedural, SimpleLighting) and Set as StartUp Project
@@ -163,6 +164,8 @@ This faithfulness to the physical properties of light allows path tracing to gen
 2) Test that you can run the Path Tracer
    * Make sure that you pass a valid scene file to as an argument
       * Properties > Debugging > Command Line Arguments > "src/scenes/cornell.txt"
+## Debug
+Check out our short tutorial on [how to use Microsoft PIX](https://github.com/rtx-on/rtx-explore/blob/master/DEBUGGING.md).
 
 ## Credits
 ### Titan V GPU
