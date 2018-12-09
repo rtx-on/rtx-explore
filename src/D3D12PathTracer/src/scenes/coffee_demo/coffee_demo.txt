@@ -23,7 +23,7 @@ MODEL 7
 path src/scenes/coffee_demo/Book.obj
 
 MODEL 8
-path src/objects/buddha.obj
+path src/scenes/coffee_demo/Window.obj
 
 +++++ DIFFUSE TEXTURES +++++
 DIFFUSE_TEXTURE 0
@@ -103,13 +103,13 @@ REFR            1
 ETA             0
 EMITTANCE       0
 
-MATERIAL 7 buddha
-RGB             1 1 0
-SPECRGB         1 1 0
+MATERIAL 7 ReflectiveRefractive
+RGB             1 1 1
+SPECRGB         1 1 1
 SPECEX          1
 REFL            1
-REFR           	0
-ETA             1.44
+REFR            1
+ETA             0.5
 EMITTANCE       0
 
 +++++ OBJECTS +++++
@@ -145,7 +145,7 @@ MODEL           0
 DIFFUSE_TEX      -1
 NORMAL_TEX       -1
 MATERIAL        3
-trans           5 3.5 0
+trans           4 3.5 0
 rotat           0 0 0
 scale           0.04 6.5 5
 
@@ -154,7 +154,7 @@ MODEL           0
 DIFFUSE_TEX      -1
 NORMAL_TEX       -1
 MATERIAL        2
-trans           -5 3.5 0
+trans           -4 3.5 0
 rotat           0 0 0
 scale           0.04 6.5 5
 
@@ -163,7 +163,7 @@ MODEL           0
 DIFFUSE_TEX      -1
 NORMAL_TEX       -1
 MATERIAL        0
-trans           0 2 0
+trans           0 5.5 0
 rotat           0 0 0
 scale           2 0.3 2
 
@@ -181,9 +181,9 @@ MODEL           2
 DIFFUSE_TEX     -1
 NORMAL_TEX      -1
 MATERIAL        1
-trans           0 -1 0
+trans           0 -1.1 0
 rotat           0 0 0
-scale           3 3 3
+scale           3 6 3
 
 OBJECT          8 Lamp
 MODEL           3
@@ -208,11 +208,11 @@ MODEL           4
 DIFFUSE_TEX     -1
 NORMAL_TEX      -1
 MATERIAL        5
-trans           -0.5 -0.75 0
+trans           -0.5 -0.7 0
 rotat           0 0 0
 scale           0.1 0.1 0.1
 
-OBJECT          11 Mirror
+OBJECT          11 Mirror1
 MODEL           5
 DIFFUSE_TEX     -1
 NORMAL_TEX      -1
@@ -221,32 +221,50 @@ trans           -2.3 -0.8 0.5
 rotat           0 40 105
 scale           0.01 0.01 0.01
 
-OBJECT          12 Dice
-MODEL           2
+OBJECT          12 Mirror2
+MODEL           5
 DIFFUSE_TEX     -1
 NORMAL_TEX      -1
-MATERIAL        1
-trans           1 -1 0
-rotat           0 0 0
-scale           0.1 0.1 0.1
+MATERIAL        5
+trans           2.3 -0.6 -0.4
+rotat           0 160 105
+scale           0.01 0.01 0.01
 
 OBJECT          13 Book1
 MODEL           7
 DIFFUSE_TEX     2
 NORMAL_TEX      -1
 MATERIAL        -1
-trans           -1.5 -1.2 0
-rotat           0 0 0
+trans           2 -1.2 -0.5
+rotat           0 105 0
 scale           0.2 0.2 0.2
 
 OBJECT          14 Book2
+MODEL           7
+DIFFUSE_TEX     2
+NORMAL_TEX      -1
+MATERIAL        -1
+trans           1 -1.2 0.5
+rotat           0 15 0
+scale           0.15 0.15 0.15
+
+OBJECT          15 Window
 MODEL           8
 DIFFUSE_TEX     -1
 NORMAL_TEX      -1
-MATERIAL        7
-trans           0 -2 2
+MATERIAL        1
+trans           -5.5 1.0 0
 rotat           0 0 0
-scale           5 5 5
+scale           0.5 0.05 0.05
+
+OBJECT          16 WindowLight
+MODEL           0
+DIFFUSE_TEX     -1
+NORMAL_TEX      -1
+MATERIAL        0
+trans           -4 1.0 0
+rotat           0 0 0
+scale           0.1 1.8 1
 
 CAMERA
 fov        45
