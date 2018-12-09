@@ -127,20 +127,11 @@ private:
 };
 
 struct Camera {
-  int width;
-  int height;
-  glm::vec2 fov;
+  float fov;
 
-  glm::vec3 eye;
-  glm::vec3 lookat;
-  glm::vec3 up;
-  glm::vec3 right;
-  glm::vec3 forward;
-
-  float focalDist;
-  float lensRadius;
-
-  int maxIterations;
+  XMVECTOR eye;
+  XMVECTOR lookat;
+  XMVECTOR up;
   int maxDepth;
 };
 } // namespace ModelLoading

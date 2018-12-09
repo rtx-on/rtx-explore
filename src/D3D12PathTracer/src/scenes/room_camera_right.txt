@@ -8,9 +8,6 @@ path src/objects/table.obj
 MODEL 2
 path src/objects/bunny.obj
 
-MODEL 3
-path src/objects/tyra.obj
-
 DIFFUSE_TEXTURE 0
 path src/textures/concrete_a.jpg
 
@@ -22,7 +19,6 @@ path src/textures/concrete_n.jpg
 
 NORMAL_TEXTURE 1
 path src/textures/tile_n.jpg
-
 
 // Emissive material (light)
 MATERIAL 0 Light
@@ -146,7 +142,7 @@ rotat       0 0 0
 scale       10 .3 10
 
 // Back wall reflective
-OBJECT 7 BackMirror
+OBJECT 6 BackMirror
 model 0
 albedo_tex -1
 normal_tex -1
@@ -156,7 +152,7 @@ rotat       0 0 0
 scale       15 15 0.5
 
 // Front Wall
-OBJECT 9 FrontWall
+OBJECT 7 FrontWall
 model 0
 albedo_tex 0
 normal_tex 0
@@ -164,36 +160,6 @@ material 1
 trans       0 3.5 -20
 rotat       0 0 0
 scale       15 15 0.5
-
-// Table
-OBJECT 6 Model
-model 1
-albedo_tex -1
-normal_tex -1
-material 3
-trans       0 -7 3
-rotat       0 180 0
-scale       0.5 0.5 0.5
-
-// Model
-OBJECT 6 Model
-model 2
-albedo_tex -1
-normal_tex -1
-material 4
-trans       0 -3 3
-rotat       0 180 0
-scale       1 1 1
-
-OBJECT 10 Model
-model 3
-albedo_tex -1
-normal_tex -1
-material 5
-trans       -9 0 3
-rotat       0 180 0
-scale       4 4 4
-
 
 CAMERA
 fov        45
