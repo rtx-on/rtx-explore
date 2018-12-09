@@ -24,6 +24,21 @@ path src/scenes/coffee_demo/Book.obj
 
 MODEL 8
 path src/scenes/coffee_demo/Window.obj
+
+MODEL 9
+path src/scenes/coffee_demo/Balloon.obj
+
+MODEL 10
+path src/scenes/coffee_demo/Rubikscube.obj
+
+MODEL 11
+path src/scenes/coffee_demo/CesiumMilkTruck.obj
+
+MODEL 12
+path src/scenes/coffee_demo/CesiumMan.obj
+
+MODEL 13
+path src/scenes/coffee_demo/SmallModel.obj
 
 +++++ DIFFUSE TEXTURES +++++
 DIFFUSE_TEXTURE 0
@@ -34,6 +49,15 @@ path src/scenes/coffee_demo/WoodTexture2.jpg
 
 DIFFUSE_TEXTURE 2
 path src/scenes/coffee_demo/Book.jpg
+
+DIFFUSE_TEXTURE 3
+path src/scenes/coffee_demo/Rubikscube.jpg
+
+DIFFUSE_TEXTURE 4
+path src/scenes/coffee_demo/CesiumMilkTruck.png
+
+DIFFUSE_TEXTURE 5
+path src/scenes/coffee_demo/CesiumMan.jpg
 
 +++++ NORMAL TEXTURES +++++
 NORMAL_TEXTURE 0
@@ -244,7 +268,7 @@ MODEL           7
 DIFFUSE_TEX     2
 NORMAL_TEX      -1
 MATERIAL        -1
-trans           1 -1.2 0.5
+trans           1.1 -1.2 -0.8
 rotat           0 15 0
 scale           0.15 0.15 0.15
 
@@ -265,6 +289,69 @@ MATERIAL        0
 trans           -4 1.0 0
 rotat           0 0 0
 scale           0.1 1.8 1
+
+OBJECT          17 Balloon
+MODEL           9
+DIFFUSE_TEX     -1
+NORMAL_TEX      -1
+MATERIAL        2
+trans           2.75 -1 1.5
+rotat           0 0 0
+scale           7 7 7
+
+OBJECT          18 Rubikscube1
+MODEL           10
+DIFFUSE_TEX     3
+NORMAL_TEX      -1
+MATERIAL        -1
+trans           -3.7 -11 4
+rotat           0 0 0
+scale           0.05 0.05 0.05
+
+OBJECT          19 Rubikscube2
+MODEL           10
+DIFFUSE_TEX     3
+NORMAL_TEX      -1
+MATERIAL        -1
+trans           -3.4 -11 4
+rotat           0 0 0
+scale           0.05 0.05 0.05
+
+OBJECT          20 Rubikscube3
+MODEL           10
+DIFFUSE_TEX     3
+NORMAL_TEX      -1
+MATERIAL        -1
+trans           -3.55 -10.75 4
+rotat           0 0 0
+scale           0.05 0.05 0.05
+
+OBJECT          21 CesiumMilkTruck
+MODEL           11
+DIFFUSE_TEX     4
+NORMAL_TEX      -1
+MATERIAL        -1
+trans           0.9 -1.15 0
+rotat           0 45 0
+scale           0.2 0.2 0.2
+
+OBJECT          22 CesiumMan
+MODEL           12
+DIFFUSE_TEX     5
+NORMAL_TEX      -1
+MATERIAL        -1
+trans           1.75 -0.95 -0.65
+rotat           0 145 0
+scale           0.5 0.5 0.5
+
+OBJECT          23 SmallModel
+MODEL           12
+DIFFUSE_TEX     5
+NORMAL_TEX      -1
+MATERIAL        -1
+trans           0 0 0
+rotat           0 0 0
+scale           1 1 1
 
 CAMERA
 fov        45
