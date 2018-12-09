@@ -140,6 +140,11 @@ You should get `Analysis is running on NVIDIA ...`, in my case `NVIDIA GeForce G
 
 Now, mess around with pix and take a look at this quick playlist to learn how to debug with PIX 
 
+### Credits
+## Titan V GPU
+The Titan V used for this project was donated by the NVIDIA Corporation.
+We gratefully acknowledge the support of NVIDIA Corporation with the donation of the Titan V GPU used for this project.
+
 [Playlist link](https://www.youtube.com/playlist?list=PLeHvwXyqearWuPPxh6T03iwX-McPG5LkB)
 
 ### Option 2: Nvidia debugger (RTX only)
