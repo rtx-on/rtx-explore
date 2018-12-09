@@ -3037,10 +3037,6 @@ void D3D12RaytracingSimpleLighting::SerializeToTxt(std::string path)
       return string + LINE_ENDINGS;
     };
 
-    file << LINE_END("+++++ IT'S MA BOIS +++++");
-    file << ma_boi_pat;
-    file << ma_boi_shehzan;
-
     std::map<int, int> model_id_map;
     std::map<int, int> diffuse_texture_id_map;
     std::map<int, int> normal_texture_id_map;
@@ -3197,6 +3193,26 @@ void D3D12RaytracingSimpleLighting::SerializeToTxt(std::string path)
         file << LINE_ENDINGS;
       }
     }
+
+    XMFLOAT3 xm_eye;
+    XMFLOAT3 xm_look_at;
+    XMFLOAT3 xm_up;
+
+    XMStoreFloat3(&xm_eye, m_sceneLoaded->camera.eye);
+    XMStoreFloat3(&xm_look_at, m_sceneLoaded->camera.lookat);
+    XMStoreFloat3(&xm_up, m_sceneLoaded->camera.up);
+
+    file << LINE_END("+++++ CAMERA +++++");
+    file << LINE_END("CAMERA");
+    file << FORMAT_LEFT << "fov" << m_sceneLoaded->camera.fov << LINE_ENDINGS;
+    file << FORMAT_LEFT << "eye " << xm_eye.x << " " << xm_eye.y << " " << xm_eye.z << LINE_ENDINGS;
+    file << FORMAT_LEFT << "lookat " << xm_look_at.x << " " << xm_look_at.y << " " << xm_look_at.z << LINE_ENDINGS;
+    file << FORMAT_LEFT << "up " << xm_up.x << " " << xm_up.y << " " << xm_up.z << LINE_ENDINGS;
+    file << FORMAT_LEFT << "depth " << feature_depth << LINE_ENDINGS;
+
+    file << LINE_END("+++++ IT'S MA BOIS +++++");
+    file << ma_boi_pat;
+    file << ma_boi_shehzan;
   }
 }
 
