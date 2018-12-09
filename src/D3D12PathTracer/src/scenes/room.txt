@@ -23,7 +23,6 @@ path src/textures/concrete_n.jpg
 NORMAL_TEXTURE 1
 path src/textures/tile_n.jpg
 
-
 // Emissive material (light)
 MATERIAL 0 Light
 RGB         1 1 1
@@ -47,7 +46,7 @@ EMITTANCE   0
 // Reflective white
 MATERIAL 2 ReflectiveWhite
 RGB         .98 .98 .98
-SPECRGB     0 0 0
+SPECRGB     .98 .98 .98
 SPECEX      0
 REFL        1
 REFR        0
@@ -193,7 +192,6 @@ material 5
 trans       -9 0 3
 rotat       0 180 0
 scale       4 4 4
-
 
 CAMERA
 fov        45
