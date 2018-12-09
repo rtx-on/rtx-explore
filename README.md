@@ -2,6 +2,9 @@
 <p align="center">
   <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/coffee_front.bmp"/>
 </p>
+<p align="center">
+  <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/coffee_right_pan.bmp"/>
+</p>
 
 # Project Goal
 With this project, our group planned to leverage the power of Nvidia's & Microsoft's new DirectX Raytracing platform to implement a fast Path Tracer. **Our code does NOT require an actual RTX GPU**. A Shader Model 6.0 (sm 6.0) compatible GPU is enough, given that you import the [fallback layer](https://github.com/rtx-on/rtx-explore/blob/master/README.md#building--running).
