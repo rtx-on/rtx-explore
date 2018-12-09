@@ -2343,8 +2343,9 @@ void D3D12RaytracingSimpleLighting::StartFrameImGUI()
 
       if (strlen(chosen_path) > 0)
       {
-        auto new_model_id = m_sceneLoaded->modelMap.size() - 1;
+        auto new_model_id = m_sceneLoaded->modelMap.size();
         ModelLoading::Model new_model;
+        new_model.name = chosen_path;
         m_sceneLoaded->LoadModelHelper(chosen_path, new_model_id, new_model);
 
         MakeEmptyObject();
@@ -2634,11 +2635,6 @@ void D3D12RaytracingSimpleLighting::RebuildScene()
   for (auto& object : m_sceneLoaded->objects)
   {
     object.transformBuilt = false;
-
-    void* mapped_data;
-    object.info_resource.d3d12_resource.resource->Map(0, nullptr, &mapped_data);
-    memcpy(mapped_data, &object.info_resource.info, sizeof(Info));
-    object.info_resource.d3d12_resource.resource->Unmap(0, nullptr);
   }
 
   // Create root signatures for the shaders.
