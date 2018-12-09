@@ -10,13 +10,10 @@
 //*********************************************************
 
 #include "stdafx.h"
-#include "model_loading/tiny_obj_loader.h"
 #include "D3D12RaytracingSimpleLighting.h"
 #include "DirectXRaytracingHelper.h"
 #include "CompiledShaders\Raytracing.hlsl.h"
 #include "TextureLoader.h"
-#include "Mesh.h"
-#include "MeshLoader.h"
 #include <iostream>
 #include <algorithm>
 #include "stb_image_write.h"

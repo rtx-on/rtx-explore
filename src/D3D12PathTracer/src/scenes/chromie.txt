@@ -3,13 +3,13 @@ MODEL 0
 path src/objects/crate.obj
 
 MODEL 1
-path src/objects/Chromie.obj
+path src/objects/hromie.obj
 
 DIFFUSE_TEXTURE 0
-path src/textures/chromie.jpg
+path src/textures/chromie_a.jpg
 
 NORMAL_TEXTURE 0
-path src/textures/Cerberus/Cerberus_N.png
+path src/textures/cerberus_n.png
 
 // Emissive material (light)
 MATERIAL 0

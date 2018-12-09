@@ -4,7 +4,7 @@
 #include <cstring>
 #include <glm/glm/gtc/matrix_inverse.hpp>
 #include <glm/glm/gtx/string_cast.hpp>
-#include "model_loading/tiny_obj_loader.h"
+#include "include/tiny_obj_loader.h"
 #include "DirectXRaytracingHelper.h"
 #include "D3D12RaytracingSimpleLighting.h"
 #include "TextureLoader.h"
@@ -13,7 +13,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STBI_MSC_SECURE_CRT
-// #define TINYGLTF_NOEXCEPTION // optional. disable exception handling.
 #include "tiny_gltf.h"
 #include <glm/glm/gtc/type_ptr.inl>
 

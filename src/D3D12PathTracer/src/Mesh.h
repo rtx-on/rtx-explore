@@ -1,8 +1,8 @@
 #pragma once
 
-#include "model_loading/tiny_obj_loader.h"
+#include "include/tiny_obj_loader.h"
 #ifndef OBJ
-#include "model_loading/OBJ_Loader.h"
+#include "include/OBJ_Loader.h"
 #define OBJ
 #endif
 #include <DirectXMath.h>

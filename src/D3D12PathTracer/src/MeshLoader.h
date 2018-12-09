@@ -1,6 +1,6 @@
 #pragma once
 
-#include "model_loading/tiny_obj_loader.h"
+#include "include/tiny_obj_loader.h"
 #include "Mesh.h"
 
 #include <string>
