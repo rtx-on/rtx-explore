@@ -11,7 +11,7 @@
 </p>
 
 # Project Goal
-With this project, our group planned to leverage the power of Nvidia's & Microsoft's new DirectX Raytracing platform to implement a fast Path Tracer. **Our code does NOT require an actual RTX GPU**. A Shader Model 6.0 (sm 6.0) compatible GPU is enough, given that you import the [fallback layer](https://github.com/rtx-on/rtx-explore/blob/master/README.md#building--running).
+With this project, our group planned to leverage the power of Nvidia's & Microsoft's new **DirectX Raytracing** platform to implement a fast Path Tracer. **Our code does NOT require an actual RTX GPU**. A Shader Model 6.0 (sm 6.0) compatible GPU is enough, given that you import the [fallback layer](https://github.com/rtx-on/rtx-explore/blob/master/README.md#building--running).
 
 # Blog Posts for Detailed Explanations
 - [Introduction](https://maknee.github.io/dxr/2018/12/06/RTX-DXR-Path-Tracer/)
@@ -22,7 +22,9 @@ With this project, our group planned to leverage the power of Nvidia's & Microso
 
 # Path Tracing Intro
 <p align="center">
+  <kbd>
   <img width="300" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/explanation.png"/>
+    </kbd>
 </p>
 
 Path Tracing is a computer graphics Monte Carlo method of rendering images of three-dimensional scenes such that the global illumination is faithful to reality. In simple terms, a path tracer fires rays from each pixel, which would bounce off in many directions depending on the objects in the scene. If the ray is fortunate enough, it would hit an illuminating surface (lightbulb, sun, etc...), and would cause the first object it hit to be illuminated, much like how light travels towards our eyes.
@@ -31,37 +33,51 @@ This faithfulness to the physical properties of light allows path tracing to gen
 
 # Features
 ## Dynamic Loading of Models
+
 ### .glTF
-<p align="center">
-    <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
-  </kbd>
-</p> 
+
 ### .OBJ
+#### Multiple Objects
 <p align="center">
   <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms2/scene_loading.png"/>
+  <img width="800" height="500" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/objectSwitch.gif"/>
+  </kbd>
+</p> 
+
+#### GUI Loader
+<p align="center">
+  <kbd>
+  <img width="800" height="500" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/objectSwitch.gif"/>
   </kbd>
 </p> 
 
 ## Dynamic Loading of Textures & Materials
-### Textures
+
+### Textures & Normal Mapping
 <p align="center">
     <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
+  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/dinosaur_room.bmp"/>
   </kbd>
 </p> 
+
 ### Materials
+#### Examples: Refractive, Reflective
 <p align="center">
     <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
+  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms2/reflective_mario.png"/>
+  </kbd>
+</p> 
+
+<p align="center">
+    <kbd>
+  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms2/refraction_mario.png"/>
   </kbd>
 </p> 
 
 ## Scene Transformation Tools
 <p align="center">
     <kbd>
-  <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms3/good%20dargon.PNG"/>
+  <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/rotation.gif/>
   </kbd>
 </p> 
 
