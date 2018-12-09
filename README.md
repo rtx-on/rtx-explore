@@ -1,9 +1,13 @@
 # RTX-Explore - DXR Path Tracer
 <p align="center">
+  <kbd>
   <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/coffee_front.bmp"/>
+   </kbd>
 </p>
 <p align="center">
+  <kbd>
   <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/coffee_right_pan.bmp"/>
+    </kbd>
 </p>
 
 # Project Goal
