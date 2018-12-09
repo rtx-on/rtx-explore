@@ -288,7 +288,7 @@ MODEL           4
 DIFFUSE_TEX     -1
 NORMAL_TEX      -1
 MATERIAL        5
-trans           -0.5 -0.7 0.5
+trans           -0.85 -0.7 0.75
 rotat           0 0 0
 scale           0.1 0.1 0.1
 
@@ -351,7 +351,7 @@ MODEL           9
 DIFFUSE_TEX     -1
 NORMAL_TEX      -1
 MATERIAL        8
-trans           2.75 -1 1.5
+trans           3.25 -1 1.5
 rotat           0 0 0
 scale           7 7 7
 
