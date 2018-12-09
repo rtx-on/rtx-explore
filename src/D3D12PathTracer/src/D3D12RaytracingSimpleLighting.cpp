@@ -3043,7 +3043,7 @@ void D3D12RaytracingSimpleLighting::SerializeToTxt(std::string path)
   std::fstream file(path, std::ios::out | std::ios::trunc);
   if(file)
   {
-#define LINE_ENDINGS "\r\n"
+#define LINE_ENDINGS "\n"
     auto LINE_END = [](const std::string& string)
     {
       return string + LINE_ENDINGS;
