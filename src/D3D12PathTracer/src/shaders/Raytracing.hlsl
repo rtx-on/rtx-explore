@@ -274,9 +274,9 @@ float SellmeierEquation(float wavelength)
 	const float B1 = 1.03961212f;
 	const float B2 = 0.231792344f;
 	const float B3 = 1.01046945f;
-	const float C1 = 0.00600069867f;
-	const float C2 = 0.0200179144f;
-	const float C3 = 0.0103560653f;
+	const float C1 = 6.00069867f;
+	const float C2 = 2.00179144f;
+	const float C3 = 1.03560653f;
 
 	float wavlenSquared = wavelength * wavelength;
 
@@ -654,8 +654,8 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	}
 	else if (reflectiveness > 0.0f) // do a R E F L E C C
 	{
-		TransmissiveBounce(texture_offset, material_offset, diffuse_sampler_offset, emittance, triangleNormal, hitPosition, hitType, triangleUV, payload);
-		//ReflectiveBounce(triangleNormal, hitPosition, hitType, payload);
+		//TransmissiveBounce(texture_offset, material_offset, diffuse_sampler_offset, emittance, triangleNormal, hitPosition, hitType, triangleUV, payload);
+		ReflectiveBounce(material_offset, triangleNormal, hitPosition, hitType, payload);
 	}
 	else if (refractiveness > 0.0f) // Do a R E F R A C C
 	{
@@ -674,7 +674,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 		{
 			color = payload.color.rgb * materials[material_offset].diffuse;
 		}
-
+		
 		payload.color = float4(color.xyz, emittance);
 	}
 	else // Do a diffuse bounce
