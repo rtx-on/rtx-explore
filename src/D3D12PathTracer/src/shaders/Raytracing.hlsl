@@ -419,9 +419,9 @@ void TransmissiveBounce(uint texture_offset, uint material_offset, uint sampler_
 		// TODO: Get all this information from the scene file
 		float3 absorptionColor = clamp(materials[material_offset].specular, 0.00001f, 1.0f);
 		
-		float3 absorptionAtDistance = 20.f;
+		float3 absorptionAtDistance = 5.f;
 		float3 absorptionCoefficient = -log(absorptionColor) / absorptionAtDistance;
-		float scatteringDistance = 1.f; // TODO: hook into scene file
+		float scatteringDistance = 1000.f; // TODO: hook into scene file
 		float scatteringCoefficient = 1 / scatteringDistance;
 
 		// find out how far we would have to go to exit the medium
