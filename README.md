@@ -1,14 +1,20 @@
 # RTX-Explore - DXR Path Tracer
-<p align="center">
-  <kbd>
-  <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/coffee_front.bmp"/>
-   </kbd>
-</p>
+
 <p align="center">
   <kbd>
   <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/coffee_right_pan.bmp"/>
     </kbd>
 </p>
+
+![Developer](https://img.shields.io/badge/Developer-Henry%20Zhu-yellow.svg) ![Developer](https://img.shields.io/badge/Developer-Liam%20Dugan-yellow.svg) ![Developer](https://img.shields.io/badge/Developer-Ziad%20Ben%20Hadj--Alouane-yellow.svg)  ![Developer](https://img.shields.io/badge/Platform-DXR-blue.svg )  ![Developer](https://img.shields.io/badge/Version-1.0-brightgreen.svg) ![Developer]( https://img.shields.io/badge/Build-Passing-green.svg) 
+
+# Contact Us
+* Henry Zhu
+  * [LinkedIn](https://www.linkedin.com/in/henry-zhu-347233121/), [personal website](maknee.github.io)
+* Liam Dugan
+  * [LinkedIn](https://www.linkedin.com/in/liamdugan/), [personal website](http://liamdugan.com)
+* Ziad Ben Hadj-Alouane
+  * [LinkedIn](https://www.linkedin.com/in/ziadbha/), [personal website](https://www.seas.upenn.edu/~ziadb/)
 
 # Project Goal
 With this project, our group planned to leverage the power of Nvidia's & Microsoft's new **DirectX Raytracing** platform to implement a fast Path Tracer. **Our code does NOT require an actual RTX GPU**. A Shader Model 6.0 (sm 6.0) compatible GPU is enough, given that you import the [fallback layer](https://github.com/rtx-on/rtx-explore/blob/master/README.md#building--running).
