@@ -157,7 +157,7 @@ The single most important debug view for a path tracer is viewing the normals of
 
 <p align="center">
     <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/normals.bmp"/>
+  <img width="700" height="500" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/normals.bmp"/>
   </kbd>
 </p> 
 
