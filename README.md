@@ -153,7 +153,7 @@ This faithfulness to the physical properties of light allows path tracing to gen
 | ![](Images/final/dofoff.bmp) | ![](Images/final/dofon.bmp) |
 
 # Debug Views
-The single most important debug view for a path tracer is viewing the normals of the loaded models. Path tracer is heavily dependent on correct normal representation. We are working on a toggleable way to switch between views. But for now, we are able to obtain this debug view by simply rendering the absolute value of normals
+The single most important debug view for a path tracer is a **normal view**. Path tracing is heavily dependent on correct normal representation because of scattering and bouncing. We are working on a toggleable way to switch between views. But for now, we are able to obtain this debug view by simply rendering the absolute value of normals
 
 <p align="center">
     <kbd>
