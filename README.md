@@ -69,7 +69,7 @@ This faithfulness to the physical properties of light allows path tracing to gen
 ### Diffuse
 <p align="center">
     <kbd>
-  <img width="500" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms2/mario_diffuse_2.png"/>
+  <img width="500" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms2/mario_diffuse2.png"/>
   </kbd>
 </p> 
 
@@ -90,21 +90,14 @@ This faithfulness to the physical properties of light allows path tracing to gen
 ### Dispersive
 <p align="center">
     <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
+  <img width="500" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/dispersion.png"/>
   </kbd>
 </p> 
 
 ### Transmissive
 <p align="center">
     <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
-  </kbd>
-</p> 
-
-## Normal Mapping
-<p align="center">
-    <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
+  <img width="550" height="500" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/dragon_jade.png"/>
   </kbd>
 </p> 
 
@@ -112,14 +105,14 @@ This faithfulness to the physical properties of light allows path tracing to gen
 ### Low Scattering
 <p align="center">
     <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
+  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/transmissiveDragon.bmp"/>
   </kbd>
 </p> 
 
 ### High Scattering
 <p align="center">
     <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
+  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/subsurfaceDragon.bmp"/>
   </kbd>
 </p> 
 
