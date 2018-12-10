@@ -25,6 +25,8 @@ With this project, our group planned to leverage the power of Nvidia's & Microso
 - [Host Code Explanation](https://maknee.github.io/dxr/2018/12/07/RTX-DXR-Path-Tracer-Host/)
 - [HLSL Shader Code Explanation](https://maknee.github.io/dxr/2018/12/08/RTX-DXR-Path-Tracer-HLSL/)
 
+# Presentation & Overview
+View a [PDF presentation](https://github.com/rtx-on/rtx-explore/blob/master/Milestones/Final%20Presentation.pdf) we made about our project for a quick overview.
 
 # Path Tracing Intro
 <p align="center">
