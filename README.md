@@ -119,7 +119,7 @@ This faithfulness to the physical properties of light allows path tracing to gen
 ## Image Comparison
 <p align="center">
     <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
+  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/dof_comp.bmp"/>
   </kbd>
 </p> 
 
@@ -127,14 +127,14 @@ This faithfulness to the physical properties of light allows path tracing to gen
 ### Anti-Aliasing
 <p align="center">
     <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
+  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/aa.png"/>
   </kbd>
 </p> 
 
 ### Depth of Field
 <p align="center">
     <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
+  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/dof.png"/>
   </kbd>
 </p> 
 
