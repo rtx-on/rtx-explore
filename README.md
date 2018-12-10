@@ -152,6 +152,47 @@ This faithfulness to the physical properties of light allows path tracing to gen
 | ------------- | ----------- |
 | ![](Images/final/dofoff.bmp) | ![](Images/final/dofon.bmp) |
 
+# Performance Analysis
+We tested our DXR Path Tracer in different scenes on different GPUs (GTX 1060, Titan V) and obtained the following results
+
+## Open Scenes vs. Closed Scenes
+Given that rays bounce around and terminate when they hit a light source or go off into the void, we tested open scenes and closed scenes separately. Naturally, open scenes performed better. 
+
+<p align="center">
+    <kbd>
+  <img width="700" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/graphs/closedopen.png"/>
+  </kbd>
+</p> 
+
+## Special Effects On/Off
+We tested the effects of having special effects (AA & Depth of Field) on and off. The performance loss is barely noticeable (~ 1 FPS)
+<p align="center">
+    <kbd>
+  <img width="700" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/graphs/effects.png"/>
+  </kbd>
+</p> 
+
+
+## Material Homogeniety
+We tested branching in our GPU HLSL code by having a scene with the same type of material and another one with different types of materials. Overall, the homoegenous scene performed better on both GPUs. This is explained by thread divergence in the heterogenous scene, where two rays close to each other migh need to load material data that is not contiguous, making caching ineffective.
+
+<p align="center">
+    <kbd>
+  <img width="700" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/graphs/mats.png"/>
+  </kbd>
+</p> 
+
+
+## Subsurface Scattering
+Subsurface scattering is a technique that causes rays to bounce even more inside materials. This means that rays terminate less often, causing the FPS to drop a bit.
+
+<p align="center">
+    <kbd>
+  <img width="700" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/graphs/sss.png"/>
+  </kbd>
+</p> 
+
+
 # Required Build Environment
 * Shader Model 6.0 support on GPU
 * Visual Studio 2017 version 15.8.4 or higher.
