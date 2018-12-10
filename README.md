@@ -160,7 +160,7 @@ Given that rays bounce around and terminate when they hit a light source or go o
 
 <p align="center">
     <kbd>
-  <img width="700" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/graphs/closedopen.png"/>
+  <img width="650" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/graphs/closedopen.png"/>
   </kbd>
 </p> 
 
@@ -168,7 +168,7 @@ Given that rays bounce around and terminate when they hit a light source or go o
 We tested the effects of having special effects (AA & Depth of Field) on and off. The performance loss is barely noticeable (~ 1 FPS)
 <p align="center">
     <kbd>
-  <img width="700" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/graphs/effects.png"/>
+  <img width="650" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/graphs/effects.png"/>
   </kbd>
 </p> 
 
@@ -178,7 +178,7 @@ We tested branching in our GPU HLSL code by having a scene with the same type of
 
 <p align="center">
     <kbd>
-  <img width="700" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/graphs/mats.png"/>
+  <img width="650" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/graphs/mats.png"/>
   </kbd>
 </p> 
 
@@ -188,7 +188,7 @@ Subsurface scattering is a technique that causes rays to bounce even more inside
 
 <p align="center">
     <kbd>
-  <img width="700" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/graphs/sss.png"/>
+  <img width="650" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/graphs/sss.png"/>
   </kbd>
 </p> 
 
@@ -219,6 +219,18 @@ Check out our short tutorial on [how to use Microsoft PIX](https://github.com/rt
 ### Titan V GPU
 The Titan V used for this project was donated by the NVIDIA Corporation.
 We gratefully acknowledge the support of NVIDIA Corporation with the donation of the Titan V GPU used for this project.
+
+### TinyObjLoader
+[TinyObjLoader](https://github.com/syoyo/tinyobjloader) was used to load .OBJ files.
+
+### TinyGltf
+[TinyGltf](https://github.com/syoyo/tinygltf) was used to load .gltf files.
+
+### Textures
+Some of [Eren Katsukagi](https://3dtextures.me/)'s textures were used to construct our scenes.
+
+### Models
+Some of [Morgan McGuire](https://casual-effects.com/data/)'s models were used to construct our scenes.
 
 
 
