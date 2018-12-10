@@ -216,22 +216,13 @@ Subsurface scattering is a technique that causes rays to bounce even more inside
 Check out our short tutorial on [how to use Microsoft PIX](https://github.com/rtx-on/rtx-explore/blob/master/DEBUGGING.md).
 
 ## Credits
-* Titan V GPU
-The Titan V used for this project was donated by the NVIDIA Corporation.
-We gratefully acknowledge the support of NVIDIA Corporation with the donation of the Titan V GPU used for this project.
-
-* TinyObjLoader
-    * [TinyObjLoader](https://github.com/syoyo/tinyobjloader) was used to load .OBJ files.
-* TinyGltf
-    * [TinyGltf](https://github.com/syoyo/tinygltf) was used to load .gltf files.
-* Textures
-    * Some of [Eren Katsukagi](https://3dtextures.me/)'s textures were used to construct our scenes.
-* Models
-    * Some of [Morgan McGuire](https://casual-effects.com/data/)'s models were used to construct our scenes.
-* imgui
-    * [imgui](https://github.com/ocornut/imgui) was used to generate the GUI for our application.
-* glTF Samples
-    * [glTF Samples repo](https://github.com/KhronosGroup/glTF-Sample-Models) provided us with nice glTF samples to test in our scenes.
+* Nvidia: The Titan V used for this project was donated by the NVIDIA Corporation. We gratefully acknowledge the support of NVIDIA Corporation with the donation of the Titan V GPU used for this project.
+* [TinyObjLoader](https://github.com/syoyo/tinyobjloader) was used to load .OBJ files.
+* [TinyGltf](https://github.com/syoyo/tinygltf) was used to load .gltf files.
+* Some of [Eren Katsukagi](https://3dtextures.me/)'s textures were used to construct our scenes.
+* Some of [Morgan McGuire](https://casual-effects.com/data/)'s models were used to construct our scenes.
+* [imgui](https://github.com/ocornut/imgui) was used to generate the GUI for our application.
+* [glTF Samples repo](https://github.com/KhronosGroup/glTF-Sample-Models) provided us with nice glTF samples to test in our scenes.
 
 
 
