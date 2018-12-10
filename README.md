@@ -122,7 +122,7 @@ This faithfulness to the physical properties of light allows path tracing to gen
   </kbd>
 </p> 
 
-## Image Comparison
+## Image Comparison Tool with GUI
 <p align="center">
     <kbd>
   <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/dof_comp.bmp"/>
