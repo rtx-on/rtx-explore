@@ -43,7 +43,7 @@ This faithfulness to the physical properties of light allows path tracing to gen
 ### .glTF
 <p align="center">
   <kbd>
-  <img width="800" height="500" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/gltf.gif"/>
+  <img width="850" height="500" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/gltf.gif"/>
   </kbd>
 </p> 
 
@@ -51,14 +51,14 @@ This faithfulness to the physical properties of light allows path tracing to gen
 #### Multiple Objects
 <p align="center">
   <kbd>
-  <img width="800" height="500" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/manyObjects.bmp"/>
+  <img width="850" height="500" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/manyObjects.bmp"/>
   </kbd>
 </p> 
 
 #### GUI Loader
 <p align="center">
   <kbd>
-  <img width="800" height="500" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/objectSwitch.gif"/>
+  <img width="850" height="500" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/objectSwitch.gif"/>
   </kbd>
 </p> 
 
