@@ -10,7 +10,7 @@
 
 # Contact Us
 * Henry Zhu
-  * [LinkedIn](https://www.linkedin.com/in/henry-zhu-347233121/), [personal website](maknee.github.io)
+  * [LinkedIn](https://www.linkedin.com/in/henry-zhu-347233121/), [personal website](https://maknee.github.io/)
 * Liam Dugan
   * [LinkedIn](https://www.linkedin.com/in/liamdugan/), [personal website](http://liamdugan.com)
 * Ziad Ben Hadj-Alouane
