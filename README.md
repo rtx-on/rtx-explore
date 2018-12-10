@@ -134,24 +134,12 @@ This faithfulness to the physical properties of light allows path tracing to gen
 
 | Without Anti-Aliasing | With Anti-Aliasing | 
 | ------------- | ----------- |
-| <p align="center">
-    <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/aaoff.bmp"/>
-  </kbd>
-</p> 
- | <p align="center">
-    <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/aaoffon.png"/>
-  </kbd>
-</p> 
- |
+| ![](Images/final/aaoff.bmp) | ![](Images/final/aaoon.bmp) |
 
 ### Depth of Field
-<p align="center">
-    <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/dof.png"/>
-  </kbd>
-</p> 
+| Without Depth of Field | With Depth of Field | 
+| ------------- | ----------- |
+| ![](Images/final/dofoff.bmp) | ![](Images/final/dofon.bmp) |
 
 # Required Build Environment
 * Shader Model 6.0 support on GPU
