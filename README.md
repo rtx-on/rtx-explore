@@ -131,11 +131,20 @@ This faithfulness to the physical properties of light allows path tracing to gen
 
 ## Special Effects
 ### Anti-Aliasing
-<p align="center">
+
+| Without Anti-Aliasing | With Anti-Aliasing | 
+| ------------- | ----------- |
+| <p align="center">
     <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/aa.png"/>
+  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/aaoff.bmp"/>
   </kbd>
 </p> 
+ | <p align="center">
+    <kbd>
+  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/aaoffon.png"/>
+  </kbd>
+</p> 
+ |
 
 ### Depth of Field
 <p align="center">
