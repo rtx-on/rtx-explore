@@ -40,7 +40,7 @@ This faithfulness to the physical properties of light allows path tracing to gen
 #### Multiple Objects
 <p align="center">
   <kbd>
-  <img width="800" height="500" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/objectSwitch.gif"/>
+  <img width="800" height="500" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/manyObjects.bmp"/>
   </kbd>
 </p> 
 
@@ -51,40 +51,19 @@ This faithfulness to the physical properties of light allows path tracing to gen
   </kbd>
 </p> 
 
-## Dynamic Loading of Textures & Materials
-
-### Textures & Normal Mapping
+## Dynamic Loading of Textures & Normal Mapping
 <p align="center">
     <kbd>
   <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/dinosaur_room.bmp"/>
   </kbd>
 </p> 
 
-### Materials
-#### Examples: Refractive, Reflective
-<p align="center">
-    <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms2/reflective_mario.png"/>
-  </kbd>
-</p> 
 
-<p align="center">
-    <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms2/refraction_mario.png"/>
-  </kbd>
-</p> 
 
 ## Scene Transformation Tools
 <p align="center">
     <kbd>
   <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/rotation.gif/>
-  </kbd>
-</p> 
-
-## Support for diffuse, reflective, and refractive materials
-<p align="center">
-    <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms3/bloch.PNG"/>
   </kbd>
 </p> 
 
@@ -99,7 +78,14 @@ This faithfulness to the physical properties of light allows path tracing to gen
 ### Specular
 <p align="center">
     <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
+  <img width="350" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms3/reflective_mario.PNG"/>
+  </kbd>
+</p> 
+
+### Refractive
+<p align="center">
+    <kbd>
+  <img width="350" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms3/refraction_mario.PNG"/>
   </kbd>
 </p> 
 
