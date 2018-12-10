@@ -58,20 +58,18 @@ This faithfulness to the physical properties of light allows path tracing to gen
   </kbd>
 </p> 
 
-
-
-## Scene Transformation Tools
+## Scene Transformation Tools with GUI
 <p align="center">
-    <kbd>
-  <img src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/rotation.gif/>
+  <kbd>
+  <img width="800" height="500" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/rotation.gif"/>
   </kbd>
-</p> 
+</p>
 
 ## Different Materials Support
 ### Diffuse
 <p align="center">
     <kbd>
-  <img width="700" height="350" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/gifs/gun_normap.gif"/>
+  <img width="500" height="400" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/ms2/mario_diffuse_2.png"/>
   </kbd>
 </p> 
 
