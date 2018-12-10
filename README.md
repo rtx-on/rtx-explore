@@ -228,6 +228,7 @@ Check out our short tutorial on [how to use Microsoft PIX](https://github.com/rt
 
 ## Credits
 * Nvidia: The Titan V used for this project was donated by the NVIDIA Corporation. We gratefully acknowledge the support of NVIDIA Corporation with the donation of the Titan V GPU used for this project.
+* UPenn CIS 565 [CUDA Path Tracer](https://github.com/CIS565-Fall-2018/Project3-CUDA-Path-Tracer) for the general technique & approach.
 * [TinyObjLoader](https://github.com/syoyo/tinyobjloader) was used to load .OBJ files.
 * [TinyGltf](https://github.com/syoyo/tinygltf) was used to load .gltf files.
 * Some of [Eren Katsukagi](https://3dtextures.me/)'s textures were used to construct our scenes.
