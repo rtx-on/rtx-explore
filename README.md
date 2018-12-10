@@ -41,6 +41,11 @@ This faithfulness to the physical properties of light allows path tracing to gen
 ## Dynamic Loading of Models
 
 ### .glTF
+<p align="center">
+  <kbd>
+  <img width="800" height="500" src="https://github.com/rtx-on/rtx-explore/blob/master/Images/final/gltf.gif"/>
+  </kbd>
+</p> 
 
 ### .OBJ
 #### Multiple Objects
