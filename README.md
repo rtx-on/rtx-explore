@@ -134,7 +134,7 @@ This faithfulness to the physical properties of light allows path tracing to gen
 
 | Without Anti-Aliasing | With Anti-Aliasing | 
 | ------------- | ----------- |
-| ![](Images/final/aaoff.bmp) | ![](Images/final/aaoon.bmp) |
+| ![](Images/final/aaoff.bmp) | ![](Images/final/aaon.bmp) |
 
 ### Depth of Field
 | Without Depth of Field | With Depth of Field | 
