@@ -12,7 +12,7 @@
 * Henry Zhu
   * [LinkedIn](https://www.linkedin.com/in/henry-zhu-347233121/), [personal website](https://maknee.github.io/)
 * Liam Dugan
-  * [LinkedIn](https://www.linkedin.com/in/liamdugan/), [personal website](http://liamdugan.com)
+  * [LinkedIn](https://www.linkedin.com/in/liam-dugan/), [personal website](http://liamdugan.com)
 * Ziad Ben Hadj-Alouane
   * [LinkedIn](https://www.linkedin.com/in/ziadbha/), [personal website](https://www.seas.upenn.edu/~ziadb/)
 
