@@ -20,9 +20,9 @@
 With this project, our group planned to leverage the power of Nvidia's & Microsoft's new **DirectX Raytracing** platform to implement a fast Path Tracer. **Our code does NOT require an actual RTX GPU**. A Shader Model 6.0 (sm 6.0) compatible GPU is enough, given that you import the [fallback layer](https://github.com/rtx-on/rtx-explore/blob/master/README.md#required-build-environment).
 
 # Blog Posts for Detailed Explanations
-- [Introduction](https://maknee.github.io/dxr/2018/12/06/RTX-DXR-Path-Tracer/)
-- [User Guide](https://maknee.github.io/dxr/2018/12/06/RTX-DXR-Path-Tracer-User-Guide/)
-- [Host Code Explanation](https://maknee.github.io/dxr/2018/12/07/RTX-DXR-Path-Tracer-Host/)
+- [Introduction](https://maknee.github.io/dxr/2018/12/08/RTX-DXR-Path-Tracer/)
+- [User Guide](https://maknee.github.io/dxr/2018/12/08/RTX-DXR-Path-Tracer-User-Guide/)
+- [Host Code Explanation](https://maknee.github.io/dxr/2018/12/08/RTX-DXR-Path-Tracer-Host/)
 - [HLSL Shader Code Explanation](https://maknee.github.io/dxr/2018/12/08/RTX-DXR-Path-Tracer-HLSL/)
 
 # Presentation & Overview
